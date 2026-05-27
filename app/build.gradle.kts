@@ -1,3 +1,6 @@
+import java.io.FileInputStream
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -7,6 +10,55 @@ plugins {
     alias(libs.plugins.ksp)
 }
 
+// Release signing material is supplied out-of-band and is NEVER committed. It is read from either:
+//   1. a local `keystore.properties` file (gitignored), or
+//   2. environment variables fed by GitHub Secrets in the release workflow:
+//      SIGNING_KEY_BASE64 (decoded to a keystore file before the build), KEY_ALIAS,
+//      KEY_STORE_PASSWORD, KEY_PASSWORD.
+// When neither is present (e.g. local `assembleDebug` or an unsigned release build), the release
+// signingConfig is left unconfigured and Gradle produces an unsigned release artifact — debug and
+// local/unsigned builds keep working with no keystore.
+val keystorePropertiesFile = rootProject.file("keystore.properties")
+val keystoreProperties =
+    Properties().apply {
+        if (keystorePropertiesFile.exists()) {
+            FileInputStream(keystorePropertiesFile).use { load(it) }
+        }
+    }
+
+fun signingValue(
+    propKey: String,
+    envKey: String,
+): String? = (keystoreProperties.getProperty(propKey) ?: System.getenv(envKey))?.takeIf { it.isNotBlank() }
+
+// Keystore path: explicit `storeFile` property, else the workflow-decoded keystore env var
+// (KEYSTORE_PATH), else the conventional `app/release.keystore`. Only used when it actually exists.
+val releaseStoreFile: File? =
+    (
+        signingValue("storeFile", "KEYSTORE_PATH")?.let { rootProject.file(it) }
+            ?: rootProject.file("app/release.keystore")
+    ).takeIf { it.exists() }
+val releaseStorePassword = signingValue("storePassword", "KEY_STORE_PASSWORD")
+val releaseKeyAlias = signingValue("keyAlias", "KEY_ALIAS")
+val releaseKeyPassword = signingValue("keyPassword", "KEY_PASSWORD")
+val hasReleaseSigning =
+    releaseStoreFile != null &&
+        releaseStorePassword != null &&
+        releaseKeyAlias != null &&
+        releaseKeyPassword != null
+
+// `appVersionName` is the single source of truth for the release version; release-please bumps it
+// in-place via the `x-release-please-version` annotation (SemVer). `versionCode` is derived from it
+// (major*10000 + minor*100 + patch) so it always increases monotonically with the version and is
+// never hand-edited. The annotation comment makes the bump appear in the release PR diff.
+val appVersionName = "0.1.0" // x-release-please-version
+val appVersionCode =
+    appVersionName
+        .split("-")[0]
+        .split(".")
+        .map { it.toIntOrNull() ?: 0 }
+        .let { (it.getOrElse(0) { 0 } * 10000) + (it.getOrElse(1) { 0 } * 100) + it.getOrElse(2) { 0 } }
+
 android {
     namespace = "org.searchmob"
     compileSdk = 35
@@ -15,10 +67,23 @@ android {
         applicationId = "org.searchmob"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = appVersionCode
+        versionName = appVersionName
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    signingConfigs {
+        // Only register the release signing config when full signing material is available, so that
+        // local/unsigned builds (and any build with no keystore) configure cleanly and stay unsigned.
+        if (hasReleaseSigning) {
+            create("release") {
+                storeFile = releaseStoreFile
+                storePassword = releaseStorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+            }
+        }
     }
 
     buildTypes {
@@ -28,6 +93,9 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
+            // Apply the release signing config only when it was registered above; otherwise leave it
+            // null so `assembleRelease` produces an unsigned APK rather than failing the build.
+            signingConfig = signingConfigs.findByName("release")
         }
     }
 

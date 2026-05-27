@@ -14,6 +14,33 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  workflow-lint:
+    name: actionlint + shellcheck
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      # actionlint lints all workflow YAML and, via its bundled shellcheck, the inline `run:` shell in
+      # every workflow. The image is pinned by digest (supply-chain hardening); -color for readable
+      # output. A lint error fails this job (and thus CI).
+      - name: actionlint
+        uses: docker://rhysd/actionlint:1.7.7@sha256:887a259a5a534f3c4f36cb02dca341673c6089431057242cdc931e9f133147e9
+        with:
+          args: -color
+
+      # Lint any standalone shell scripts in the repo (inline workflow shell is already covered by
+      # actionlint's shellcheck integration above). shellcheck is preinstalled on ubuntu-latest.
+      - name: shellcheck standalone shell scripts
+        run: |
+          set -euo pipefail
+          mapfile -t scripts < <(git ls-files '*.sh' '*.bash')
+          if [ "${#scripts[@]}" -eq 0 ]; then
+            echo "No standalone shell scripts to lint."
+            exit 0
+          fi
+          shellcheck "${scripts[@]}"
+
   build:
     name: Lint, test, assemble (debug)
     runs-on: ubuntu-latest
@@ -35,5 +62,6 @@ jobs:
 
       - name: ktlint, Android Lint, unit tests, debug assembly
         run: ./gradlew ktlintCheck lint test assembleDebug --stacktrace
-# Release signing, APK/AAB artifacts, F-Droid metadata and release-please are added in the
-# add-ci-cd-releases phase. This skeleton only proves the project builds and tests green.
+# Release signing, APK/SHA256SUMS publishing, F-Droid metadata and release-please live in
+# release.yml / release-please.yml. This workflow proves the project builds + tests green and lints
+# all workflow YAML and shell (actionlint + shellcheck).

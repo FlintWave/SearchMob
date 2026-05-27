@@ -1,0 +1,33 @@
+name: release-please
+
+# Conventional-Commits-driven versioning + changelog. On pushes to main, release-please opens or
+# updates a release PR (bumping versionName in app/build.gradle.kts via the x-release-please-version
+# annotation, and the CHANGELOG). Merging that PR creates the git tag and the GitHub Release, which
+# in turn triggers the build/sign/publish pipeline in release.yml.
+
+on:
+  push:
+    branches: [main]
+
+# Least-privilege: only the scopes release-please needs to open the release PR and create releases.
+permissions:
+  contents: read
+
+concurrency:
+  group: release-please-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release-please:
+    name: Maintain release PR / create release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Run release-please
+        uses: googleapis/release-please-action@5c625bfb5d1ff62eadeeb3772007f7f66fdcf071 # v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
