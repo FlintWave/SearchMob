@@ -11,9 +11,9 @@
 
 ## 2. DEK lifecycle & in-memory holder
 
-- [ ] 2.1 Implement the random 256-bit `Dek` generator and a `DekHolder` that keeps the unwrapped DEK
+- [x] 2.1 Implement the random 256-bit `Dek` generator and a `DekHolder` that keeps the unwrapped DEK
       in process memory only and can zero its key bytes
-- [ ] 2.2 Define the `DekWrapper` interface (`wrap(dek) -> blob`, `unwrap(blob) -> dek`) and the
+- [x] 2.2 Define the `DekWrapper` interface (`wrap(dek) -> blob`, `unwrap(blob) -> dek`) and the
       persisted bootstrap-metadata model (wrapped-DEK blob, salt, flags, achieved security level)
       stored unencrypted
 
@@ -42,9 +42,9 @@
       `SupportFactory(dekBytes)` from `net.zetetic:sqlcipher-android`
 - [ ] 5.2 Implement OFF-by-default behavior: no DB file created/opened while disabled; lazy creation on
       opt-in; in-memory-only session otherwise
-- [ ] 5.3 Implement TTL/auto-expiry enforced on read + opportunistic sweep on open/insert (no
+- [x] 5.3 Implement TTL/auto-expiry enforced on read + opportunistic sweep on open/insert (no
       background timer/wake-lock)
-- [ ] 5.4 Implement "clear history" (delete all rows) and "disable history" (delete the DB file)
+- [x] 5.4 Implement "clear history" (delete all rows) and "disable history" (delete the DB file)
 
 ## 6. Zero-knowledge mode (Argon2id)
 
@@ -54,18 +54,18 @@
       `Argon2idDekWrapper` (no data re-encryption)
 - [ ] 6.3 Implement the required, unmissable unrecoverable-data warning gate before enabling, with no
       recovery/escrow/reset path
-- [ ] 6.4 Implement the unlock/lock state machine: hold the DEK in memory only while unlocked; evict
+- [x] 6.4 Implement the unlock/lock state machine: hold the DEK in memory only while unlocked; evict
       (zero bytes, close DB handle) on explicit lock, `ON_STOP` background, and inactivity timeout
 
 ## 7. Unit & instrumentation tests
 
-- [ ] 7.1 DEK wrap/unwrap round-trip returns byte-identical key; tampered wrapped blob fails GCM auth
+- [x] 7.1 DEK wrap/unwrap round-trip returns byte-identical key; tampered wrapped blob fails GCM auth
 - [ ] 7.2 StrongBox-absent fallback: simulate `StrongBoxUnavailableException`, assert a TEE-backed key
       is produced without crashing and the recorded security level is correct
 - [ ] 7.3 Preferences: written values are ciphertext on disk, round-trip read matches, and decryptable
       after a simulated reboot
-- [ ] 7.4 History off-by-default: no DB file exists and nothing persists until opt-in
-- [ ] 7.5 History TTL expiry: expired rows are not returned and are swept inline (no background job)
+- [x] 7.4 History off-by-default: no DB file exists and nothing persists until opt-in
+- [x] 7.5 History TTL expiry: expired rows are not returned and are swept inline (no background job)
 - [ ] 7.6 History purge: "clear history" empties rows; "disable history" deletes the DB file
 - [ ] 7.7 Argon2id derive + wrap/unwrap with correct passphrase succeeds; WRONG passphrase fails unwrap
       (no key returned); salt is random, not a device identifier
