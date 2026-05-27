@@ -81,6 +81,8 @@
     <string name="widget_description">A tappable search bar that opens SearchMob.</string>
     <string name="settings_section_browser">Browser setup</string>
     <string name="settings_browser_setup">Set SearchMob as your browser search engine</string>
+    <string name="settings_section_about">About</string>
+    <string name="settings_about">About &amp; privacy</string>
 
     <!-- Browser-setup guide -->
     <string name="setup_title">Browser setup</string>
@@ -138,4 +140,35 @@
     <string name="onboarding_privacy_title">Privacy</string>
     <string name="onboarding_privacy_body">SearchMob stores nothing by default. You can optionally enable encrypted, zero-knowledge search history in Settings.</string>
     <string name="onboarding_privacy_open_settings">Open privacy settings</string>
+
+    <!-- About / Privacy screen -->
+    <string name="about_title">About &amp; privacy</string>
+
+    <string name="about_what_title">What SearchMob is</string>
+    <string name="about_what_body">SearchMob is a private, on-device metasearch app. It runs a small local service on your phone and queries public search engines directly on your behalf. There are no SearchMob servers — your searches never pass through any service we operate.</string>
+
+    <string name="about_nodata_title">We never receive your data</string>
+    <string name="about_nodata_body">SearchMob sends nothing back to its developers. The only outbound network calls the app makes are the searches you run.</string>
+    <string name="about_nodata_item_telemetry">No telemetry, no analytics, and no crash or diagnostic reporting.</string>
+    <string name="about_nodata_item_accounts">No accounts to sign in to and no advertising IDs.</string>
+    <string name="about_nodata_item_ids">No device identifiers — we don\'t read your ANDROID_ID, IMEI, or MAC address.</string>
+    <string name="about_nodata_item_outbound">No background phone-home: the app makes no outbound calls except the searches you run.</string>
+
+    <string name="about_protect_title">How it protects you when you search</string>
+    <string name="about_protect_proxy">SearchMob acts as a privacy proxy to the upstream engines. Requests carry no cookies, no referrer, and no user or device identifier, and the User-Agent is rotated on each request. It never scrapes Google.</string>
+    <string name="about_protect_history">Search history is off by default. If you turn it on, it stays local to your device, is encrypted at rest, and you can purge it at any time. An optional zero-knowledge passphrase mode means even a copy of the database is useless without your passphrase.</string>
+
+    <string name="about_tips_title">Tips to keep searches more private</string>
+    <string name="about_tips_history">Keep history off, or use the zero-knowledge passphrase mode if you want it on.</string>
+    <string name="about_tips_pii">Avoid queries that contain your real name, address, or account details.</string>
+    <string name="about_tips_byokey">Remember that bring-your-own API keys tie those queries to your account at that provider.</string>
+    <string name="about_tips_vpn">Use a trustworthy VPN or Tor if you want to hide your IP from the upstream engines — otherwise they still see your request\'s source IP.</string>
+    <string name="about_tips_clear">Clear your history periodically.</string>
+
+    <string name="about_caveat_title">An honest caveat</string>
+    <string name="about_caveat_body">True anonymity on today\'s internet is effectively impossible. Upstream search engines and the networks in between can still observe request metadata — your IP address, timing, and query patterns — and may correlate that activity. SearchMob minimizes what it, and especially its developers, can see, but it cannot make you anonymous to the wider internet. Be skeptical of anything that promises total anonymity.</string>
+
+    <string name="about_version">Version %1$s</string>
+    <string name="about_license">License: AGPL-3.0-or-later</string>
+    <string name="about_repo_button">View source on GitHub</string>
 </resources>
