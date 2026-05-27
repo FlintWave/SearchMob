@@ -1,0 +1,73 @@
+schema: spec-driven
+
+context: |
+  PROJECT: SearchMob — a private, battery-friendly, always-on metasearch service for Android.
+  It recreates the experience of running a local SearXNG instance, but as a native Android app
+  that is gentle on battery, works without any SearchMob servers, and keeps user data encrypted
+  at rest (zero-knowledge optional).
+
+  LOCKED ARCHITECTURE DECISIONS (do not relitigate without explicit user approval):
+  - Form factor: Native Android app (Kotlin + Jetpack Compose). NOT Termux/SearXNG-in-Python.
+    Rationale: a native specialUse foreground service needs no idle wake-lock (CPU sleeps,
+    near-zero battery), whereas Termux's termux-wake-lock pattern drains battery continuously;
+    SearXNG also needs ~150MB+/worker and a Valkey daemon and has fragile ARM64 builds.
+  - Search sourcing: FREE engines by default (scrape/free endpoints), optional bring-your-own
+    API keys for higher reliability. Default engine set: DuckDuckGo (html/lite endpoint), Brave,
+    Mojeek, Marginalia (free API), Mwmbl, Wikipedia. NEVER scrape Google (JS wall + litigation +
+    risk of CAPTCHA-walling the user's own residential mobile IP). Optional BYO keys: Brave API,
+    Mojeek API. The app is a privacy proxy: upstream engines must see no cookies, no referrer,
+    a rotated User-Agent, and only the on-device request (no user identifier).
+  - Access scope: ON-DEVICE FIRST. The search service runs on the phone and is consumed on the
+    phone (Compose UI + a localhost-only HTTP endpoint other on-phone apps/browsers can target).
+    A network/LAN/Tailscale server mode with TLS + auth is a LATER phase (add-network-mode), not now.
+  - Storage/privacy: STORE NOTHING by default (in-memory session only). Search history is OPT-IN,
+    local-only, encrypted, user-purgeable, with TTL. Encryption at rest via Android Keystore
+    (StrongBox when FEATURE_STRONGBOX_KEYSTORE present, else TEE) wrapping a random DEK; SQLCipher
+    (net.zetetic:sqlcipher-android) for any DB; preferences via Jetpack DataStore with a
+    Keystore-wrapped key. Jetpack Security (androidx.security:security-crypto) is DEPRECATED as of
+    1.1.0 — use Android Keystore directly, do not adopt EncryptedSharedPreferences. Optional
+    ZERO-KNOWLEDGE mode: derive the key from a user passphrase via Argon2id (argon2kt); data
+    becomes unrecoverable if the passphrase is lost — surface this explicitly in UX.
+  - No telemetry, no analytics SDKs, no device identifiers (no ANDROID_ID/IMEI/MAC). If an install
+    id is ever needed, use a locally-generated UUID the user can wipe.
+
+  PLATFORM TARGETS:
+  - Language: Kotlin (latest stable). UI: Jetpack Compose + Material 3 (Material You dynamic color).
+  - minSdk 26 (Android 8.0), targetSdk 35 (Android 15), compileSdk 35.
+  - Always-on: foreground service of type "specialUse" with FOREGROUND_SERVICE +
+    FOREGROUND_SERVICE_SPECIAL_USE permissions and the PROPERTY_SPECIAL_USE_FGS_SUBTYPE property.
+    Start on app-open and on ACTION_BOOT_COMPLETED (RECEIVE_BOOT_COMPLETED). Request
+    REQUEST_IGNORE_BATTERY_OPTIMIZATIONS and guide users to per-OEM autostart/never-sleep settings
+    (link dontkillmyapp.com). Be event-driven: NEVER hold a wake-lock while idle; acquire only a
+    short timed wake-lock for the duration of an actual request and release it in finally.
+    Loopback (127.0.0.1) traffic is not Doze-gated, so an idle localhost listener costs ~0 battery.
+  - Embedded HTTP server: Ktor CIO engine bound to 127.0.0.1, lifecycle owned by the foreground
+    service. Expose an OpenSearch descriptor so browsers can add SearchMob as a search engine.
+  - HTTP client for engine fan-out: OkHttp + (HTML parsing) Jsoup.
+
+  DISTRIBUTION & LICENSE:
+  - Open source on GitHub (owner: ErikChevalier), distributed via GitHub Releases and F-Droid.
+    NOT targeting Google Play (off-Play removes specialUse review + battery-exemption rejection).
+  - License: AGPL-3.0-or-later (privacy-aligned strong copyleft).
+  - CI/CD (GitHub Actions, pin third-party actions by commit SHA): actions/setup-java@v4 (Temurin
+    JDK 17) + gradle/actions/setup-gradle; build assembleRelease/bundleRelease; sign via
+    ilharp/sign-android-release (keystore from secrets); publish with softprops/action-gh-release;
+    version/changelog via release-please with Conventional Commits. Add Dependabot, shellcheck +
+    actionlint for any shell/workflow, SECURITY.md, CODE_OF_CONDUCT.md, CONTRIBUTING.md.
+
+  DEV WORKFLOW (user requirement): build features in logical order — scaffolding + basic deps
+  first and TEST them, then each feature on its own branch; test, fix, re-test until green BEFORE
+  merging to main. Conventional Commits throughout.
+
+rules:
+  proposal:
+    - State Why in terms of one of the locked goals (private / battery / always-on / customizable).
+    - Include an explicit "Non-goals" section to keep scope tight.
+    - Note which engines/permissions/dependencies the change introduces.
+  design:
+    - Call out battery, privacy, and Android-version-restriction implications explicitly.
+    - Prefer reusing patterns/decisions already fixed in the project context over re-deciding.
+  tasks:
+    - Order tasks so the change can be built on its own git branch and tested before merge.
+    - Include a verification/testing task (unit tests and/or on-device/VM check) for every change.
+    - Keep task chunks small and individually checkable.
