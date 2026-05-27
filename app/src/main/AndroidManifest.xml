@@ -1,7 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- Always-on backbone. Still NO network/storage permissions — those arrive with later phases. -->
+    <!-- INTERNET is required by Android even to open a loopback (127.0.0.1) listening socket.
+         The server binds ONLY to loopback; outbound search calls arrive with the engine phase. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- Always-on backbone. No storage permissions yet — those arrive with later phases. -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />

@@ -12,6 +12,9 @@ import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import org.searchmob.R
+import org.searchmob.server.LocalServerState
+import org.searchmob.server.SearchServer
+import org.searchmob.server.WakeLockRequestGuard
 
 /**
  * The always-on backbone: a `specialUse` foreground service.
@@ -21,6 +24,11 @@ import org.searchmob.R
  * transitions to [SearchMobServiceState]. It is event-driven and holds NO wake-lock while idle.
  */
 class SearchMobService : Service() {
+    // Loopback HTTP server; each request acquires a short wake-lock via the service.
+    private val searchServer by lazy {
+        SearchServer(guard = WakeLockRequestGuard(AndroidWorkLock(applicationContext)))
+    }
+
     override fun onCreate() {
         super.onCreate()
         SearchMobServiceState.markStarting()
@@ -38,6 +46,8 @@ class SearchMobService : Service() {
         }
         // Covers both a normal start and a START_STICKY recreation with a null intent.
         promoteToForeground()
+        val port = searchServer.start()
+        LocalServerState.setPort(port)
         SearchMobServiceState.markRunning()
         return START_STICKY
     }
@@ -56,14 +66,18 @@ class SearchMobService : Service() {
     }
 
     private fun stopAndCleanup() {
+        searchServer.stop()
+        LocalServerState.setPort(null)
         ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
         SearchMobServiceState.markStopped()
         stopSelf()
     }
 
     override fun onDestroy() {
-        // If the system tears us down, reflect that for observers. A START_STICKY recreation will
-        // transition back to running via onStartCommand.
+        // If the system tears us down, release the socket and reflect that for observers. A
+        // START_STICKY recreation will transition back to running via onStartCommand.
+        searchServer.stop()
+        LocalServerState.setPort(null)
         if (SearchMobServiceState.current != ServiceState.Stopped) {
             SearchMobServiceState.markStopped()
         }
