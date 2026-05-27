@@ -1,6 +1,7 @@
 package org.searchmob.engine
 
 import okhttp3.OkHttpClient
+import org.searchmob.engine.http.Politeness
 
 /** Search category. Only general web search for now; images/news/etc. can be added later. */
 enum class SearchCategory { GENERAL, }
@@ -25,6 +26,7 @@ data class EngineContext(
     val httpClient: OkHttpClient,
     val apiKey: String? = null,
     val timeoutMs: Long = 5_000L,
+    val politeness: Politeness? = null,
 )
 
 /** Fail-soft result of one engine: items on success, or a reason on failure — never thrown to the aggregator. */
@@ -43,6 +45,9 @@ interface EngineAdapter {
     val displayName: String
     val categories: Set<SearchCategory>
     val requiresApiKey: Boolean get() = false
+
+    /** Engine ids this adapter replaces when active (e.g. a keyed API superseding its free scraper). */
+    val supersedes: Set<String> get() = emptySet()
 
     suspend fun search(
         query: SearchQuery,

@@ -1,8 +1,10 @@
 package org.searchmob.engine
 
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import okhttp3.Request
+import org.searchmob.engine.http.Politeness
 
 /**
  * Base for adapters that fetch one HTTP response and parse it. Handles the IO dispatch, the call,
@@ -25,15 +27,36 @@ abstract class HttpEngineAdapter : EngineAdapter {
     ): EngineResult =
         withContext(Dispatchers.IO) {
             try {
-                ctx.httpClient.newCall(buildRequest(query, ctx)).execute().use { response ->
-                    if (!response.isSuccessful) {
-                        EngineResult.Failure("HTTP ${response.code}")
-                    } else {
-                        EngineResult.Success(parse(response.body?.string().orEmpty()))
-                    }
-                }
+                val request = buildRequest(query, ctx)
+                ctx.politeness?.acquire(request.url.host)
+                executeWithBackoff(ctx, request)
             } catch (e: Exception) {
                 EngineResult.Failure(e.message ?: "error", e)
             }
         }
+
+    private suspend fun executeWithBackoff(
+        ctx: EngineContext,
+        request: Request,
+    ): EngineResult {
+        var attempt = 0
+        while (true) {
+            val response = ctx.httpClient.newCall(request).execute()
+            val code = response.code
+            if (code == 429 || code == 503) {
+                response.close()
+                val backoff = Politeness.backoffMs(code, attempt) ?: return EngineResult.Failure("HTTP $code")
+                delay(backoff)
+                attempt++
+                continue
+            }
+            return response.use {
+                if (!it.isSuccessful) {
+                    EngineResult.Failure("HTTP $code")
+                } else {
+                    EngineResult.Success(parse(it.body?.string().orEmpty()))
+                }
+            }
+        }
+    }
 }

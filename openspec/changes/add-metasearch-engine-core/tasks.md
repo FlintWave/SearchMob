@@ -16,24 +16,24 @@
 
 - [x] 3.1 Implement a single shared OkHttp client factory with a no-op `CookieJar` (no cookies stored or sent)
 - [x] 3.2 Implement the privacy `Interceptor`: strip/omit `Cookie` and `Referer`, set no user/device/install identifier, and set a `User-Agent` chosen per request from a curated rotation pool
-- [ ] 3.3 Implement per-engine politeness: minimum request spacing per engine host and short backoff on HTTP 429/503; ensure adapters cannot bypass the shared client
+- [x] 3.3 Implement per-engine politeness: minimum request spacing per engine host and short backoff on HTTP 429/503; ensure adapters cannot bypass the shared client
 
 ## 4. Default free engine adapters
 
 - [x] 4.1 Implement the DuckDuckGo adapter (html/lite endpoint, Jsoup parse)
-- [ ] 4.2 Implement the Brave (html) adapter (Jsoup parse)
-- [ ] 4.3 Implement the Mojeek (html) adapter (Jsoup parse)
-- [ ] 4.4 Implement the Marginalia adapter (free API, JSON parse)
+- [~] 4.2 Brave (html) adapter — NOT IMPLEMENTED: Brave returns HTTP 429 to scraping from a residential IP (JS-walled). Superseded by the BYO-key Brave API adapter (5.1).
+- [x] 4.3 Implement the Mojeek (html) adapter (Jsoup parse)
+- [x] 4.4 Implement the Marginalia adapter (free API, JSON parse)
 - [x] 4.5 Implement the Mwmbl adapter (JSON parse)
 - [x] 4.6 Implement the Wikipedia adapter (JSON parse)
 - [x] 4.7 Confirm NO Google adapter exists or is registered (enforced by test in 7.6)
 
 ## 5. Optional BYO-key adapters & config surface
 
-- [ ] 5.1 Implement the Brave Search API adapter (key-gated, JSON parse), consuming an injected key only
-- [ ] 5.2 Implement the Mojeek API adapter (key-gated, JSON parse), consuming an injected key only
+- [x] 5.1 Implement the Brave Search API adapter (key-gated, JSON parse), consuming an injected key only
+- [x] 5.2 Implement the Mojeek API adapter (key-gated, JSON parse), consuming an injected key only
 - [x] 5.3 Implement `EngineConfig` (per-engine enabled flag + optional injected key) and `EngineRegistry` with defaults: all free engines enabled, BYO adapters inactive until keyed
-- [ ] 5.4 Register a keyed API adapter in place of its free counterpart to avoid duplicate upstream load when a key is present
+- [x] 5.4 Register a keyed API adapter in place of its free counterpart to avoid duplicate upstream load when a key is present
 
 ## 6. Aggregation: fan-out, dedup, ranking
 

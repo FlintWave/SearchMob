@@ -14,7 +14,11 @@ import androidx.core.app.ServiceCompat
 import org.searchmob.R
 import org.searchmob.engine.EngineRegistry
 import org.searchmob.engine.MetaSearchResultProvider
+import org.searchmob.engine.adapters.BraveApiAdapter
 import org.searchmob.engine.adapters.DuckDuckGoAdapter
+import org.searchmob.engine.adapters.MarginaliaAdapter
+import org.searchmob.engine.adapters.MojeekAdapter
+import org.searchmob.engine.adapters.MojeekApiAdapter
 import org.searchmob.engine.adapters.MwmblAdapter
 import org.searchmob.engine.adapters.WikipediaAdapter
 import org.searchmob.server.LocalServerState
@@ -33,7 +37,17 @@ class SearchMobService : Service() {
     private val searchServer by lazy {
         val registry =
             EngineRegistry(
-                listOf(DuckDuckGoAdapter(), MwmblAdapter(), WikipediaAdapter()),
+                listOf(
+                    // Free by default:
+                    DuckDuckGoAdapter(),
+                    MojeekAdapter(),
+                    MarginaliaAdapter(),
+                    MwmblAdapter(),
+                    WikipediaAdapter(),
+                    // Bring-your-own-key (inactive until a key is configured):
+                    BraveApiAdapter(),
+                    MojeekApiAdapter(),
+                ),
             )
         SearchServer(
             provider = MetaSearchResultProvider(registry),
