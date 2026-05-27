@@ -1,0 +1,46 @@
+package org.searchmob.data.history
+
+import androidx.room.Dao
+import androidx.room.Database
+import androidx.room.Entity
+import androidx.room.Insert
+import androidx.room.PrimaryKey
+import androidx.room.Query
+import androidx.room.RoomDatabase
+
+/**
+ * Room row for a single stored search query. The whole database file (including this table and its
+ * indices) is SQLCipher-encrypted at rest, so nothing here is ever written in plaintext.
+ */
+@Entity(tableName = "history")
+data class HistoryRow(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val query: String,
+    val timestampMs: Long,
+)
+
+@Dao
+interface HistoryDao {
+    @Insert
+    fun insert(row: HistoryRow)
+
+    /** Non-expired rows (newest first). [cutoffMs] is the oldest timestamp still within the TTL. */
+    @Query("SELECT * FROM history WHERE timestampMs >= :cutoffMs ORDER BY timestampMs DESC")
+    fun listSince(cutoffMs: Long): List<HistoryRow>
+
+    /** Opportunistic TTL sweep: physically delete rows older than the cutoff. */
+    @Query("DELETE FROM history WHERE timestampMs < :cutoffMs")
+    fun deleteOlderThan(cutoffMs: Long)
+
+    @Query("DELETE FROM history")
+    fun deleteAll()
+}
+
+@Database(entities = [HistoryRow::class], version = 1, exportSchema = true)
+abstract class HistoryDatabase : RoomDatabase() {
+    abstract fun historyDao(): HistoryDao
+
+    companion object {
+        const val DB_FILE_NAME = "searchmob-history.db"
+    }
+}

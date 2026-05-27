@@ -23,6 +23,13 @@ interface HistoryStore {
 
     /** Disable history and delete its data. */
     fun disable()
+
+    /**
+     * Close the open encrypted handle WITHOUT deleting data — used on vault lock/eviction so a locked
+     * (zero-knowledge) session has no live DB handle while the stored, encrypted data survives until
+     * the user explicitly clears or disables it. Default no-op for in-memory stores.
+     */
+    fun closeHandle() {}
 }
 
 /**
