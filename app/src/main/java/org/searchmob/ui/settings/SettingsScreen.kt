@@ -53,6 +53,7 @@ object SettingsTestTags {
     const val THEME_SYSTEM = "settings_theme_system"
     const val DYNAMIC_COLOR = "settings_dynamic_color"
     const val HISTORY_SWITCH = "settings_history_switch"
+    const val BROWSER_SETUP = "settings_browser_setup"
 
     fun engineSwitch(id: String) = "settings_engine_$id"
 }
@@ -62,6 +63,7 @@ object SettingsTestTags {
 fun SettingsScreen(
     viewModel: SettingsViewModel,
     onBack: () -> Unit,
+    onOpenBrowserSetup: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val prefs by viewModel.preferencesState.collectAsStateWithLifecycle()
@@ -164,6 +166,17 @@ fun SettingsScreen(
                 Text(str(R.string.settings_history_clear))
             }
             ZeroKnowledgeRow()
+
+            HorizontalDivider()
+
+            // --- Browser setup ---
+            SectionTitle(str(R.string.settings_section_browser))
+            OutlinedButton(
+                onClick = onOpenBrowserSetup,
+                modifier = Modifier.testTag(SettingsTestTags.BROWSER_SETUP),
+            ) {
+                Text(str(R.string.settings_browser_setup))
+            }
 
             HorizontalDivider()
 

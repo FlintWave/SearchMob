@@ -25,12 +25,22 @@ gives the user clear confirmation that it was copied.
 - **THEN** the exact `http://127.0.0.1:<port>/search?q=%s` string is placed on the clipboard
 - **AND** the UI confirms the copy (e.g. a snackbar/toast or state change)
 
-### Requirement: Per-browser instructions
-The guide SHALL include concise, accurate step-by-step instructions for at least Chrome and Firefox,
-plus a generic/manual fallback using the search-template URL, so a user can set SearchMob as their
-browser's default search engine.
+### Requirement: Browser-agnostic setup instructions
+The guide SHALL lead with the generic, browser-agnostic method (visit the SearchMob page — which
+advertises an OpenSearch descriptor — then add it from the browser's search-engine settings), since
+that technique works across browsers. It SHALL additionally provide concise notes for the major
+browser families rather than privileging any single browser: the Firefox family (Firefox, Fennec,
+Mull, IronFox, etc.) and the Chromium family (Chrome, Brave, Edge, Vivaldi, Kiwi, etc.), plus a manual
+fallback using the search-template URL that works in any browser that allows a custom engine. The
+guide MUST NOT be Chrome-centric.
 
-#### Scenario: Chrome and Firefox steps are present
+#### Scenario: Generic method is presented first
 - **WHEN** the user views the setup guide
-- **THEN** it shows distinct, ordered steps for Chrome and for Firefox, and a manual fallback using the
-  template URL
+- **THEN** the primary instruction is the browser-agnostic "visit the page, then add SearchMob as a
+  search engine in your browser's settings" flow, applicable regardless of which browser is used
+
+#### Scenario: Browser-family notes are present and balanced
+- **WHEN** the user views the setup guide
+- **THEN** it includes specific notes for the Firefox family (including Fennec) and the Chromium family,
+  and a manual fallback using the template URL, with no single browser presented as the default/assumed
+  one
