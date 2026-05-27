@@ -152,6 +152,10 @@ dependencies {
     implementation(libs.okhttp)
     implementation(libs.jsoup)
 
+    // Home-screen widget (Jetpack Glance): Compose-based app widget + Material3 theming for day/night.
+    implementation(libs.androidx.glance.appwidget)
+    implementation(libs.androidx.glance.material3)
+
     // Encrypted storage (Phase 5): DataStore + Room/SQLCipher + Argon2id + optional biometric.
     implementation(libs.androidx.datastore)
     implementation(libs.androidx.room.runtime)

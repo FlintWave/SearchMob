@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Rounded "pill" background for the static widget-picker preview only (Glance draws the live one). -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <corners android:radius="24dp" />
+    <solid android:color="?android:attr/colorBackgroundFloating" />
+    <stroke
+        android:width="1dp"
+        android:color="#3D5AFE" />
+</shape>

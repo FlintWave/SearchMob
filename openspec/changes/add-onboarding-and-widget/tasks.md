@@ -21,11 +21,11 @@
 
 ## 4. Home-screen widget
 
-- [ ] 4.1 Implement a Glance `GlanceAppWidget` + `GlanceAppWidgetReceiver`; register the `<receiver>` + `appwidget-provider` metadata + preview
-- [ ] 4.2 Render a tappable search bar with SearchMob branding; legible in light/dark
-- [ ] 4.3 Tapping launches an `actionStartActivity`/deep link into the Search screen (define `searchmob://search` or an intent extra; handle it in `MainActivity`/nav)
-- [ ] 4.4 Ensure no query data is rendered on the widget; static affordance only
-- [ ] 4.5 Test the deep-link/launch routing (unit/instrumentation where feasible)
+- [x] 4.1 Implement a Glance `GlanceAppWidget` + `GlanceAppWidgetReceiver`; register the `<receiver>` + `appwidget-provider` metadata + preview
+- [x] 4.2 Render a tappable search bar with SearchMob branding; legible in light/dark
+- [x] 4.3 Tapping launches an `actionStartActivity`/deep link into the Search screen (define `searchmob://search` or an intent extra; handle it in `MainActivity`/nav)
+- [x] 4.4 Ensure no query data is rendered on the widget; static affordance only
+- [x] 4.5 Test the deep-link/launch routing (unit/instrumentation where feasible)
 
 ## 5. Verify, validate, PR & merge
 

@@ -75,4 +75,8 @@
     <string name="settings_zk_continue">Continue</string>
 
     <string name="settings_section_device">Keep the service alive</string>
+
+    <!-- Home-screen widget -->
+    <string name="widget_search_hint">Search the web</string>
+    <string name="widget_description">A tappable search bar that opens SearchMob.</string>
 </resources>

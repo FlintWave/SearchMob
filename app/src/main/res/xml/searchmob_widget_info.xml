@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Provider metadata for the SearchMob home-screen search widget. Rendered by Jetpack Glance, so the
+  initialLayout is the Glance loading placeholder. previewLayout (API 31+) shows a real-looking search
+  bar in the launcher's widget picker; previewImage is the legacy fallback for older launchers.
+-->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:description="@string/widget_description"
+    android:initialLayout="@layout/glance_default_loading_layout"
+    android:minWidth="180dp"
+    android:minHeight="48dp"
+    android:previewImage="@drawable/widget_preview"
+    android:previewLayout="@layout/searchmob_widget_preview"
+    android:resizeMode="horizontal"
+    android:targetCellWidth="3"
+    android:targetCellHeight="1"
+    android:updatePeriodMillis="0"
+    android:widgetCategory="home_screen" />

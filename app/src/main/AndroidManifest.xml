@@ -26,10 +26,19 @@
             android:name=".MainActivity"
             android:exported="true"
             android:label="@string/app_name"
+            android:launchMode="singleTop"
             android:theme="@style/Theme.SearchMob">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <!-- Home-screen widget deep link: searchmob://search opens the in-app Search screen. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data
+                    android:host="search"
+                    android:scheme="searchmob" />
             </intent-filter>
         </activity>
 
@@ -53,6 +62,20 @@
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
             </intent-filter>
+        </receiver>
+
+        <!-- Home-screen search widget (Jetpack Glance). Tapping it deep-links into the Search screen;
+             it renders only a static search affordance (no query/history/results on the launcher). -->
+        <receiver
+            android:name=".widget.SearchWidgetReceiver"
+            android:exported="true"
+            android:label="@string/app_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/searchmob_widget_info" />
         </receiver>
     </application>
 

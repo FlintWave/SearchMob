@@ -24,6 +24,7 @@ argon2kt = "1.5.0"
 biometric = "1.1.0"
 robolectric = "4.13"
 androidxTestCore = "1.6.1"
+glance = "1.1.1"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -67,6 +68,10 @@ argon2kt = { group = "com.lambdapioneer.argon2kt", name = "argon2kt", version.re
 androidx-biometric = { group = "androidx.biometric", name = "biometric", version.ref = "biometric" }
 robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "robolectric" }
 androidx-test-core = { group = "androidx.test", name = "core", version.ref = "androidxTestCore" }
+
+# Home-screen widget (Jetpack Glance)
+androidx-glance-appwidget = { group = "androidx.glance", name = "glance-appwidget", version.ref = "glance" }
+androidx-glance-material3 = { group = "androidx.glance", name = "glance-material3", version.ref = "glance" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
