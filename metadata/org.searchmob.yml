@@ -1,0 +1,62 @@
+# F-Droid build-recipe metadata for SearchMob (applicationId: org.searchmob).
+#
+# This is the template intended for submission to fdroiddata (https://gitlab.com/fdroid/fdroiddata)
+# as `metadata/org.searchmob.yml`. SearchMob is AGPL-3.0-or-later and contains NO proprietary Google
+# libraries (no Play Services / Firebase / proprietary Maps), so it is eligible for the main F-Droid
+# repository with no AntiFeatures.
+#
+# Submitting/maintaining the fdroiddata merge request is a manual, out-of-repo maintainer step (see
+# the F-Droid section of CONTRIBUTING.md). Update `CurrentVersion`/`CurrentVersionCode` and append a
+# new `Builds:` entry for each release tag (matching app/build.gradle.kts versionName/versionCode).
+
+Categories:
+  - Internet
+License: AGPL-3.0-or-later
+AuthorName: SearchMob contributors
+SourceCode: https://github.com/ErikChevalier/SearchMob
+IssueTracker: https://github.com/ErikChevalier/SearchMob/issues
+Changelog: https://github.com/ErikChevalier/SearchMob/blob/HEAD/CHANGELOG.md
+
+AutoName: SearchMob
+Description: |-
+  A private, battery-friendly, always-on metasearch service for Android. SearchMob acts as a
+  privacy proxy to upstream search engines (no cookies, no referrer, no user identifier, rotated
+  User-Agent), runs entirely on-device with a loopback-only local HTTP interface, and keeps any
+  opt-in stored data encrypted at rest. There are no SearchMob servers: your queries never touch
+  one. No telemetry, no analytics, no device identifiers, no proprietary Google libraries.
+
+RepoType: git
+Repo: https://github.com/ErikChevalier/SearchMob.git
+
+Builds:
+  - versionName: 0.1.0
+    versionCode: 100
+    commit: v0.1.0
+    subdir: app
+    gradle:
+      - yes
+    # Produces app/build/outputs/apk/release/*.apk via the project's Gradle release assembly.
+    # F-Droid invokes `gradle assembleRelease`; SearchMob's release signingConfig no-ops when no
+    # keystore/secrets are present (F-Droid signs the from-source build with its own/the verified key).
+
+# F-Droid signs from-source builds; pin the maintainer's release signing key so that, where the
+# build is reproducible, F-Droid can verify the published GitHub Release APK against its rebuild via
+# the `Binaries:` URL below. Replace the placeholder with the SHA-256 fingerprint of the maintainer
+# release key (lowercase hex, no colons):
+#   keytool -list -v -keystore release.keystore -alias <KEY_ALIAS> \
+#     | grep 'SHA256:' | awk '{print $2}' | tr -d ':' | tr 'A-F' 'a-f'
+# AllowedAPKSigningKeys:
+#   - 0000000000000000000000000000000000000000000000000000000000000000
+
+# Reproducible-builds goal: once a from-source rebuild is confirmed to match the published artifact,
+# uncomment `Binaries:` so F-Droid verifies the GitHub Release APK byte-for-byte. If a rebuild
+# diverges, leave `Binaries:` commented out and ship the source-built APK (verified by signing key
+# only) rather than publishing an unverified binary.
+# Binaries: https://github.com/ErikChevalier/SearchMob/releases/download/v%v/searchmob-%v.apk
+
+AutoUpdateMode: Version
+UpdateCheckMode: Tags ^v[0-9.]+$
+VercodeOperation:
+  - "%c"
+CurrentVersion: 0.1.0
+CurrentVersionCode: 100

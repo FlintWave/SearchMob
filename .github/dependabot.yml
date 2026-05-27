@@ -1,0 +1,29 @@
+version: 2
+updates:
+  # Keeps SHA-pinned third-party actions current; Dependabot opens PRs updating the pinned commit
+  # SHA (and trailing version comment) when a newer release of an action exists.
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: ci
+    labels:
+      - dependencies
+      - github-actions
+
+  # Gradle build + app dependencies (root build files and the :app module).
+  - package-ecosystem: gradle
+    directory: "/"
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: build
+    labels:
+      - dependencies
+      - gradle
+    groups:
+      gradle-minor-patch:
+        update-types:
+          - minor
+          - patch
