@@ -27,4 +27,52 @@
     <!-- OEM guidance -->
     <string name="oem_guidance_button">Keep it alive on your phone</string>
     <string name="oem_guidance_warning">Heads up: some manufacturers reset these settings after a firmware/OS update, so you may need to re-apply them.</string>
+
+    <!-- Common -->
+    <string name="back">Back</string>
+    <string name="cancel">Cancel</string>
+
+    <!-- Home -->
+    <string name="home_search_button">Search</string>
+
+    <!-- Search -->
+    <string name="search_hint">Search the web</string>
+    <string name="search_submit">Search</string>
+    <string name="search_idle">Enter a query to search.</string>
+    <string name="search_loading">Searching…</string>
+    <string name="search_empty">No results found.</string>
+    <string name="search_error_title">Search failed</string>
+    <string name="search_retry">Retry</string>
+    <string name="search_source_prefix">via</string>
+
+    <!-- Settings -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_section_theme">Appearance</string>
+    <string name="theme_light">Light</string>
+    <string name="theme_dark">Dark</string>
+    <string name="theme_system">Follow system</string>
+    <string name="settings_dynamic_color">Material You (dynamic color)</string>
+    <string name="settings_dynamic_color_unsupported">Requires Android 12 or newer; falls back to the built-in colors here.</string>
+
+    <string name="settings_section_engines">Search engines</string>
+    <string name="settings_engine_needs_key">Needs an API key (below)</string>
+
+    <string name="settings_section_keys">Bring-your-own API keys</string>
+    <string name="settings_key_brave">Brave Search API key</string>
+    <string name="settings_key_mojeek">Mojeek Search API key</string>
+    <string name="settings_key_hint">API key</string>
+    <string name="settings_key_set">key set</string>
+    <string name="settings_key_save">Save</string>
+    <string name="settings_key_clear">Clear</string>
+
+    <string name="settings_section_history">Search history</string>
+    <string name="settings_history">Store search history</string>
+    <string name="settings_history_supporting">Off by default. When on, queries are stored locally and encrypted at rest.</string>
+    <string name="settings_history_clear">Clear history</string>
+    <string name="settings_zk_setup">Set up zero-knowledge passphrase</string>
+    <string name="settings_zk_title">Zero-knowledge encryption</string>
+    <string name="settings_zk_warning">Your data is encrypted with a passphrase only you know. If you lose this passphrase, your stored data is permanently unrecoverable — there is no reset or recovery.</string>
+    <string name="settings_zk_continue">Continue</string>
+
+    <string name="settings_section_device">Keep the service alive</string>
 </resources>
