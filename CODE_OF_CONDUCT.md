@@ -23,9 +23,9 @@ conduct which could reasonably be considered inappropriate in a professional set
 
 ## Enforcement
 
-Instances of abuse may be reported to the project maintainers via GitHub. All complaints will be
-reviewed and investigated promptly and fairly. Maintainers are obligated to respect the privacy and
-security of the reporter of any incident.
+Instances of abuse may be reported to the maintainer via GitHub or by email at flintwave@tuta.com.
+All complaints will be reviewed and investigated promptly and fairly. The maintainer is obligated to
+respect the privacy and security of the reporter of any incident.
 
 ## Attribution
 

@@ -84,3 +84,5 @@ and build each feature on its own branch, tested before merge. Please also read
 
 [AGPL-3.0-or-later](LICENSE). If you run a modified version that users interact with over a network,
 you must offer them the corresponding source.
+
+Copyright © 2026 FlintWave. Contact: flintwave@tuta.com

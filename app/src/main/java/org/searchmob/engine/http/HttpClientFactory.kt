@@ -17,7 +17,8 @@ object HttpClientFactory {
         OkHttpClient.Builder()
             .cookieJar(CookieJar.NO_COOKIES)
             .followRedirects(true)
-            .followSslRedirects(true)
+            // Refuse https->http (cleartext) downgrade redirects; an upstream cannot silently drop TLS.
+            .followSslRedirects(false)
             .connectTimeout(connectTimeoutMs, TimeUnit.MILLISECONDS)
             .readTimeout(readTimeoutMs, TimeUnit.MILLISECONDS)
             .addInterceptor(PrivacyInterceptor())

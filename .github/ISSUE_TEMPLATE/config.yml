@@ -1,5 +1,8 @@
 blank_issues_enabled: false
 contact_links:
   - name: Security vulnerability
-    url: https://github.com/ErikChevalier/SearchMob/security/advisories/new
+    url: https://github.com/FlintWave/SearchMob/security/advisories/new
     about: Please report security issues privately, not as a public issue (see SECURITY.md).
+  - name: Email the maintainer
+    url: mailto:flintwave@tuta.com
+    about: For anything that does not fit an issue. Do not send secrets or vulnerability details here.

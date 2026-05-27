@@ -10,6 +10,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import org.searchmob.data.crypto.Dek
+import org.searchmob.data.crypto.KdfParams
 import org.searchmob.data.crypto.Pbkdf2Kdf
 import org.searchmob.data.crypto.SecretKeyDekWrapper
 import java.io.File
@@ -25,15 +26,19 @@ class StorageBootstrapTest {
     private fun store(): BootstrapMetadataStore =
         BootstrapMetadataStore(File(tmp.newFolder(), BootstrapMetadataStore.FILE_NAME))
 
+    // The JVM test KDF is PBKDF2; we map the recorded "iterations" param onto its iteration count so
+    // the stored params actually drive derivation (a wrong/changed count yields a different KEK).
     private fun bootstrap(
         metadataStore: BootstrapMetadataStore,
         kek: ByteArray = Dek.generate(),
         vault: Vault = Vault(),
+        kdfParams: KdfParams = KdfParams(algorithm = "pbkdf2", iterations = 1_000),
     ) = StorageBootstrap(
         metadataStore = metadataStore,
         keystoreWrapper = SecretKeyDekWrapper(kek),
         vault = vault,
-        kdfFactory = { Pbkdf2Kdf(iterations = 1_000) },
+        kdfFactory = { params -> Pbkdf2Kdf(iterations = params.iterations) },
+        kdfParams = kdfParams,
         securityLevelProvider = { "TEE" },
     )
 
@@ -136,6 +141,55 @@ class StorageBootstrapTest {
         assertFalse(tampered.bootstrap())
         assertFalse(tampered.isUnlocked)
         assertNull(tampered.vault().let { if (it.isUnlocked) it.dek() else null })
+    }
+
+    @Test
+    fun kdfParamsAreWrittenToMetadataOnEnableZeroKnowledge() {
+        val meta = store()
+        val sut = bootstrap(meta, kdfParams = KdfParams(algorithm = "pbkdf2", iterations = 1_234))
+        sut.bootstrap()
+        sut.enableZeroKnowledge("pw".toCharArray(), warningConfirmed = true)
+
+        // The exact params used to wrap are recorded so a later unlock can reproduce them.
+        val written = meta.read()!!
+        assertEquals("pbkdf2", written.kdfAlgorithm)
+        assertEquals(1_234, written.kdfIterations)
+    }
+
+    @Test
+    fun unlockUsesStoredKdfParamsNotChangedDefaults() {
+        val meta = store()
+        val kek = Dek.generate()
+        // Enable zero-knowledge with one iteration count, recorded into metadata.
+        val enabling = bootstrap(meta, kek, kdfParams = KdfParams(algorithm = "pbkdf2", iterations = 1_000))
+        enabling.bootstrap()
+        val originalDek = enabling.vault().dek().copyOf()
+        enabling.enableZeroKnowledge("correct horse".toCharArray(), warningConfirmed = true)
+
+        // A later session whose *default* params differ (simulating a tuning change) must still derive
+        // the SAME KEK by reading the stored params, recovering the original DEK.
+        val relaunch = bootstrap(meta, kek, kdfParams = KdfParams(algorithm = "pbkdf2", iterations = 9_999))
+        relaunch.bootstrap()
+        assertTrue(relaunch.unlockWithPassphrase("correct horse".toCharArray()))
+        assertArrayEquals(originalDek, relaunch.vault().dek())
+    }
+
+    @Test
+    fun olderMetadataWithoutKdfFieldsDeserializesWithLegacyParams() {
+        // A metadata blob written before the KDF fields existed (only the original four fields). It
+        // must still deserialize (no crash) and fill in the LEGACY params that were live when such a
+        // blob was written, not the current (possibly retuned) defaults, so the original KEK derives.
+        val file = File(tmp.newFolder(), BootstrapMetadataStore.FILE_NAME)
+        file.writeText(
+            """{"wrappedDekBase64":"AA==","saltBase64":"AA==",""" +
+                """"mode":"PASSPHRASE","securityLevel":"TEE"}""",
+        )
+        val read = BootstrapMetadataStore(file).read()!!
+        assertEquals(WrapMode.PASSPHRASE, read.mode)
+        assertEquals(BootstrapMetadata.LEGACY_KDF_ALGORITHM, read.kdfAlgorithm)
+        assertEquals(BootstrapMetadata.LEGACY_KDF_ITERATIONS, read.kdfIterations)
+        assertEquals(BootstrapMetadata.LEGACY_KDF_MEMORY_KIB, read.kdfMemoryKib)
+        assertEquals(BootstrapMetadata.LEGACY_KDF_PARALLELISM, read.kdfParallelism)
     }
 
     @Test

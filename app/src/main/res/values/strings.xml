@@ -170,5 +170,6 @@
 
     <string name="about_version">Version %1$s</string>
     <string name="about_license">License: AGPL-3.0-or-later</string>
+    <string name="about_copyright">Copyright © 2026 FlintWave. Contact: flintwave@tuta.com</string>
     <string name="about_repo_button">View source on GitHub</string>
 </resources>

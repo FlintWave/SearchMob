@@ -15,7 +15,7 @@ import java.security.SecureRandom
 /**
  * On-device Argon2id (native `argon2kt`) derivation: deterministic for the same inputs, different for a
  * different passphrase, and a correct/incorrect passphrase succeeds/fails the GCM unwrap. Uses reduced
- * cost so the instrumentation run stays fast; production uses t=4 / m=128 MiB.
+ * cost so the instrumentation run stays fast; production uses t=3 / m=64 MiB.
  */
 @RunWith(AndroidJUnit4::class)
 class Argon2idKdfTest {

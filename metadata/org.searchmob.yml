@@ -12,10 +12,11 @@
 Categories:
   - Internet
 License: AGPL-3.0-or-later
-AuthorName: SearchMob contributors
-SourceCode: https://github.com/ErikChevalier/SearchMob
-IssueTracker: https://github.com/ErikChevalier/SearchMob/issues
-Changelog: https://github.com/ErikChevalier/SearchMob/blob/HEAD/CHANGELOG.md
+AuthorName: FlintWave
+AuthorEmail: flintwave@tuta.com
+SourceCode: https://github.com/FlintWave/SearchMob
+IssueTracker: https://github.com/FlintWave/SearchMob/issues
+Changelog: https://github.com/FlintWave/SearchMob/blob/HEAD/CHANGELOG.md
 
 AutoName: SearchMob
 Description: |-
@@ -26,12 +27,12 @@ Description: |-
   one. No telemetry, no analytics, no device identifiers, no proprietary Google libraries.
 
 RepoType: git
-Repo: https://github.com/ErikChevalier/SearchMob.git
+Repo: https://github.com/FlintWave/SearchMob.git
 
 Builds:
-  - versionName: 0.1.0
-    versionCode: 100
-    commit: v0.1.0
+  - versionName: 26.05.01
+    versionCode: 260501
+    commit: v26.05.01
     subdir: app
     gradle:
       - yes
@@ -52,11 +53,11 @@ Builds:
 # uncomment `Binaries:` so F-Droid verifies the GitHub Release APK byte-for-byte. If a rebuild
 # diverges, leave `Binaries:` commented out and ship the source-built APK (verified by signing key
 # only) rather than publishing an unverified binary.
-# Binaries: https://github.com/ErikChevalier/SearchMob/releases/download/v%v/searchmob-%v.apk
+# Binaries: https://github.com/FlintWave/SearchMob/releases/download/v%v/searchmob-%v.apk
 
 AutoUpdateMode: Version
 UpdateCheckMode: Tags ^v[0-9.]+$
 VercodeOperation:
   - "%c"
-CurrentVersion: 0.1.0
-CurrentVersionCode: 100
+CurrentVersion: 26.05.01
+CurrentVersionCode: 260501

@@ -12,6 +12,10 @@ Use GitHub's private vulnerability reporting:
 Please include: a description, steps to reproduce, affected version/commit, and impact. We aim to
 acknowledge reports within 7 days and to coordinate a fix and disclosure timeline with you.
 
+If you cannot use GitHub's private reporting, contact the maintainer at **flintwave@tuta.com**. Email
+is not encrypted in transit by default, so use it only to request a secure channel, not to send the
+vulnerability details themselves.
+
 ## Scope
 
 In scope: the SearchMob app, its local HTTP server, storage/encryption, and the build/release
