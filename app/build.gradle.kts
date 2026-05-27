@@ -47,11 +47,11 @@ val hasReleaseSigning =
         releaseKeyAlias != null &&
         releaseKeyPassword != null
 
-// `appVersionName` is the single source of truth for the release version; release-please bumps it
-// in-place via the `x-release-please-version` annotation (SemVer). `versionCode` is derived from it
-// (major*10000 + minor*100 + patch) so it always increases monotonically with the version and is
-// never hand-edited. The annotation comment makes the bump appear in the release PR diff.
-val appVersionName = "0.1.0" // x-release-please-version
+// `appVersionName` is the single source of truth for the release version. SearchMob uses Ubuntu-style
+// date versioning: YY.MM.VV (two-digit year, month, and per-month build), set manually each release.
+// `versionCode` is derived as (YY*10000 + MM*100 + VV) so it always increases monotonically with the
+// date (e.g. 26.05.00 -> 260500, 26.06.00 -> 260600, 27.01.00 -> 270100). Bump this on each release.
+val appVersionName = "26.05.00"
 val appVersionCode =
     appVersionName
         .split("-")[0]
