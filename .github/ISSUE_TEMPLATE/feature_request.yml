@@ -1,0 +1,24 @@
+name: Feature request
+description: Suggest an idea for SearchMob
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem / motivation
+      description: What are you trying to do, and why? Tie it to a goal (private / battery / always-on / customizable) where you can.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+    validations:
+      required: true
+  - type: checkboxes
+    id: principles
+    attributes:
+      label: Privacy check
+      options:
+        - label: This does not add telemetry, trackers, or device identifiers.
+        - label: This does not require scraping Google (a permanent non-goal).

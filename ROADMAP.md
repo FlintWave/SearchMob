@@ -21,9 +21,12 @@ feature lands on its own branch, is tested, fixed, and re-tested until green bef
 
 ## Phases
 
+All seven phase proposals are written and pass `openspec validate --strict`. Status legend:
+**Built** = implemented + locally verified; **Planned** = OpenSpec proposal complete, ready to implement; **Deferred** = later.
+
 | # | Change | Goal | Status |
 |---|---|---|---|
-| 1 | `bootstrap-project-scaffold` | Gradle/Kotlin/Compose project (minSdk 26, targetSdk 35), repo hygiene, CI build skeleton, empty app shell that builds + launches | Planned |
+| 1 | `bootstrap-project-scaffold` | Gradle/Kotlin/Compose project (minSdk 26, targetSdk 35), repo hygiene, CI build skeleton, empty app shell that builds + launches | **Built (local)** — green via `ktlintCheck lint test assembleDebug`; pending PR/merge (repo) + on-device VM check |
 | 2 | `add-foreground-service` | `specialUse` FGS, boot persistence, battery-opt exemption flow, OEM autostart guidance, event-driven (no idle wake-lock) | Planned |
 | 3 | `add-local-search-server` | Embedded Ktor server on `127.0.0.1`, request pipeline, OpenSearch descriptor for browsers | Planned |
 | 4 | `add-metasearch-engine-core` | Engine adapter SPI, parallel OkHttp fan-out, dedup/merge/ranking, privacy proxying; free engines + optional BYO keys | Planned |

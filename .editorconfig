@@ -1,0 +1,22 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 4
+
+[*.{kt,kts}]
+indent_size = 4
+max_line_length = 120
+# Composable functions are PascalCase by convention — don't let ktlint's function-naming rule flag them.
+ktlint_function_naming_ignore_when_annotated_with = Composable
+ktlint_standard_filename = disabled
+
+[*.{yml,yaml,json,toml}]
+indent_size = 2
+
+[*.md]
+trim_trailing_whitespace = false

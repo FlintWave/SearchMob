@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- INTERNET is required by Android even to open a loopback (127.0.0.1) listening socket.
+         The server binds ONLY to loopback; outbound search calls arrive with the engine phase. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- Always-on backbone. No storage permissions yet — those arrive with later phases. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <!-- Required for the short, timed per-request PARTIAL_WAKE_LOCK (held only during work, never idle). -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <application
+        android:allowBackup="false"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.SearchMob">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:label="@string/app_name"
+            android:theme="@style/Theme.SearchMob">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- specialUse foreground service: the always-on backbone. No purpose-built FGS type fits a
+             local on-device search/HTTP service, so specialUse (with the required subtype property)
+             is the correct choice and is allowed to be boot-started on Android 15. -->
+        <service
+            android:name=".service.SearchMobService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="On-device private metasearch/HTTP service available to the user at all times" />
+        </service>
+
+        <!-- Re-starts the service after device boot (specialUse boot-start is permitted on API 35). -->
+        <receiver
+            android:name=".service.BootReceiver"
+            android:enabled="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+    </application>
+
+</manifest>

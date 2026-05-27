@@ -26,3 +26,7 @@ signing.properties
 # Misc
 *.log
 local/
+
+# Claude Code runtime/local files (keep generated OpenSpec skills/commands, drop transient state)
+.claude/scheduled_tasks.lock
+.claude/settings.local.json
