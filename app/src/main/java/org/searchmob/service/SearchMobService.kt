@@ -12,6 +12,9 @@ import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import org.searchmob.R
+import org.searchmob.engine.EngineRegistry
+import org.searchmob.engine.MetaSearchResultProvider
+import org.searchmob.engine.adapters.WikipediaAdapter
 import org.searchmob.server.LocalServerState
 import org.searchmob.server.SearchServer
 import org.searchmob.server.WakeLockRequestGuard
@@ -24,9 +27,13 @@ import org.searchmob.server.WakeLockRequestGuard
  * transitions to [SearchMobServiceState]. It is event-driven and holds NO wake-lock while idle.
  */
 class SearchMobService : Service() {
-    // Loopback HTTP server; each request acquires a short wake-lock via the service.
+    // Loopback HTTP server backed by the metasearch engine; each request acquires a short wake-lock.
     private val searchServer by lazy {
-        SearchServer(guard = WakeLockRequestGuard(AndroidWorkLock(applicationContext)))
+        val registry = EngineRegistry(listOf(WikipediaAdapter()))
+        SearchServer(
+            provider = MetaSearchResultProvider(registry),
+            guard = WakeLockRequestGuard(AndroidWorkLock(applicationContext)),
+        )
     }
 
     override fun onCreate() {
