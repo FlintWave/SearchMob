@@ -1,0 +1,235 @@
+package org.searchmob.ui.search
+
+import android.content.Intent
+import android.net.Uri
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import org.searchmob.R
+import org.searchmob.server.SearchResult
+
+/** Test tags so Compose UI tests can target each state distinctly. */
+object SearchTestTags {
+    const val QUERY_FIELD = "search_query_field"
+    const val SUBMIT = "search_submit"
+    const val LOADING = "search_loading"
+    const val EMPTY = "search_empty"
+    const val ERROR = "search_error"
+    const val RETRY = "search_retry"
+    const val RESULTS = "search_results"
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SearchScreen(
+    viewModel: SearchViewModel,
+    onOpenSettings: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val state by viewModel.state.collectAsStateWithLifecycle()
+    val query by viewModel.query.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+
+    Scaffold(
+        modifier = modifier.fillMaxSize(),
+        topBar = {
+            TopAppBar(
+                title = { Text(stringResource(R.string.app_name)) },
+                actions = {
+                    IconButton(onClick = onOpenSettings) {
+                        Icon(Icons.Filled.Settings, contentDescription = stringResource(R.string.settings_title))
+                    }
+                },
+            )
+        },
+    ) { innerPadding ->
+        Column(
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+                    .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            OutlinedTextField(
+                value = query,
+                onValueChange = viewModel::onQueryChange,
+                modifier = Modifier.fillMaxWidth().testTag(SearchTestTags.QUERY_FIELD),
+                label = { Text(stringResource(R.string.search_hint)) },
+                singleLine = true,
+                keyboardActions =
+                    androidx.compose.foundation.text.KeyboardActions(
+                        onSearch = { viewModel.submit() },
+                    ),
+                keyboardOptions =
+                    androidx.compose.foundation.text.KeyboardOptions(
+                        imeAction = ImeAction.Search,
+                    ),
+                trailingIcon = {
+                    IconButton(
+                        onClick = { viewModel.submit() },
+                        modifier = Modifier.testTag(SearchTestTags.SUBMIT),
+                    ) {
+                        Icon(Icons.Filled.Search, contentDescription = stringResource(R.string.search_submit))
+                    }
+                },
+            )
+
+            when (val s = state) {
+                SearchUiState.Idle ->
+                    CenteredMessage(stringResource(R.string.search_idle))
+                SearchUiState.Loading ->
+                    LoadingState()
+                SearchUiState.Empty ->
+                    CenteredMessage(stringResource(R.string.search_empty), tag = SearchTestTags.EMPTY)
+                is SearchUiState.Error ->
+                    ErrorState(message = s.message, onRetry = viewModel::retry)
+                is SearchUiState.Results ->
+                    ResultsList(
+                        results = s.results,
+                        onOpen = { url ->
+                            // Open only the result URL; no query/identifier is attached.
+                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+                        },
+                    )
+            }
+        }
+    }
+}
+
+@Composable
+private fun LoadingState() {
+    Column(
+        modifier = Modifier.fillMaxSize().testTag(SearchTestTags.LOADING),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        CircularProgressIndicator()
+        Spacer(Modifier.height(12.dp))
+        Text(stringResource(R.string.search_loading))
+    }
+}
+
+@Composable
+private fun CenteredMessage(
+    text: String,
+    tag: String? = null,
+) {
+    Column(
+        modifier = Modifier.fillMaxSize().let { if (tag != null) it.testTag(tag) else it },
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Text(text, style = MaterialTheme.typography.bodyLarge)
+    }
+}
+
+@Composable
+private fun ErrorState(
+    message: String,
+    onRetry: () -> Unit,
+) {
+    Column(
+        modifier = Modifier.fillMaxSize().testTag(SearchTestTags.ERROR),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Text(
+            stringResource(R.string.search_error_title),
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.error,
+        )
+        Spacer(Modifier.height(4.dp))
+        Text(message, style = MaterialTheme.typography.bodyMedium)
+        Spacer(Modifier.height(12.dp))
+        Button(onClick = onRetry, modifier = Modifier.testTag(SearchTestTags.RETRY)) {
+            Text(stringResource(R.string.search_retry))
+        }
+    }
+}
+
+@Composable
+private fun ResultsList(
+    results: List<SearchResult>,
+    onOpen: (String) -> Unit,
+) {
+    LazyColumn(
+        modifier = Modifier.fillMaxSize().testTag(SearchTestTags.RESULTS),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        items(results) { result ->
+            ResultCard(result = result, onOpen = onOpen)
+        }
+    }
+}
+
+@Composable
+private fun ResultCard(
+    result: SearchResult,
+    onOpen: (String) -> Unit,
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        onClick = { onOpen(result.url) },
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Text(
+                text = result.title.ifBlank { result.url },
+                style = MaterialTheme.typography.titleMedium,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+            if (result.snippet.isNotBlank()) {
+                Text(
+                    text = result.snippet,
+                    style = MaterialTheme.typography.bodyMedium,
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            if (result.engine.isNotBlank()) {
+                Text(
+                    text = stringResource(R.string.search_source_prefix) + " " + result.engine,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun stringResource(id: Int): String = LocalContext.current.getString(id)
