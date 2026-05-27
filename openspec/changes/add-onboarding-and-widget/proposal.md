@@ -12,8 +12,8 @@ expectation for a search app).
   walks through notifications permission, the battery-optimization exemption, and setting SearchMob as
   the browser's default search engine; persists a "completed" flag so it doesn't reappear.
 - Add a **browser-setup guide**: an in-app screen (reachable from Settings and the wizard) with the
-  exact localhost URLs the user needs — the page to visit and the `…/search?q=%s` template for manual
-  add — each with **one-tap copy-to-clipboard**, plus concise per-browser instructions (Chrome,
+  exact localhost URLs the user needs (the page to visit and the `…/search?q=%s` template for manual
+  add) each with **one-tap copy-to-clipboard**, plus concise per-browser instructions (Chrome,
   Firefox, generic/manual). URLs use the live bound port from `LocalServerState`.
 - Add a **home-screen widget** (Jetpack Glance): a tappable search box/bar that deep-links into the
   app's Search screen, plus a compact indicator that the service is running.

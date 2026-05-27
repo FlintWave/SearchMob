@@ -7,7 +7,7 @@ import java.io.File
 /**
  * Persists [BootstrapMetadata] as an UNENCRYPTED JSON file in app-internal storage. This is
  * deliberately plaintext: it holds only the *wrapped* (encrypted) DEK, the random salt, the wrap mode,
- * and the achieved Keystore security level — none of which reveal user data, and all of which are
+ * and the achieved Keystore security level, none of which reveal user data, and all of which are
  * needed before the DEK is available. The plaintext DEK and passphrase are never written here.
  */
 class BootstrapMetadataStore(private val file: File) {

@@ -6,9 +6,9 @@ name: release-please
 # in turn triggers the build/sign/publish pipeline in release.yml.
 
 # Manual for now. Automatic release PRs on every push require the repo setting "Allow GitHub Actions
-# to create and approve pull requests" (Settings → Actions → General). Also, SearchMob uses
+# to create and approve pull requests" (Settings, Actions, General). Also, SearchMob uses
 # Ubuntu-style date versions (YY.MM.VV) which are not strict SemVer, so release-please's auto-bump is
-# not relied upon — versions are set manually. Re-enable `on: push: [main]` if that changes.
+# not relied upon; versions are set manually. Re-enable `on: push: [main]` if that changes.
 on:
   workflow_dispatch:
 

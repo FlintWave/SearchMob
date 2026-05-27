@@ -25,18 +25,18 @@
 ## 4. Test harness
 
 - [x] 4.1 Add unit test source set with one passing JUnit test (`ExampleUnitTest`)
-- [x] 4.2 Add instrumentation/Compose UI test source set with one test asserting the home screen renders (`HomeScreenTest`) — runs on emulator/VM (task 6.2)
+- [x] 4.2 Add instrumentation/Compose UI test source set with one test asserting the home screen renders (`HomeScreenTest`); runs on emulator/VM (task 6.2)
 - [x] 4.3 Add ktlint config (Compose-aware naming) and confirm `./gradlew ktlintCheck` passes
 
 ## 5. CI build skeleton
 
-- [x] 5.1 Add `.github/workflows/ci.yml`: trigger on push + PR; `actions/checkout`, `actions/setup-java@v4` (Temurin 17), `gradle/actions/setup-gradle` — all third-party actions pinned by commit SHA
+- [x] 5.1 Add `.github/workflows/ci.yml`: trigger on push + PR; `actions/checkout`, `actions/setup-java@v4` (Temurin 17), `gradle/actions/setup-gradle`; all third-party actions pinned by commit SHA
 - [x] 5.2 CI runs `./gradlew ktlintCheck lint test assembleDebug`; Gradle cached via setup-gradle
 - [x] 5.3 Add a build-status badge to `README.md`
 
 ## 6. Verify & merge
 
 - [x] 6.1 Run `./gradlew ktlintCheck lint test assembleDebug` locally and confirm green (BUILD SUCCESSFUL; APK produced; unit test passed)
-- [ ] 6.2 Verify the debug APK installs and launches to the home screen (emulator/VM or device); confirm dark/light follows system — pending Android VM
+- [ ] 6.2 Verify the debug APK installs and launches to the home screen (emulator/VM or device); confirm dark/light follows system; pending Android VM
 - [x] 6.3 Run `openspec validate bootstrap-project-scaffold --strict` and fix any issues
-- [ ] 6.4 Open PR, confirm CI green, merge to `main`, then `openspec archive bootstrap-project-scaffold` — pending GitHub repo URL
+- [ ] 6.4 Open PR, confirm CI green, merge to `main`, then `openspec archive bootstrap-project-scaffold`; pending GitHub repo URL

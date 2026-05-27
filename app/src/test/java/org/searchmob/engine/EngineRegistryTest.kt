@@ -53,7 +53,7 @@ class EngineRegistryTest {
             EngineRegistry(listOf(Free("google")))
             fail("registering a Google adapter should be rejected")
         } catch (_: IllegalArgumentException) {
-            // expected — Google is a permanent non-goal
+            // expected: Google is a permanent non-goal
         }
     }
 }

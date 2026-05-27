@@ -1,11 +1,11 @@
 ## Why
 
 SearchMob is a metasearch service, but after phase 3 the localhost endpoint only serves a stub
-result provider — it does not actually search anything. This change is the search brain: it fans
+result provider; it does not actually search anything. This change is the search brain: it fans
 out a query to multiple free engines, merges and ranks the results, and returns them through the
-existing HTTP contract. It directly serves the **private** goal — every upstream request is
-proxied so engines see no cookies, no referrer, no user identity, and a rotated User-Agent — and
-the **customizable** goal — users can enable/disable engines and supply their own Brave/Mojeek API
+existing HTTP contract. It directly serves the **private** goal (every upstream request is
+proxied so engines see no cookies, no referrer, no user identity, and a rotated User-Agent) and
+the **customizable** goal (users can enable/disable engines and supply their own Brave/Mojeek API
 keys for higher reliability, exactly like a self-hosted SearXNG.
 
 ## What Changes
@@ -22,7 +22,7 @@ keys for higher reliability, exactly like a self-hosted SearXNG.
   is the later `add-encrypted-storage` change.
 - Add **parallel fan-out** in an aggregator: query all enabled engines concurrently with
   coroutines under **bounded concurrency**, enforce the per-engine timeout, and return **partial
-  results** — one slow or broken engine never blocks or fails the overall query.
+  results**: one slow or broken engine never blocks or fails the overall query.
 - Add a normalized **result model** (title, url, snippet, source engine, position) plus
   **aggregation**: deduplicate by normalized URL and merge/rank across engines with a
   **deterministic** algorithm (reciprocal rank fusion, boosting results returned by multiple
@@ -33,22 +33,22 @@ keys for higher reliability, exactly like a self-hosted SearXNG.
 - Expose a **per-engine enable/disable** configuration surface (the toggle UI is the later
   `add-search-ui-and-theming` change; here we only define and consume the config).
 - **Replace the stub `SearchResultProvider`** from `add-local-search-server` with the real
-  aggregator behind the same HTTP contract — no route changes.
+  aggregator behind the same HTTP contract, with no route changes.
 
 ## Non-goals
 
 - **Never scrape Google.** Google is explicitly excluded as an engine: its JS wall, litigation
   history, and the risk of CAPTCHA-walling the user's own residential mobile IP make it a
   hard constraint, not a future engine. This is a permanent non-goal of the engine set.
-- **No key storage / encrypted preferences** — adapters consume an injected key only; encrypted
+- **No key storage / encrypted preferences.** Adapters consume an injected key only; encrypted
   storage of keys and engine config is `add-encrypted-storage`.
-- **No engine-toggle or API-key entry UI** — this change exposes the config surface; the Compose
+- **No engine-toggle or API-key entry UI.** This change exposes the config surface; the Compose
   settings UI is `add-search-ui-and-theming`.
-- **No new HTTP routes or server lifecycle changes** — the aggregator slots in behind the existing
+- **No new HTTP routes or server lifecycle changes.** The aggregator slots in behind the existing
   `SearchResultProvider` contract from `add-local-search-server`.
-- **No network/LAN exposure** — all engine traffic is outbound from the device only; inbound
+- **No network/LAN exposure.** All engine traffic is outbound from the device only; inbound
   listening stays loopback-only (deferred `add-network-mode`).
-- **No persisted query history, no telemetry, no caching to disk** — results are in-memory per
+- **No persisted query history, no telemetry, no caching to disk.** Results are in-memory per
   request.
 
 ## Capabilities

@@ -37,4 +37,4 @@ body:
     id: logs
     attributes:
       label: Logs (optional)
-      description: Relevant logcat output. Please redact anything sensitive — do NOT paste search queries you want kept private.
+      description: Relevant logcat output. Please redact anything sensitive; do NOT paste search queries you want kept private.

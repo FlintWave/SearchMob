@@ -15,7 +15,7 @@ import kotlinx.coroutines.flow.Flow
  * [org.searchmob.ui.AppDependencies] without touching any UI code.
  *
  * Plaintext-safe keys only (theme mode, dynamic-color flag, per-engine flags, history flag) belong
- * here. API keys MUST NOT be stored through this interface — they are routed through the
+ * here. API keys MUST NOT be stored through this interface; they are routed through the
  * encrypted-preferences mechanism (`EncryptedPreferencesCodec` / `Vault`), never DataStore plaintext.
  */
 interface PreferencesStore {

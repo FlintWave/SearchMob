@@ -54,8 +54,8 @@ opt out of or override the privacy policy.
   regardless of which adapter made the call
 
 ### Requirement: Politeness and rate-limit awareness
-The system SHALL apply per-engine politeness — a minimum spacing between requests to the same engine
-host and short backoff on rate-limit responses (e.g. HTTP 429 or 503) — together with the bounded
+The system SHALL apply per-engine politeness (a minimum spacing between requests to the same engine
+host and short backoff on rate-limit responses, e.g. HTTP 429 or 503) together with the bounded
 outbound concurrency, to reduce the chance that a single residential mobile IP trips upstream
 bot-detection.
 

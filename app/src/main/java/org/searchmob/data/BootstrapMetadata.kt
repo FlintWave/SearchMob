@@ -7,7 +7,7 @@ enum class WrapMode { KEYSTORE, PASSPHRASE }
 
 /**
  * Unencrypted bootstrap metadata persisted so the DEK can be unwrapped on later runs. It contains the
- * wrapped (encrypted) DEK and a random salt — never the plaintext DEK or the passphrase. [securityLevel]
+ * wrapped (encrypted) DEK and a random salt, never the plaintext DEK or the passphrase. [securityLevel]
  * records the achieved Keystore backing (StrongBox / TEE / software) for diagnostics.
  */
 @Serializable

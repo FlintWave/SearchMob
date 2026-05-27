@@ -12,7 +12,7 @@ class SetupUrlsTest {
 
     @Test
     fun searchTemplate_keepsLiteralPlaceholder() {
-        // %s MUST stay literal — browsers substitute the query for it; it is not URL-encoded.
+        // %s MUST stay literal: browsers substitute the query for it; it is not URL-encoded.
         assertEquals("http://127.0.0.1:8080/search?q=%s", setupUrls(8080).searchTemplateUrl)
     }
 

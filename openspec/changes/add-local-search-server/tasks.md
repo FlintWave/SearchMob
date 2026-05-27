@@ -24,11 +24,11 @@
 
 ## 4. Routes
 
-- [x] 4.1 `GET /healthz` — return a 2xx status/liveness response
-- [x] 4.2 `GET /search?q=...` — server-rendered HTML results page (Ktor HTML DSL) from the provider;
+- [x] 4.1 `GET /healthz`: return a 2xx status/liveness response
+- [x] 4.2 `GET /search?q=...`: server-rendered HTML results page (Ktor HTML DSL) from the provider;
   handle missing `q` with a valid empty/prompt page
-- [x] 4.3 `GET /api/search?q=...&format=json` — JSON results (Content-Type `application/json`) from the provider
-- [x] 4.4 `GET /opensearch.xml` — serve a spec-compliant OpenSearch descriptor
+- [x] 4.3 `GET /api/search?q=...&format=json`: JSON results (Content-Type `application/json`) from the provider
+- [x] 4.4 `GET /opensearch.xml`: serve a spec-compliant OpenSearch descriptor
   (`application/opensearchdescription+xml`) with `ShortName`/`Description`/`InputEncoding` and `Url`
   template(s) built from the actual bound loopback origin + port (HTML `/search?q={searchTerms}`,
   JSON `/api/search?q={searchTerms}&format=json`)

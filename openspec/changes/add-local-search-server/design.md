@@ -1,7 +1,7 @@
 ## Context
 
 Phase 2 (`add-foreground-service`) stood up a `specialUse` foreground service that stays alive,
-survives reboot, and is event-driven (no idle wake-lock). It currently does nothing useful — it has
+survives reboot, and is event-driven (no idle wake-lock). It currently does nothing useful; it has
 no surface to serve. This change adds the HTTP surface SearchMob is *for*: a localhost endpoint that
 the system browser and other on-device apps can target, mirroring how a user would point at a local
 SearXNG instance.
@@ -19,8 +19,8 @@ so the route tests written here continue to hold.
   service, with graceful shutdown.
 - A configurable port (default `8787`) that falls back to the next free port when the default is busy,
   and reports the actual bound port (so the UI/OpenSearch descriptor can reference it).
-- Four routes — `GET /search` (HTML), `GET /api/search` (JSON), `GET /opensearch.xml` (descriptor),
-  `GET /healthz` (status) — backed by a `SearchResultProvider` interface with a stub implementation.
+- Four routes (`GET /search` (HTML), `GET /api/search` (JSON), `GET /opensearch.xml` (descriptor),
+  `GET /healthz` (status)) backed by a `SearchResultProvider` interface with a stub implementation.
 - A browser-addable OpenSearch descriptor pointing at the localhost endpoint.
 - Per-request **short timed wake-lock** brokered through the service; no wake-lock while idle.
 - No request logging and no query persistence.
@@ -34,11 +34,11 @@ so the route tests written here continue to hold.
 ## Decisions
 
 - **Ktor CIO engine, not Netty/Jetty.** Rationale: CIO is the pure-Kotlin coroutine engine with the
-  smallest footprint and no servlet-container baggage — appropriate for an embedded on-device server
+  smallest footprint and no servlet-container baggage, appropriate for an embedded on-device server
   where binary size and battery matter. This is also the locked context decision. Alternatives
   (Netty/Jetty) rejected: heavier dependency trees, JVM-server oriented.
 - **Bind explicitly to host `127.0.0.1`, never `0.0.0.0`.** Rationale: this is the privacy/security
-  boundary — the listener must be reachable only from the device itself, so even on an untrusted
+  boundary: the listener must be reachable only from the device itself, so even on an untrusted
   Wi-Fi network nothing is exposed. The bind host is hard-coded to loopback in this change (not a
   user setting); opening it up is the explicit, opt-in `add-network-mode` change. A test asserts the
   server is unreachable on the device's routable IP.
@@ -60,7 +60,7 @@ so the route tests written here continue to hold.
   server-rendered HTML keeps the browser path dependency-light and avoids shipping a template engine;
   kotlinx.serialization is the idiomatic Kotlin JSON choice and avoids reflection-based binders.
 - **Per-request timed wake-lock brokered by the service.** Rationale: context mandates event-driven
-  battery behavior — acquire a *short timed* `PARTIAL_WAKE_LOCK` for the duration of request handling
+  battery behavior: acquire a *short timed* `PARTIAL_WAKE_LOCK` for the duration of request handling
   and release it in `finally`. Idle = no wake-lock. Because loopback traffic is not Doze-gated, an
   idle listener costs ~0 battery, so this is the only wake-lock the server needs. The server calls a
   narrow service-provided hook (acquire/release) rather than touching `PowerManager` directly, keeping

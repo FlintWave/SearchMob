@@ -19,7 +19,7 @@ unlock/eviction state machine.
 
 **Goals:**
 - One **storage layer** keyed by a single random 256-bit DEK, with two interchangeable
-  **DEK-wrapping** strategies (Keystore-wrapped = seamless/recoverable default; Argon2id-wrapped =
+  **DEK-wrapping** strategies (Keystore-wrapped = transparent/recoverable default; Argon2id-wrapped =
   zero-knowledge) so the encrypted DataStore and SQLCipher DB are identical in both modes.
 - Encrypted preferences via DataStore that survive reboot and never touch the deprecated
   `EncryptedSharedPreferences`.
@@ -29,19 +29,19 @@ unlock/eviction state machine.
 - Hardware-backed keys when available (StrongBox), with a verified, graceful TEE fallback.
 
 **Non-Goals:**
-- No Compose settings/history UI — this change exposes storage APIs and toggle state; screens are
+- No Compose settings/history UI; this change exposes storage APIs and toggle state, and screens are
   `add-search-ui-and-theming`.
-- No off-device sync, backup, or cloud export of any encrypted data — permanently out of scope.
-- No passphrase recovery / escrow / "forgot passphrase" path for zero-knowledge mode — its absence is
+- No off-device sync, backup, or cloud export of any encrypted data; permanently out of scope.
+- No passphrase recovery / escrow / "forgot passphrase" path for zero-knowledge mode; its absence is
   the security property, not a gap to fill later.
 - No use of `androidx.security:security-crypto` / `EncryptedSharedPreferences` (deprecated).
-- No network exposure — encryption and storage are entirely on-device; no new permissions.
+- No network exposure; encryption and storage are entirely on-device, with no new permissions.
 
 ## Decisions
 
 - **One DEK, two wrappers, one storage layer.** A single random 256-bit Data Encryption Key
   encrypts both the DataStore payload and the SQLCipher database. The DEK itself is never stored in
-  plaintext — only a *wrapped* (encrypted) DEK blob is persisted. Two `DekWrapper` implementations
+  plaintext; only a *wrapped* (encrypted) DEK blob is persisted. Two `DekWrapper` implementations
   produce/consume that blob: `KeystoreDekWrapper` (default) and `Argon2idDekWrapper` (zero-knowledge).
   Switching modes re-wraps the *same* DEK, so no data is re-encrypted and history survives a mode
   switch. *Alternative (separate keys per store, or re-encrypting all data on mode switch) rejected:*
@@ -60,7 +60,7 @@ unlock/eviction state machine.
   generated with `setUserAuthenticationRequired(true)` + `setUserAuthenticationParameters(timeout,
   AUTH_DEVICE_CREDENTIAL or AUTH_BIOMETRIC_STRONG)`, so unwrapping the DEK requires a recent device
   unlock/biometric (via `androidx.biometric`). This is independent of zero-knowledge mode and off by
-  default. *Alternative (always require auth) rejected:* would break the seamless, always-on default.
+  default. *Alternative (always require auth) rejected:* would break the transparent, always-on default.
 - **Encrypted DataStore, not EncryptedSharedPreferences.** Preferences use Jetpack DataStore with a
   custom `Serializer` that AES-256-GCM-encrypts the serialized bytes with the DEK (fresh random IV
   per write, IV prepended to ciphertext). The deprecated `androidx.security:security-crypto` path is
@@ -84,7 +84,7 @@ unlock/eviction state machine.
 - **Zero-knowledge wrapping = Argon2id + per-install salt.** `Argon2idDekWrapper` derives a 32-byte
   KEK from the user passphrase via `argon2kt` Argon2id (default cost t=4, m=128 MiB, p=1) with a
   random per-install salt (random bytes, not a device identifier), then AES-256-GCM-wraps the DEK
-  with that KEK. The wrong passphrase produces a wrong KEK, so GCM authentication fails on unwrap —
+  with that KEK. The wrong passphrase produces a wrong KEK, so GCM authentication fails on unwrap:
   i.e. wrong passphrase is detectably rejected, never silently accepted. The salt and Argon2
   parameters are stored as bootstrap metadata so the same KEK is reproducible. *Alternative (PBKDF2/
   scrypt) rejected:* Argon2id is the locked, memory-hard choice and resists GPU/ASIC cracking.
@@ -117,7 +117,7 @@ unlock/eviction state machine.
   devices (common below high-end hardware and on emulators).
 - [Android-version restrictions] → minSdk 26 supports `AndroidKeyStore` AES-GCM and SQLCipher.
   `setUserAuthenticationParameters` and the `KeyInfo.getSecurityLevel()` enum are API 31+, so on
-  API 26–30 we use the legacy `setUserAuthenticationValidityDurationSeconds` /
+  API 26-30 we use the legacy `setUserAuthenticationValidityDurationSeconds` /
   `isInsideSecureHardware()` paths behind a version check. No `targetSdk 35` storage restrictions
   apply since all files are app-internal (no scoped-storage/`MANAGE_EXTERNAL_STORAGE` concerns).
 - [DB key rotation on mode switch] → Because both wrappers wrap the *same* DEK, switching modes only
@@ -128,7 +128,7 @@ unlock/eviction state machine.
 
 ## Migration Plan
 
-- Greenfield storage layer — there is no existing persisted data to migrate. First run generates a
+- Greenfield storage layer; there is no existing persisted data to migrate. First run generates a
   fresh DEK, wraps it with the default `KeystoreDekWrapper`, and writes bootstrap metadata.
 - `add-metasearch-engine-core` consumers are repointed from in-memory injected config/keys to the
   encrypted DataStore via DI; rollback is repointing the binding back to in-memory config (no schema
@@ -142,10 +142,10 @@ unlock/eviction state machine.
 
 ## Open Questions
 
-- Final Argon2id cost parameters — start at t=4, m=128 MiB, p=1 (32-byte output) and tune on real
+- Final Argon2id cost parameters: start at t=4, m=128 MiB, p=1 (32-byte output) and tune on real
   low-end devices during instrumentation testing so unlock stays acceptably fast without weakening
   the KDF.
-- Default history TTL value and whether to expose it as a user setting now or hard-code a default —
+- Default history TTL value and whether to expose it as a user setting now or hard-code a default:
   lean toward a sane default (e.g. 30 days) with the setting deferred to the UI phase.
-- Default inactivity-timeout duration for DEK eviction in zero-knowledge mode — pick a conservative
+- Default inactivity-timeout duration for DEK eviction in zero-knowledge mode: pick a conservative
   default (e.g. evict on background immediately + a short foreground idle timeout); not blocking.

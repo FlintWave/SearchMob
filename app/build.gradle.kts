@@ -16,7 +16,7 @@ plugins {
 //      SIGNING_KEY_BASE64 (decoded to a keystore file before the build), KEY_ALIAS,
 //      KEY_STORE_PASSWORD, KEY_PASSWORD.
 // When neither is present (e.g. local `assembleDebug` or an unsigned release build), the release
-// signingConfig is left unconfigured and Gradle produces an unsigned release artifact — debug and
+// signingConfig is left unconfigured and Gradle produces an unsigned release artifact; debug and
 // local/unsigned builds keep working with no keystore.
 val keystorePropertiesFile = rootProject.file("keystore.properties")
 val keystoreProperties =

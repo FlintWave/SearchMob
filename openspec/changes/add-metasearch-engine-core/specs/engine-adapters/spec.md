@@ -53,7 +53,7 @@ These engines SHALL be enabled by default and SHALL operate without any user-sup
 ### Requirement: Google is excluded from the engine set
 The system SHALL NOT include a Google scraping adapter or any adapter that queries Google search.
 This exclusion is a permanent constraint, justified by Google's JavaScript wall, litigation risk,
-and the risk of CAPTCHA-walling the user's own residential mobile IP — not a deferred feature.
+and the risk of CAPTCHA-walling the user's own residential mobile IP; not a deferred feature.
 
 #### Scenario: No Google adapter is registered
 - **WHEN** the engine registry is enumerated

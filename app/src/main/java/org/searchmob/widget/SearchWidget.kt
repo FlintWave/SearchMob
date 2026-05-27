@@ -25,7 +25,7 @@ import org.searchmob.R
 
 /**
  * Home-screen widget: a single, static, tappable search bar with SearchMob branding. It renders no
- * query text, history, or results — only the affordance to open the in-app Search screen — so no
+ * query text, history, or results, only the affordance to open the in-app Search screen, so no
  * query data ever lives on the launcher surface.
  *
  * Colors come from [GlanceTheme] (Material3), which resolves day/night automatically, so the widget

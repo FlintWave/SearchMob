@@ -125,7 +125,7 @@ fun AboutScreenContent(
                 )
             }
 
-            // 5. Honest caveat (prominent).
+            // 5. Caveat (prominent).
             CaveatCard {
                 Text(
                     str(R.string.about_caveat_title),

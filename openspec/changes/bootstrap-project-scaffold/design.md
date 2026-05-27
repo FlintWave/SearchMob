@@ -2,8 +2,8 @@
 
 SearchMob is greenfield: an empty repository with OpenSpec planning only. Before any feature can be
 built "on its own branch, tested, and merged," there must be a project that compiles, launches, and
-runs tests both locally and in CI. This change defines that foundation. It is deliberately minimal —
-no permissions, no network, no storage — so that risk and review surface stay tiny and every later
+runs tests both locally and in CI. This change defines that foundation. It is deliberately minimal,
+with no permissions, no network, and no storage, so that risk and review surface stay tiny and every later
 phase starts from a known-green baseline.
 
 ## Goals / Non-Goals
@@ -21,7 +21,7 @@ phase starts from a known-green baseline.
 - The embedded HTTP server (phase 3) and any search engine code (phase 4).
 - Encrypted storage / DataStore / SQLCipher (phase 5).
 - Release signing, F-Droid metadata, release-please (phase 7).
-- Multi-module splitting — start single-module; split later only if build times demand it.
+- Multi-module splitting. Start single-module; split later only if build times demand it.
 
 ## Decisions
 
@@ -45,7 +45,7 @@ phase starts from a known-green baseline.
 ## Risks / Trade-offs
 
 - [Android SDK / emulator may be unavailable on the planning machine] → CI is the source of truth for
-  build/test green; on-device verification happens on the emulator/VM set up at the end of phase 1–2.
+  build/test green; on-device verification happens on the emulator/VM set up at the end of phase 1-2.
   Instrumentation tests can be marked to run on CI emulator or deferred to the VM step.
 - [`targetSdk 35` pulls in Android 14/15 behavior changes early] → acceptable and intended; we want to
   surface FGS/permission constraints from the start rather than discover them late. The scaffold itself

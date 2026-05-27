@@ -107,7 +107,7 @@ fun SearchMobApp(
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
 
-    // Widget deep link: each new token navigates to Search — but only once onboarding is complete and
+    // Widget deep link: each new token navigates to Search, but only once onboarding is complete and
     // the nav host is actually composed (navigating before then has no host to receive it).
     LaunchedEffect(openSearchToken, onboardingCompleted) {
         if (openSearchToken != null && onboardingCompleted == true) {

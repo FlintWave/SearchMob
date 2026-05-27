@@ -81,7 +81,7 @@ private fun HTML.renderResultsPage(
     query: String,
     results: List<SearchResult>,
 ) {
-    head { pageHead(if (query.isBlank()) "SearchMob" else "$query — SearchMob") }
+    head { pageHead(if (query.isBlank()) "SearchMob" else "$query · SearchMob") }
     body {
         attributes["data-page"] = "results"
         div("topbar") {
@@ -290,7 +290,7 @@ fun isLoopbackPortFree(port: Int): Boolean =
     try {
         ServerSocket().use { socket ->
             // reuseAddress=true so a port left in TIME_WAIT by a just-restarted instance is still
-            // considered bindable — this keeps the default port (and thus the browser's configured
+            // considered bindable. This keeps the default port (and thus the browser's configured
             // search URL) stable across app restarts/reboots instead of falling back to a random port.
             socket.reuseAddress = true
             socket.bind(InetSocketAddress(LOOPBACK_HOST, port))

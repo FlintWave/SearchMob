@@ -21,7 +21,7 @@
 ## 4. Default free engine adapters
 
 - [x] 4.1 Implement the DuckDuckGo adapter (html/lite endpoint, Jsoup parse)
-- [~] 4.2 Brave (html) adapter — NOT IMPLEMENTED: Brave returns HTTP 429 to scraping from a residential IP (JS-walled). Superseded by the BYO-key Brave API adapter (5.1).
+- [~] 4.2 Brave (html) adapter, NOT IMPLEMENTED: Brave returns HTTP 429 to scraping from a residential IP (JS-walled). Superseded by the BYO-key Brave API adapter (5.1).
 - [x] 4.3 Implement the Mojeek (html) adapter (Jsoup parse)
 - [x] 4.4 Implement the Marginalia adapter (free API, JSON parse)
 - [x] 4.5 Implement the Mwmbl adapter (JSON parse)

@@ -5,7 +5,7 @@ import com.lambdapioneer.argon2kt.Argon2Mode
 import java.nio.charset.StandardCharsets
 
 /**
- * Android [Kdf] backed by Argon2id (via `argon2kt`). Memory-hard, resists GPU/ASIC cracking — the
+ * Android [Kdf] backed by Argon2id (via `argon2kt`). Memory-hard, resists GPU/ASIC cracking, the
  * locked choice for zero-knowledge mode. Defaults follow the design: t=4 iterations, m=128 MiB,
  * p=1, 32-byte output. The cost is paid only on explicit unlock, never in the hot search path.
  *

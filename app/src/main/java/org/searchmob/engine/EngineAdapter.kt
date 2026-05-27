@@ -29,7 +29,7 @@ data class EngineContext(
     val politeness: Politeness? = null,
 )
 
-/** Fail-soft result of one engine: items on success, or a reason on failure — never thrown to the aggregator. */
+/** Fail-soft result of one engine: items on success, or a reason on failure, never thrown to the aggregator. */
 sealed interface EngineResult {
     data class Success(val items: List<EngineResultItem>) : EngineResult
 

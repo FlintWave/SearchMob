@@ -2,16 +2,16 @@
 
 SearchMob stores nothing by default, but the metasearch core (`add-metasearch-engine-core`) already
 needs somewhere to keep user-supplied BYO API keys and per-engine config, and users want an
-opt-in, local-only search history — both of which must be encrypted at rest to honour the
+opt-in, local-only search history, both of which must be encrypted at rest to honour the
 **private** goal. This change builds the encryption-at-rest foundation: encrypted preferences for
 settings/keys, an opt-in encrypted history database that is off by default and purgeable, and an
-optional zero-knowledge passphrase mode — all on-device, never synced.
+optional zero-knowledge passphrase mode, all on-device, never synced.
 
 ## What Changes
 
 - Establish a single **storage layer** built around a random 256-bit **Data Encryption Key (DEK)**.
   Two interchangeable **DEK-wrapping** strategies share that one storage layer: a Keystore-wrapped
-  DEK (seamless, recoverable — the default) and an Argon2id-passphrase-wrapped DEK (zero-knowledge,
+  DEK (transparent, recoverable, the default) and an Argon2id-passphrase-wrapped DEK (zero-knowledge,
   unrecoverable). Only the wrapping differs; the encrypted DataStore and SQLCipher database are the
   same in both modes.
 - Add **encrypted preferences** via Jetpack **DataStore** whose serialized contents are encrypted
@@ -21,7 +21,7 @@ optional zero-knowledge passphrase mode — all on-device, never synced.
   `KeyInfo.getSecurityLevel()`. Optionally bind key use to device unlock/biometric via
   `setUserAuthenticationParameters`. Preferences survive reboot.
 - **Do NOT** use `androidx.security:security-crypto` / `EncryptedSharedPreferences` (deprecated as of
-  1.1.0) — use the Android Keystore directly.
+  1.1.0); use the Android Keystore directly.
 - Add **opt-in encrypted search history**: a **SQLCipher** database (artifact
   `net.zetetic:sqlcipher-android`, NOT the deprecated `android-database-sqlcipher`) accessed through
   **Room** via a `SupportFactory`. History is **OFF by default**, **user-purgeable** ("clear
@@ -39,7 +39,7 @@ optional zero-knowledge passphrase mode — all on-device, never synced.
 - `encrypted-preferences`: a Jetpack DataStore encrypted with a random 256-bit DEK that is wrapped by
   an AES-256-GCM Android Keystore key, with StrongBox-preferred / TEE-fallback key generation,
   runtime `KeyInfo.getSecurityLevel()` verification, optional user-authentication binding, and
-  reboot-persistent decryptability — without using the deprecated `EncryptedSharedPreferences`.
+  reboot-persistent decryptability, without using the deprecated `EncryptedSharedPreferences`.
 - `encrypted-history`: an opt-in (OFF by default) SQLCipher-encrypted search-history database accessed
   through Room/`SupportFactory`, keyed by the shared DEK, with TTL/auto-expiry, explicit user purge
   ("clear history"), and a guarantee that history is never synced off-device.

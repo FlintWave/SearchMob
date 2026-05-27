@@ -14,7 +14,7 @@ captures/
 *.dex
 output.json
 
-# Signing — never commit keystores or secrets
+# Signing: never commit keystores or secrets
 *.jks
 *.keystore
 keystore.properties

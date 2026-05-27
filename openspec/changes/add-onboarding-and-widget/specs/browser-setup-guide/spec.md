@@ -26,8 +26,8 @@ gives the user clear confirmation that it was copied.
 - **AND** the UI confirms the copy (e.g. a snackbar/toast or state change)
 
 ### Requirement: Browser-agnostic setup instructions
-The guide SHALL lead with the generic, browser-agnostic method (visit the SearchMob page — which
-advertises an OpenSearch descriptor — then add it from the browser's search-engine settings), since
+The guide SHALL lead with the generic, browser-agnostic method (visit the SearchMob page, which
+advertises an OpenSearch descriptor, then add it from the browser's search-engine settings), since
 that technique works across browsers. It SHALL additionally provide concise notes for the major
 browser families rather than privileging any single browser: the Firefox family (Firefox, Fennec,
 Mull, IronFox, etc.) and the Chromium family (Chrome, Brave, Edge, Vivaldi, Kiwi, etc.), plus a manual

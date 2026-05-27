@@ -18,7 +18,7 @@ private val Context.searchMobPrefsDataStore: DataStore<Preferences> by preferenc
 /**
  * Persistent [PreferencesStore] backed by Jetpack Preferences DataStore. Used for non-sensitive,
  * reboot-persistent settings (theme mode, dynamic-color flag, per-engine flags, history flag,
- * onboarding-completed flag). API keys are NOT stored here — they go through the encrypted path.
+ * onboarding-completed flag). API keys are NOT stored here; they go through the encrypted path.
  */
 class DataStorePreferencesStore(context: Context) : PreferencesStore {
     private val dataStore = context.applicationContext.searchMobPrefsDataStore

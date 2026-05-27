@@ -10,19 +10,20 @@ import java.util.Base64
 
 /**
  * The required, unmissable warning shown before enabling zero-knowledge mode. It is a normative spec
- * requirement (not just UX copy): the user must confirm they understand the data becomes permanently
- * unrecoverable if the passphrase is lost. There is intentionally no recovery / escrow / reset path.
+ * requirement (more than just UX copy): the user must confirm they understand the data becomes
+ * permanently unrecoverable if the passphrase is lost. There is intentionally no recovery / escrow /
+ * reset path.
  */
 const val ZERO_KNOWLEDGE_UNRECOVERABLE_WARNING: String =
     "Zero-knowledge mode encrypts your data with a passphrase only you know. " +
         "If you forget this passphrase, your settings, saved API keys, and search history become " +
-        "PERMANENTLY UNRECOVERABLE — there is no reset, recovery, or backup. " +
+        "PERMANENTLY UNRECOVERABLE. There is no reset, recovery, or backup. " +
         "Your data is also unreadable until you unlock with the passphrase each session."
 
 /**
  * Owns the DEK lifecycle: first-run bootstrap, later-run unwrap, and zero-knowledge enable/disable as a
  * re-wrap of the SAME DEK between the Keystore wrapper ([keystoreWrapper]) and a passphrase
- * ([PassphraseDekWrapper]). Re-wrapping never re-encrypts the DataStore payload or the SQLCipher DB —
+ * ([PassphraseDekWrapper]). Re-wrapping never re-encrypts the DataStore payload or the SQLCipher DB;
  * switching modes only rewrites the small wrapped-DEK blob in [BootstrapMetadata], so history survives
  * a mode switch.
  *
@@ -50,7 +51,7 @@ class StorageBootstrap(
     /**
      * Ensure a DEK exists and is unlocked when possible. On first run, generates a DEK, Keystore-wraps
      * it, and persists metadata. On later runs in [WrapMode.KEYSTORE], unwraps and unlocks. In
-     * [WrapMode.PASSPHRASE] the DEK cannot be unlocked here (no passphrase) — the caller must
+     * [WrapMode.PASSPHRASE] the DEK cannot be unlocked here (no passphrase); the caller must
      * [unlockWithPassphrase]. Returns true if the vault is unlocked afterward.
      */
     fun bootstrap(): Boolean {

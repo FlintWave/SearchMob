@@ -8,7 +8,7 @@ import java.io.File
 /**
  * Opt-in, on-device search history backed by a SQLCipher-encrypted Room database
  * (`net.zetetic:sqlcipher-android`, NOT the deprecated `android-database-sqlcipher`). The SQLCipher
- * passphrase is the shared DEK, so the whole DB file — rows and indices — is encrypted at rest.
+ * passphrase is the shared DEK, so the whole DB file (rows and indices) is encrypted at rest.
  *
  * History is OFF by default: while disabled, no DB file is created or opened and the current session
  * stays in memory only ([list] returns empty, [add] is a no-op). [setEnabled]`(true)` creates the

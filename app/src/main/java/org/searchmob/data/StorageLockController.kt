@@ -15,9 +15,9 @@ import org.searchmob.data.history.HistoryStore
  *  - an inactivity timeout (armed on foreground, fired off the main thread), and
  *  - explicit [lockNow].
  *
- * Eviction zeroes the DEK bytes (via [Vault.lock] → [org.searchmob.data.crypto.DekHolder.zero]) and
- * disables the [HistoryStore] handle so locked-state history reads/writes are unavailable until the
- * user re-enters the passphrase. Only applies in [WrapMode.PASSPHRASE]; in the seamless Keystore mode
+ * Eviction zeroes the DEK bytes (via [Vault.lock], which calls [org.searchmob.data.crypto.DekHolder.zero])
+ * and disables the [HistoryStore] handle so locked-state history reads/writes are unavailable until the
+ * user re-enters the passphrase. Only applies in [WrapMode.PASSPHRASE]; in the Keystore mode
  * the DEK is recoverable without a prompt, so there is nothing to evict here.
  */
 class StorageLockController(
@@ -52,7 +52,7 @@ class StorageLockController(
     fun lockNow() {
         handler.removeCallbacks(timeoutRunnable)
         // Close the SQLCipher handle first (it needs the DEK), then zero the key. Data is NOT deleted
-        // on lock — only on explicit "clear history" / "disable history".
+        // on lock, only on explicit "clear history" / "disable history".
         runCatching { history.closeHandle() }
         vault.lock()
     }

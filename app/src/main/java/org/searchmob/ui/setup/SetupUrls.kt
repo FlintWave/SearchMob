@@ -5,7 +5,7 @@ package org.searchmob.ui.setup
  *
  * - [visitUrl] is the SearchMob home/OpenSearch page to open in the browser.
  * - [searchTemplateUrl] is the `…/search?q=%s` template a browser uses for query substitution (`%s`
- *   is the literal placeholder browsers expect — it is NOT URL-encoded here).
+ *   is the literal placeholder browsers expect, it is NOT URL-encoded here).
  *
  * Both are bound to `127.0.0.1` (loopback only) on the actually-bound [port].
  */

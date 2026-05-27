@@ -273,7 +273,7 @@ private fun ApiKeyRow(
     var value by remember { mutableStateOf("") }
     Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text(
-            if (hasKey) "$label — ${str(R.string.settings_key_set)}" else label,
+            if (hasKey) "$label: ${str(R.string.settings_key_set)}" else label,
             style = MaterialTheme.typography.bodyLarge,
         )
         OutlinedTextField(

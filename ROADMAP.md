@@ -1,6 +1,6 @@
 # SearchMob Roadmap
 
-A private, battery-friendly, always-on metasearch service for Android — the experience of a
+A private, battery-friendly, always-on metasearch service for Android: the experience of a
 local SearXNG instance, rebuilt as a native app that is gentle on battery and keeps user data
 encrypted at rest (zero-knowledge optional).
 
@@ -26,7 +26,7 @@ All seven phase proposals are written and pass `openspec validate --strict`. Sta
 
 | # | Change | Goal | Status |
 |---|---|---|---|
-| 1 | `bootstrap-project-scaffold` | Gradle/Kotlin/Compose project (minSdk 26, targetSdk 35), repo hygiene, CI build skeleton, empty app shell that builds + launches | **Built (local)** — green via `ktlintCheck lint test assembleDebug`; pending PR/merge (repo) + on-device VM check |
+| 1 | `bootstrap-project-scaffold` | Gradle/Kotlin/Compose project (minSdk 26, targetSdk 35), repo hygiene, CI build skeleton, empty app shell that builds + launches | **Built (local)**: green via `ktlintCheck lint test assembleDebug`; pending PR/merge (repo) + on-device VM check |
 | 2 | `add-foreground-service` | `specialUse` FGS, boot persistence, battery-opt exemption flow, OEM autostart guidance, event-driven (no idle wake-lock) | Planned |
 | 3 | `add-local-search-server` | Embedded Ktor server on `127.0.0.1`, request pipeline, OpenSearch descriptor for browsers | Planned |
 | 4 | `add-metasearch-engine-core` | Engine adapter SPI, parallel OkHttp fan-out, dedup/merge/ranking, privacy proxying; free engines + optional BYO keys | Planned |
@@ -42,10 +42,10 @@ All seven phase proposals are written and pass `openspec validate --strict`. Sta
   no referrer, a rotated User-Agent, and no user identity.
 - **Android restrictions:** target API 35; FGS must declare `specialUse` type + matching
   permission; OEM battery killers (Samsung/Xiaomi/OnePlus/Huawei) require user setup steps that
-  can reset on firmware updates — ship in-app guidance.
+  can reset on firmware updates, so ship in-app guidance.
 
 ## Testing
 
 A local Android VM/emulator will be set up for on-device verification once the scaffold and
-foreground service are in place (phases 1–2). Until then, phases include unit tests and build
+foreground service are in place (phases 1-2). Until then, phases include unit tests and build
 verification in CI.

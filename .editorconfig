@@ -11,7 +11,7 @@ indent_size = 4
 [*.{kt,kts}]
 indent_size = 4
 max_line_length = 120
-# Composable functions are PascalCase by convention — don't let ktlint's function-naming rule flag them.
+# Composable functions are PascalCase by convention, so don't let ktlint's function-naming rule flag them.
 ktlint_function_naming_ignore_when_annotated_with = Composable
 ktlint_standard_filename = disabled
 

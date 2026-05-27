@@ -5,7 +5,7 @@
          The server binds ONLY to loopback; outbound search calls arrive with the engine phase. -->
     <uses-permission android:name="android.permission.INTERNET" />
 
-    <!-- Always-on backbone. No storage permissions yet — those arrive with later phases. -->
+    <!-- Always-on backbone. No storage permissions yet; those arrive with later phases. -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <!-- Required for the short, timed per-request PARTIAL_WAKE_LOCK (held only during work, never idle). -->

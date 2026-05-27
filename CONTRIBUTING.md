@@ -22,7 +22,7 @@ you agree your contributions are licensed under the project's [AGPL-3.0-or-later
    sense). `./gradlew lint test assembleDebug` must be green locally and in CI.
 4. **Open a PR.** CI must pass. After merge, archive the change with `openspec archive <name>`.
 
-## Commit messages — Conventional Commits
+## Commit messages: Conventional Commits
 
 Format: `type(scope): summary`. Types: `feat`, `fix`, `docs`, `chore`, `refactor`, `test`, `build`,
 `ci`, `perf`. Breaking changes use `!` or a `BREAKING CHANGE:` footer. These drive automated
@@ -53,7 +53,7 @@ creates a GitHub Release; that publish event triggers
 the signature, generates `SHA256SUMS`, and attaches the signed APK + `SHA256SUMS` to the Release.
 
 **Required repository Secrets** (Settings → Secrets and variables → Actions). The keystore is
-**never** committed — `*.jks`/`*.keystore`/`keystore.properties` are gitignored. Generate the key
+**never** committed; `*.jks`/`*.keystore`/`keystore.properties` are gitignored. Generate the key
 once and keep it backed up securely (losing it breaks update continuity for sideloaded installs):
 
 ```bash
@@ -81,8 +81,8 @@ create a gitignored `keystore.properties` (`storeFile`, `storePassword`, `keyAli
 Submitting/maintaining the merge request to
 [fdroiddata](https://gitlab.com/fdroid/fdroiddata) is a manual, out-of-repo step: copy that recipe
 in, set `AllowedAPKSigningKeys` to the SHA-256 fingerprint of the release key
-(`keytool -list -v -keystore release.keystore -alias searchmob`, lowercased, colons stripped), and —
-once a from-source rebuild is confirmed reproducible — uncomment `Binaries:` so F-Droid verifies the
+(`keytool -list -v -keystore release.keystore -alias searchmob`, lowercased, colons stripped), and,
+once a from-source rebuild is confirmed reproducible, uncomment `Binaries:` so F-Droid verifies the
 published APK byte-for-byte (falling back to source-built if a rebuild diverges). The release
 dependency graph must stay FOSS (no Play Services/Firebase/proprietary SDKs); enumerate it with
 `./gradlew :app:dependencies --configuration releaseRuntimeClasspath` before release.

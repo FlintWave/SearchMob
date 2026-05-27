@@ -12,7 +12,7 @@ typealias Preferences = Map<String, String>
  * [EncryptedPreferencesCodec] (whole-payload encryption with the DEK; fresh IV per write). We do NOT
  * use `androidx.security:security-crypto` / `EncryptedSharedPreferences`.
  *
- * [codec] reads the DEK lazily, so reads/writes throw while the vault is locked (zero-knowledge) —
+ * [codec] reads the DEK lazily, so reads/writes throw while the vault is locked (zero-knowledge):
  * preferences are simply unavailable until unlock, matching the spec. An empty/undecryptable file
  * decodes to the empty map rather than crashing.
  */

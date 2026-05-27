@@ -1,7 +1,7 @@
 ## 1. Branch & dependencies
 
 - [x] 1.1 Create branch `feat/add-search-ui-and-theming` off `main` (implemented on `feat/p6-ui` off HEAD per phase brief)
-- [x] 1.2 Add UI dependencies: `androidx.navigation:navigation-compose`, `androidx.lifecycle:lifecycle-viewmodel-compose` + `lifecycle-runtime-compose`, and `androidx.compose.ui:ui-test-junit4` (already present) — no analytics SDKs. (DataStore intentionally NOT added: the encrypted-DataStore impl is owned by the storage phase and binds to the `PreferencesStore` interface defined here.)
+- [x] 1.2 Add UI dependencies: `androidx.navigation:navigation-compose`, `androidx.lifecycle:lifecycle-viewmodel-compose` + `lifecycle-runtime-compose`, and `androidx.compose.ui:ui-test-junit4` (already present); no analytics SDKs. (DataStore intentionally NOT added: the encrypted-DataStore impl is owned by the storage phase and binds to the `PreferencesStore` interface defined here.)
 
 ## 2. Preferences store (DataStore)
 
@@ -50,15 +50,15 @@
 
 ## 8. On-device / VM verification
 
-- [ ] 8.1 Build and install the debug APK on the Android VM/emulator (DEFERRED — phase brief forbids adb/emulator; central run later)
+- [ ] 8.1 Build and install the debug APK on the Android VM/emulator (DEFERRED: phase brief forbids adb/emulator; central run later)
 - [ ] 8.2 Run a real query end-to-end and confirm aggregated results render with attribution and tap opens the URL (DEFERRED)
 - [ ] 8.3 Flip theme mode + dynamic color and confirm immediate re-theming with override beating system (DEFERRED)
 - [ ] 8.4 Disable an engine and confirm subsequent searches exclude it (DEFERRED)
-- [ ] 8.5 Reboot-persistence check (DEFERRED — depends on the storage phase binding the encrypted DataStore)
+- [ ] 8.5 Reboot-persistence check (DEFERRED: depends on the storage phase binding the encrypted DataStore)
 - [ ] 8.6 Privacy check: capture network traffic, confirm engine-fan-out only; confirm history off writes nothing (DEFERRED)
 
 ## 9. Validate & merge
 
 - [x] 9.1 Run `openspec validate add-search-ui-and-theming --strict` and fix any issues
-- [ ] 9.2 Open PR against `main`, confirm CI green (DEFERRED — no push per phase brief)
+- [ ] 9.2 Open PR against `main`, confirm CI green (DEFERRED: no push per phase brief)
 - [ ] 9.3 Merge to `main`, then run `openspec archive add-search-ui-and-theming` (DEFERRED)

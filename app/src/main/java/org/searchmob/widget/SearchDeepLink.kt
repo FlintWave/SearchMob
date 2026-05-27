@@ -10,13 +10,13 @@ import org.searchmob.MainActivity
  * widget (and any future launch surface). Defining the scheme/host/extra here keeps [MainActivity]'s
  * handling tiny and makes the parsing unit-testable without an Activity.
  *
- * Two equivalent triggers are recognised, so the launch is robust regardless of how the [Intent] was
+ * Two equivalent triggers are recognised, so the launch works regardless of how the [Intent] was
  * constructed:
  *  - an [Intent] data URI of `searchmob://search`, and
  *  - a boolean extra [EXTRA_OPEN_SEARCH] = true.
  *
- * The widget intentionally carries NO query, history, or result data — only the affordance to open
- * Search — so nothing query-related ever lives on the launcher surface.
+ * The widget intentionally carries NO query, history, or result data, only the affordance to open
+ * Search, so nothing query-related ever lives on the launcher surface.
  */
 object SearchDeepLink {
     const val SCHEME = "searchmob"
@@ -42,7 +42,7 @@ object SearchDeepLink {
         }
 
     /**
-     * Returns true when [intent] asks to open the Search screen — either via the `searchmob://search`
+     * Returns true when [intent] asks to open the Search screen, either via the `searchmob://search`
      * data URI or the [EXTRA_OPEN_SEARCH] extra. Null-safe so callers can pass `getIntent()` directly.
      */
     fun shouldOpenSearch(intent: Intent?): Boolean {

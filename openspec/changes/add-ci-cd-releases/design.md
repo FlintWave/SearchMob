@@ -67,7 +67,7 @@ Provide `metadata/<applicationId>.yml` describing `gradle: yes`/`assembleRelease
 from-source rebuild. FOSS-eligibility is enforced by keeping the **release** dependency graph free of
 proprietary Google libraries (no Play Services / Firebase / proprietary maps), which aligns with the
 "no telemetry, no Google libs" project stance. *Alternative:* F-Droid building unverified (no
-`Binaries`) — acceptable fallback but weaker trust than reproducible verification.
+`Binaries`); acceptable fallback but weaker trust than reproducible verification.
 
 **Decision: supply-chain hardening as a cross-cutting requirement on every workflow.**
 All third-party actions pinned by full commit SHA (matching the existing `ci.yml` style); Dependabot
@@ -75,7 +75,7 @@ configured for `github-actions` (keeps SHAs current with PRs) and `gradle` (app/
 `actionlint` lints workflow YAML and `shellcheck` lints any shell (inline `run:` blocks / helper
 scripts); each workflow declares minimal `permissions` (default `contents: read`, elevating to
 `contents: write` only on the publish job, and `pull-requests: write` + `contents: write` for the
-release-please job). *Alternative:* tag-pinned actions (mutable, supply-chain risk) — rejected.
+release-please job). *Alternative:* tag-pinned actions (mutable, supply-chain risk), rejected.
 
 ## Risks / Trade-offs
 
@@ -101,7 +101,7 @@ release-please job). *Alternative:* tag-pinned actions (mutable, supply-chain ri
 1. Land the build config + workflows + Dependabot + lint on branch `feat/add-ci-cd-releases`; CI
    (debug) stays green; release workflow is present but only fires on release/tag.
 2. Maintainer generates the keystore locally and configures repo secrets (`SIGNING_KEY_BASE64`,
-   `KEY_ALIAS`, `KEY_STORE_PASSWORD`, `KEY_PASSWORD`) — outside the repo, key never committed.
+   `KEY_ALIAS`, `KEY_STORE_PASSWORD`, `KEY_PASSWORD`), outside the repo, key never committed.
 3. Dry-run on a prerelease tag: confirm the signed APK + `SHA256SUMS` attach to the Release and the
    APK installs on a device; confirm actionlint/shellcheck pass and Dependabot config validates.
 4. Merge; let release-please open its first real release PR; merging it tags + publishes.

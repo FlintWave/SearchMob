@@ -23,7 +23,7 @@
       requested when `FEATURE_STRONGBOX_KEYSTORE` is present, fallback to TEE on
       `StrongBoxUnavailableException`, fresh random IV per wrap (IV prepended to ciphertext)
 - [x] 3.2 Read back and record `KeyInfo.getSecurityLevel()` (API 31+) / `isInsideSecureHardware()`
-      (API 26–30) after key generation
+      (API 26-30) after key generation
 - [x] 3.3 Implement optional user-authentication binding via `setUserAuthenticationParameters`
       (API 31+) / legacy validity-duration (older), OFF by default, using `androidx.biometric`
 

@@ -9,7 +9,7 @@ network, so it is also where the privacy-proxy and battery disciplines stated in
 context first become executable code.
 
 The engine set, the never-Google constraint, the free-by-default + optional-BYO-key model, and the
-privacy-proxy header policy are **locked decisions** from the project context — this design follows
+privacy-proxy header policy are **locked decisions** from the project context; this design follows
 them and does not relitigate them. What this design decides is the internal architecture: the
 adapter SPI shape, the fan-out/aggregation algorithm, and how the proxy and politeness are enforced.
 
@@ -18,28 +18,28 @@ adapter SPI shape, the fan-out/aggregation algorithm, and how the proxy and poli
 **Goals:**
 - A small, stable `EngineAdapter` SPI that each engine implements, so new engines are additive and
   individually testable against saved fixtures.
-- Concurrent, bounded fan-out that returns partial results and is robust to one engine being slow,
-  broken, rate-limited, or returning malformed HTML — fail-soft, never fail-whole.
+- Concurrent, bounded fan-out that returns partial results and holds up when one engine is slow,
+  broken, rate-limited, or returning malformed HTML: fail-soft, never fail-whole.
 - A deterministic, unit-testable dedup + merge + rank pipeline (reciprocal rank fusion).
 - A single enforced privacy-proxy chokepoint: no cookies, no referrer, no identifier, rotated UA,
-  per-engine politeness — applied to every outbound request with no per-adapter opt-out.
+  per-engine politeness, applied to every outbound request with no per-adapter opt-out.
 - A config surface for per-engine enable/disable and injected BYO keys that the later UI and
   storage phases plug into.
 
 **Non-Goals:**
 - Google scraping (permanent constraint, not a deferral).
 - Key persistence / encrypted prefs (`add-encrypted-storage`) and engine-toggle UI
-  (`add-search-ui-and-theming`) — only the consuming config surface is in scope here.
-- New HTTP routes or server-lifecycle changes — the aggregator implements the existing provider.
-- On-disk result caching or query persistence — results are in-memory per request.
-- LAN/network exposure — only outbound engine requests; inbound stays loopback.
+  (`add-search-ui-and-theming`); only the consuming config surface is in scope here.
+- New HTTP routes or server-lifecycle changes; the aggregator implements the existing provider.
+- On-disk result caching or query persistence; results are in-memory per request.
+- LAN/network exposure; only outbound engine requests, with inbound staying loopback.
 
 ## Decisions
 
 - **`EngineAdapter` SPI shape.** Each adapter exposes `id: String` (stable, used in config and
   result attribution), `displayName: String`, `categories: Set<SearchCategory>` (capabilities), and
   `suspend fun search(query: SearchQuery, ctx: EngineContext): EngineResult`. `EngineResult` is a
-  sealed type — `Success(results)` or `Failure(reason)` — so the adapter contract is **fail-soft by
+  sealed type (`Success(results)` or `Failure(reason)`) so the adapter contract is **fail-soft by
   construction**: an adapter returns `Failure` rather than throwing, and the aggregator treats both
   uncaught exceptions and `Failure` as "this engine contributed nothing." `EngineContext` carries
   the shared OkHttp client (already wrapped with the privacy interceptor), an optional injected API
@@ -60,7 +60,7 @@ adapter SPI shape, the fan-out/aggregation algorithm, and how the proxy and poli
   by a `Semaphore(maxConcurrent)` so a long engine list does not open an unbounded socket burst from
   one mobile IP. Each adapter call is wrapped in `withTimeout(perEngineTimeout)`; a timeout is
   caught and recorded as a non-fatal engine failure. The overall call returns once all engines
-  finish or are timed out — partial results are returned. *Alternative (`async`/`awaitAll`) rejected:*
+  finish or are timed out; partial results are returned. *Alternative (`async`/`awaitAll`) rejected:*
   one failure cancels the whole scope unless every call is individually guarded; `supervisorScope`
   plus per-call try/catch is the explicit fail-soft pattern.
 - **Deterministic ranking via Reciprocal Rank Fusion (RRF).** Each result gets a score
@@ -97,18 +97,18 @@ adapter SPI shape, the fan-out/aggregation algorithm, and how the proxy and poli
 - [A single mobile IP gets CAPTCHA-walled / rate-limited by an engine] → bounded concurrency +
   per-host politeness spacing + UA rotation + backoff on 429/503; if an engine still blocks, it
   fails soft and the others still return. Google is excluded entirely for exactly this reason.
-- [Privacy regression — an adapter leaks cookies/referrer/identity] → the proxy is a single shared
+- [Privacy regression: an adapter leaks cookies/referrer/identity] → the proxy is a single shared
   interceptor with a no-op cookie jar that adapters cannot bypass; privacy-proxy header assertions
   (via OkHttp MockWebServer) are part of the test suite and gate merge.
 - [Battery: network requests on a battery-sensitive always-on app] → requests happen only in
   response to an actual query; the server already brokers a short timed wake-lock per request
   (phase 3) and releases it in `finally`. The core adds no idle work, no background polling, and no
-  wake-lock of its own — it runs entirely within the request's existing wake-lock window. Bounded
+  wake-lock of its own; it runs entirely within the request's existing wake-lock window. Bounded
   concurrency also caps the radio-on burst.
 - [Android-version restrictions] → this phase first declares the `INTERNET` permission (normal, not
   dangerous; no runtime prompt). minSdk 26 / targetSdk 35 impose no cleartext concerns since all
   engine endpoints are HTTPS; the manifest keeps `usesCleartextTraffic=false`. No `specialUse`/FGS
-  contract change — the core is invoked by the existing service-owned server.
+  contract change; the core is invoked by the existing service-owned server.
 - [Non-determinism in ranking makes tests flaky] → RRF with a fixed `k` and fully specified
   tie-breakers yields byte-stable ordering for a fixed set of engine inputs; ranking is tested with
   static inputs independent of the network.
@@ -116,7 +116,7 @@ adapter SPI shape, the fan-out/aggregation algorithm, and how the proxy and poli
 ## Migration Plan
 
 - Implement the SPI, adapters, proxy, and aggregator behind the existing `SearchResultProvider`
-  interface, then swap the phase-3 stub for the real aggregator via dependency injection — a
+  interface, then swap the phase-3 stub for the real aggregator via dependency injection: a
   one-line wiring change, no route or contract change.
 - Rollback is trivial: re-point the provider binding back to the stub. Because nothing is persisted
   and no schema exists, there is no data migration and no rollback data risk.
@@ -125,10 +125,10 @@ adapter SPI shape, the fan-out/aggregation algorithm, and how the proxy and poli
 
 ## Open Questions
 
-- Final RRF constant `k` and the exact tracking-param strip list — pick sensible defaults now
+- Final RRF constant `k` and the exact tracking-param strip list: pick sensible defaults now
   (`k=60`, `utm_*`/`fbclid`/`gclid`), revisit if real queries show poor merging during VM
   verification.
-- Exact per-engine politeness spacing values — tune against real engine behavior during on-device
+- Exact per-engine politeness spacing values: tune against real engine behavior during on-device
   verification; defaults err on the conservative (slower) side.
-- The size/composition of the rotated User-Agent pool — start with a small curated set of current
+- The size/composition of the rotated User-Agent pool: start with a small curated set of current
   desktop browser UAs; not blocking.

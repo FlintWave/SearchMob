@@ -60,7 +60,7 @@ object OnboardingTestTags {
  * Skip (any page) and Finish (last page) both call [onComplete], which the caller wires to persist the
  * onboarding-completed flag so the wizard never reappears. [port] is the live bound loopback port for
  * the embedded browser-setup guidance (null when the server isn't running). Permission prompts are
- * user-initiated only — the wizard never auto-requests.
+ * user-initiated only; the wizard never auto-requests.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

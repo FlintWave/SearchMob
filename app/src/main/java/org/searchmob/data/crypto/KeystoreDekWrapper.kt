@@ -22,7 +22,7 @@ enum class SecurityLevel { STRONGBOX, TEE, SOFTWARE, UNKNOWN }
 
 /**
  * Wraps the DEK with an AES-256-GCM key held in the [AndroidKeyStore]. The key never leaves the
- * Keystore — wrapping/unwrapping run inside it. StrongBox is requested when the device advertises
+ * Keystore: wrapping/unwrapping run inside it. StrongBox is requested when the device advertises
  * [PackageManager.FEATURE_STRONGBOX_KEYSTORE]; a [StrongBoxUnavailableException] during generation
  * falls back to a TEE-backed key. A fresh random IV is generated per wrap (the Keystore supplies it)
  * and prepended to the ciphertext. Unwrapping a tampered blob fails GCM authentication and returns
@@ -95,7 +95,7 @@ class KeystoreDekWrapper(
             try {
                 return generateKey(strongBox = true)
             } catch (_: StrongBoxUnavailableException) {
-                // Advertised but unusable on this device — fall back to TEE.
+                // Advertised but unusable on this device, fall back to TEE.
             }
         }
         return generateKey(strongBox = false)

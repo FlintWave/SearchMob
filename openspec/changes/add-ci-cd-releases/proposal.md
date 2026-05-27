@@ -27,7 +27,7 @@ scaffold can ship to users with an auditable supply chain.
 - Document that **AGPL corresponding-source availability** is satisfied because every release is built
   from the public GitHub repository at a tagged commit.
 
-This change introduces **no app runtime permissions, no engines, and no network behavior** — it is
+This change introduces **no app runtime permissions, no engines, and no network behavior**; it is
 release/CI infrastructure plus build configuration (Gradle `signingConfigs`) only.
 
 ## Capabilities
@@ -63,15 +63,15 @@ release/CI infrastructure plus build configuration (Gradle `signingConfigs`) onl
 ## Non-goals
 
 - **No app/runtime feature work**: no engines, permissions, UI, service, or storage behavior changes.
-- **No Google Play / Play Console publishing** — SearchMob is intentionally off-Play; this pipeline
+- **No Google Play / Play Console publishing.** SearchMob is intentionally off-Play; this pipeline
   targets GitHub Releases and F-Droid only.
 - **No AAB-based store delivery or Play App Signing**; AAB output is optional/best-effort, with the
   signed **APK** as the canonical, sideloadable release artifact.
-- **No automatic submission of the fdroiddata merge request** — this change provides the metadata
+- **No automatic submission of the fdroiddata merge request.** This change provides the metadata
   recipe and verification guidance; submitting/maintaining the MR to fdroiddata is a manual,
   out-of-repo maintainer step.
-- **No achievement of bit-for-bit reproducible builds in this change** — reproducibility is stated as
+- **No achievement of bit-for-bit reproducible builds in this change.** Reproducibility is stated as
   a goal with the verification mechanism (`AllowedAPKSigningKeys`/`Binaries`) documented; closing any
   remaining nondeterminism is follow-up work.
-- **No release of the maintainer signing key** — key generation and secret configuration are done by
+- **No release of the maintainer signing key.** Key generation and secret configuration are done by
   the maintainer outside the repo; the keystore is never committed.

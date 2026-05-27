@@ -3,7 +3,7 @@
 SearchMob's core promise is **always-on**: the search service must be reachable on the phone at any
 moment without the user re-launching the app, surviving reboots and the OS's aggressive process
 reaping. The only Android mechanism that keeps a process alive indefinitely on a modern (API 35)
-off-Play app is a `specialUse` foreground service. This phase stands up that always-on backbone —
+off-Play app is a `specialUse` foreground service. This phase stands up that always-on backbone,
 and does it without betraying the **battery** goal: the service is event-driven and holds no
 wake-lock while idle, so the CPU sleeps and idle drain is ~0. (The HTTP server and search engines
 attach to this service in later phases; this change only owns the service lifecycle and a
@@ -28,38 +28,38 @@ placeholder running state.)
   the discipline and helper are established here for later phases to use.)
 - Add a **battery-optimization exemption flow**: detect `PowerManager.isIgnoringBatteryOptimizations()`
   and, if not exempt, offer the user the `ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` system
-  prompt. The exemption is never auto-granted — it is always a user-initiated choice.
+  prompt. The exemption is never auto-granted; it is always a user-initiated choice.
 - Add an **OEM autostart / never-sleep guidance surface** that links to dontkillmyapp.com per
   manufacturer (Samsung, Xiaomi, OnePlus, Huawei) and warns the user these settings can reset on
   firmware updates.
 
 ## Non-goals
 
-- The embedded Ktor HTTP server, localhost binding, request pipeline, and OpenSearch descriptor —
+- The embedded Ktor HTTP server, localhost binding, request pipeline, and OpenSearch descriptor;
   deferred to `add-local-search-server` (phase 3).
-- Any actual search, engine fan-out, or network I/O — deferred to `add-metasearch-engine-core`
+- Any actual search, engine fan-out, or network I/O; deferred to `add-metasearch-engine-core`
   (phase 4). This change performs no network requests.
-- Any persisted/encrypted storage or search history — deferred to `add-encrypted-storage`
+- Any persisted/encrypted storage or search history; deferred to `add-encrypted-storage`
   (phase 5). The state model here is in-memory only.
-- Rich settings/theming UI for the service controls — this phase exposes only the minimal controls
+- Rich settings/theming UI for the service controls. This phase exposes only the minimal controls
   (start/stop, exemption prompt, guidance link) needed to manage the lifecycle; the polished UI is
   `add-search-ui-and-theming` (phase 6).
-- LAN / network-mode service exposure — deferred to `add-network-mode` (phase 8).
-- Programmatically forcing or working around OEM autostart killers — only user-facing guidance is
+- LAN / network-mode service exposure; deferred to `add-network-mode` (phase 8).
+- Programmatically forcing or working around OEM autostart killers. Only user-facing guidance is
   in scope; auto-granting exemptions is explicitly out of scope.
 
 ## Capabilities
 
 ### New Capabilities
-- `always-on-service`: the `specialUse` foreground service lifecycle — start on app-open and on
+- `always-on-service`: the `specialUse` foreground service lifecycle, covering start on app-open and on
   boot, `START_STICKY` restart semantics, persistent notification, an observable
   stopped/starting/running state, user-initiated stop, and the no-idle-wake-lock battery
   discipline.
-- `device-setup-guidance`: the user-facing reliability setup — the battery-optimization exemption
+- `device-setup-guidance`: the user-facing reliability setup, covering the battery-optimization exemption
   detection and prompt, and the per-OEM autostart/never-sleep guidance surface.
 
 ### Modified Capabilities
-<!-- None — this change only introduces new capabilities. -->
+<!-- None. This change only introduces new capabilities. -->
 
 ## Impact
 

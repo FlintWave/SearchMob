@@ -29,8 +29,8 @@ down when the service stops. The server MUST NOT run independently of the servic
 - **THEN** the HTTP server stops listening and the loopback port is released
 
 ### Requirement: Server shuts down gracefully
-On stop, the server SHALL shut down gracefully — allowing in-flight requests a bounded grace period
-to complete — and MUST release its listening socket. Shutdown SHALL be bounded by a hard timeout so
+On stop, the server SHALL shut down gracefully, allowing in-flight requests a bounded grace period
+to complete, and MUST release its listening socket. Shutdown SHALL be bounded by a hard timeout so
 it cannot hang service teardown.
 
 #### Scenario: In-flight request drains on shutdown

@@ -24,7 +24,7 @@ import org.searchmob.ui.search.SearchResultsRepository
  * adapters, the preference state, the results repository, and the history store, and rebuilds the
  * [EngineRegistry] on demand from the current per-engine toggles and BYO API keys.
  *
- * INJECTION POINTS (owned by other phases — wired here, not reimplemented):
+ * INJECTION POINTS (owned by other phases, wired here, not reimplemented):
  * - [PreferencesStore]: defaults to the in-memory store; the storage phase binds an encrypted
  *   DataStore implementation here for reboot persistence.
  * - [HistoryStore]: defaults to the in-memory reference; the storage phase binds the SQLCipher store.

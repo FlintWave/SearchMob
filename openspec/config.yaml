@@ -1,7 +1,7 @@
 schema: spec-driven
 
 context: |
-  PROJECT: SearchMob — a private, battery-friendly, always-on metasearch service for Android.
+  PROJECT: SearchMob, a private, battery-friendly, always-on metasearch service for Android.
   It recreates the experience of running a local SearXNG instance, but as a native Android app
   that is gentle on battery, works without any SearchMob servers, and keeps user data encrypted
   at rest (zero-knowledge optional).
@@ -25,9 +25,9 @@ context: |
     (StrongBox when FEATURE_STRONGBOX_KEYSTORE present, else TEE) wrapping a random DEK; SQLCipher
     (net.zetetic:sqlcipher-android) for any DB; preferences via Jetpack DataStore with a
     Keystore-wrapped key. Jetpack Security (androidx.security:security-crypto) is DEPRECATED as of
-    1.1.0 — use Android Keystore directly, do not adopt EncryptedSharedPreferences. Optional
+    1.1.0, so use Android Keystore directly, do not adopt EncryptedSharedPreferences. Optional
     ZERO-KNOWLEDGE mode: derive the key from a user passphrase via Argon2id (argon2kt); data
-    becomes unrecoverable if the passphrase is lost — surface this explicitly in UX.
+    becomes unrecoverable if the passphrase is lost, so surface this explicitly in UX.
   - No telemetry, no analytics SDKs, no device identifiers (no ANDROID_ID/IMEI/MAC). If an install
     id is ever needed, use a locally-generated UUID the user can wipe.
 
@@ -55,7 +55,7 @@ context: |
     version/changelog via release-please with Conventional Commits. Add Dependabot, shellcheck +
     actionlint for any shell/workflow, SECURITY.md, CODE_OF_CONDUCT.md, CONTRIBUTING.md.
 
-  DEV WORKFLOW (user requirement): build features in logical order — scaffolding + basic deps
+  DEV WORKFLOW (user requirement): build features in logical order, scaffolding + basic deps
   first and TEST them, then each feature on its own branch; test, fix, re-test until green BEFORE
   merging to main. Conventional Commits throughout.
 
