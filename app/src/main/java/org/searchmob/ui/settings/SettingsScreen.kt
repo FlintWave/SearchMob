@@ -54,6 +54,7 @@ object SettingsTestTags {
     const val DYNAMIC_COLOR = "settings_dynamic_color"
     const val HISTORY_SWITCH = "settings_history_switch"
     const val BROWSER_SETUP = "settings_browser_setup"
+    const val ABOUT = "settings_about"
 
     fun engineSwitch(id: String) = "settings_engine_$id"
 }
@@ -64,6 +65,7 @@ fun SettingsScreen(
     viewModel: SettingsViewModel,
     onBack: () -> Unit,
     onOpenBrowserSetup: () -> Unit,
+    onOpenAbout: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val prefs by viewModel.preferencesState.collectAsStateWithLifecycle()
@@ -192,6 +194,17 @@ fun SettingsScreen(
                 context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(guidance.url)))
             }) {
                 Text(str(R.string.oem_guidance_button))
+            }
+
+            HorizontalDivider()
+
+            // --- About & privacy ---
+            SectionTitle(str(R.string.settings_section_about))
+            OutlinedButton(
+                onClick = onOpenAbout,
+                modifier = Modifier.testTag(SettingsTestTags.ABOUT),
+            ) {
+                Text(str(R.string.settings_about))
             }
         }
     }

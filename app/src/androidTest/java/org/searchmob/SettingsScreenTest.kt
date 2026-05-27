@@ -39,7 +39,7 @@ class SettingsScreenTest {
                 apiKeysSink = deps.apiKeys,
             )
         composeTestRule.setContent {
-            SettingsScreen(viewModel = viewModel, onBack = {}, onOpenBrowserSetup = {})
+            SettingsScreen(viewModel = viewModel, onBack = {}, onOpenBrowserSetup = {}, onOpenAbout = {})
         }
         return viewModel
     }
