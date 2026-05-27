@@ -158,6 +158,7 @@ dependencies {
 
     // Encrypted storage (Phase 5): DataStore + Room/SQLCipher + Argon2id + optional biometric.
     implementation(libs.androidx.datastore)
+    implementation(libs.androidx.datastore.preferences)
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
     ksp(libs.androidx.room.compiler)

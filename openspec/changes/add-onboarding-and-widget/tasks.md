@@ -30,6 +30,6 @@
 ## 5. Verify, validate, PR & merge
 
 - [x] 5.1 `./gradlew --no-daemon ktlintCheck lint test assembleDebug` green
-- [ ] 5.2 On-device/VM: complete + skip the wizard (verify it doesn't reappear), copy a URL and paste it, add the widget and tap it to open Search
-- [ ] 5.3 `openspec validate add-onboarding-and-widget --strict`
+- [x] 5.2 On-device/VM: complete + skip the wizard (verify it doesn't reappear), copy a URL and paste it, add the widget and tap it to open Search
+- [x] 5.3 `openspec validate add-onboarding-and-widget --strict`
 - [ ] 5.4 Open PR, confirm CI green, merge to `main`, then `openspec archive add-onboarding-and-widget`

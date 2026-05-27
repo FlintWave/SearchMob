@@ -30,6 +30,7 @@ import org.searchmob.ui.Routes
 import org.searchmob.ui.SearchMobNavHost
 import org.searchmob.ui.SearchMobViewModelFactory
 import org.searchmob.ui.onboarding.OnboardingWizard
+import org.searchmob.ui.prefs.DataStorePreferencesStore
 import org.searchmob.ui.prefs.UserPreferences
 import org.searchmob.ui.theme.SearchMobTheme
 import org.searchmob.widget.SearchDeepLink
@@ -37,7 +38,9 @@ import org.searchmob.widget.SearchDeepLink
 class MainActivity : ComponentActivity() {
     // App-scoped dependency graph. INJECTION POINT: the storage phase swaps the default in-memory
     // PreferencesStore / HistoryStore here for encrypted-DataStore + SQLCipher implementations.
-    private val deps: AppDependencies by lazy { AppDependencies() }
+    private val deps: AppDependencies by lazy {
+        AppDependencies(preferencesStore = DataStorePreferencesStore(applicationContext))
+    }
 
     // Set when the launching/relaunching intent asks to open Search (home-screen widget deep link).
     // Compose observes it and routes the nav to the Search route. A nullable token rather than a plain
