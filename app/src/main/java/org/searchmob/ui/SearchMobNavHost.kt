@@ -12,12 +12,14 @@ import org.searchmob.ui.search.SearchScreen
 import org.searchmob.ui.search.SearchViewModel
 import org.searchmob.ui.settings.SettingsScreen
 import org.searchmob.ui.settings.SettingsViewModel
+import org.searchmob.ui.setup.BrowserSetupScreen
 
 /** Navigation destinations. */
 object Routes {
     const val HOME = "home"
     const val SEARCH = "search"
     const val SETTINGS = "settings"
+    const val BROWSER_SETUP = "browser_setup"
 }
 
 /**
@@ -54,7 +56,11 @@ fun SearchMobNavHost(
             SettingsScreen(
                 viewModel = viewModel,
                 onBack = { navController.popBackStack() },
+                onOpenBrowserSetup = { navController.navigate(Routes.BROWSER_SETUP) },
             )
+        }
+        composable(Routes.BROWSER_SETUP) {
+            BrowserSetupScreen(onBack = { navController.popBackStack() })
         }
     }
 }

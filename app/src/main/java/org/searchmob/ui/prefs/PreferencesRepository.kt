@@ -31,6 +31,13 @@ class PreferencesRepository(
             )
         }
 
+    /** Whether the first-run wizard has been completed or skipped. Gates the wizard in navigation. */
+    val onboardingCompleted: Flow<Boolean> =
+        store.getBoolean(PreferenceKeys.ONBOARDING_COMPLETED, false)
+
+    suspend fun setOnboardingCompleted(completed: Boolean) =
+        store.setBoolean(PreferenceKeys.ONBOARDING_COMPLETED, completed)
+
     suspend fun setThemeMode(mode: ThemeMode) = store.setString(PreferenceKeys.THEME_MODE, mode.name)
 
     suspend fun setDynamicColor(enabled: Boolean) = store.setBoolean(PreferenceKeys.DYNAMIC_COLOR, enabled)

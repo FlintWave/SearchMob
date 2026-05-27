@@ -24,4 +24,5 @@ object PreferenceKeys {
     const val DYNAMIC_COLOR = "dynamic_color"
     const val ENGINE_ENABLED = "engine_enabled"
     const val HISTORY_ENABLED = "history_enabled"
+    const val ONBOARDING_COMPLETED = "onboarding_completed"
 }

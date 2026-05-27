@@ -6,18 +6,18 @@
 
 ## 2. Browser-setup guide
 
-- [ ] 2.1 Implement a `setupUrls(port)` helper producing the visit URL and `…/search?q=%s` template; source the port from `LocalServerState` (handle not-running)
-- [ ] 2.2 Implement the guide Compose screen: show both URLs, one-tap copy-to-clipboard each (with confirmation), per-browser steps (Chrome, Firefox, manual), and an "Open in browser" action
-- [ ] 2.3 Make the guide reachable from Settings
-- [ ] 2.4 Unit-test `setupUrls` (correct template + port) and the clipboard payload
+- [x] 2.1 Implement a `setupUrls(port)` helper producing the visit URL and `…/search?q=%s` template; source the port from `LocalServerState` (handle not-running)
+- [x] 2.2 Implement the guide Compose screen: show both URLs, one-tap copy-to-clipboard each (with confirmation), per-browser steps (Chrome, Firefox, manual), and an "Open in browser" action
+- [x] 2.3 Make the guide reachable from Settings
+- [x] 2.4 Unit-test `setupUrls` (correct template + port) and the clipboard payload
 
 ## 3. First-run wizard
 
-- [ ] 3.1 Implement a persisted "onboarding completed" flag via the `PreferencesStore`
-- [ ] 3.2 Implement the wizard host (pager) with Skip + Next/Back; show only when not completed
-- [ ] 3.3 Welcome page; permissions page (notifications + battery-opt, reflecting current state, user-initiated prompts); default-search page (embeds the browser-setup guide + Open-in-browser); optional privacy page (history/zero-knowledge entry)
-- [ ] 3.4 Gate app entry on the flag in `MainActivity`/nav; wire Skip/Finish to persist the flag
-- [ ] 3.5 Unit-test the completed-flag gating and wizard step/state logic
+- [x] 3.1 Implement a persisted "onboarding completed" flag via the `PreferencesStore`
+- [x] 3.2 Implement the wizard host (pager) with Skip + Next/Back; show only when not completed
+- [x] 3.3 Welcome page; permissions page (notifications + battery-opt, reflecting current state, user-initiated prompts); default-search page (embeds the browser-setup guide + Open-in-browser); optional privacy page (history/zero-knowledge entry)
+- [x] 3.4 Gate app entry on the flag in `MainActivity`/nav; wire Skip/Finish to persist the flag
+- [x] 3.5 Unit-test the completed-flag gating and wizard step/state logic
 
 ## 4. Home-screen widget
 

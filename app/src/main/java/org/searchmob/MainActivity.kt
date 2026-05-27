@@ -1,7 +1,9 @@
 package org.searchmob
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -13,12 +15,17 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.launch
+import org.searchmob.server.LocalServerState
 import org.searchmob.service.ServiceController
 import org.searchmob.ui.AppDependencies
 import org.searchmob.ui.SearchMobNavHost
 import org.searchmob.ui.SearchMobViewModelFactory
+import org.searchmob.ui.onboarding.OnboardingWizard
 import org.searchmob.ui.prefs.UserPreferences
 import org.searchmob.ui.theme.SearchMobTheme
 
@@ -64,10 +71,37 @@ fun SearchMobApp(deps: AppDependencies) {
         .collectAsStateWithLifecycle(initialValue = UserPreferences())
     val factory = remember(deps) { SearchMobViewModelFactory(deps) }
 
+    // Gate the first-run wizard on the persisted completion flag. `null` while the flag is loading so
+    // we don't flash the wizard before the stored value arrives.
+    val onboardingCompleted: Boolean? by deps.preferencesRepository.onboardingCompleted
+        .collectAsStateWithLifecycle(initialValue = null)
+    val port: Int? by LocalServerState.port.collectAsStateWithLifecycle()
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+
     SearchMobTheme(
         themeMode = prefs.themeMode,
         dynamicColor = prefs.dynamicColor,
     ) {
-        SearchMobNavHost(factory = factory)
+        when (onboardingCompleted) {
+            null -> Unit // loading; render nothing for the first frame
+            false ->
+                OnboardingWizard(
+                    port = port,
+                    onComplete = { scope.launch { deps.preferencesRepository.setOnboardingCompleted(true) } },
+                    onOpenUrl = { url -> context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) },
+                    onStartService = { ServiceController.start(context) },
+                    // Finishing the wizard hands off to the main app, where the history /
+                    // zero-knowledge privacy controls live in Settings.
+                    onOpenPrivacySettings = {
+                        scope.launch {
+                            deps.preferencesRepository.setOnboardingCompleted(
+                                true,
+                            )
+                        }
+                    },
+                )
+            else -> SearchMobNavHost(factory = factory)
+        }
     }
 }
