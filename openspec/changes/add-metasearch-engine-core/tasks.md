@@ -10,7 +10,7 @@
 - [x] 2.1 Define the normalized `SearchResult` model (title, url, snippet, source engine id, position) and the `SearchQuery` / `SearchCategory` types in the `engine/` package
 - [x] 2.2 Define the `EngineAdapter` SPI (`id`, `displayName`, `categories`, `suspend fun search(query, ctx)`) and a sealed `EngineResult` (`Success`/`Failure`) so adapters are fail-soft by construction
 - [x] 2.3 Define `EngineContext` carrying the shared OkHttp client, optional injected API key, and per-engine timeout
-- [ ] 2.4 Add `HtmlEngineAdapter` / `JsonEngineAdapter` base helpers (Jsoup + JSON parsing) to reduce per-adapter boilerplate
+- [x] 2.4 Add `HtmlEngineAdapter` / `JsonEngineAdapter` base helpers (Jsoup + JSON parsing) to reduce per-adapter boilerplate
 
 ## 3. Privacy proxy & HTTP client
 
@@ -20,11 +20,11 @@
 
 ## 4. Default free engine adapters
 
-- [ ] 4.1 Implement the DuckDuckGo adapter (html/lite endpoint, Jsoup parse)
+- [x] 4.1 Implement the DuckDuckGo adapter (html/lite endpoint, Jsoup parse)
 - [ ] 4.2 Implement the Brave (html) adapter (Jsoup parse)
 - [ ] 4.3 Implement the Mojeek (html) adapter (Jsoup parse)
 - [ ] 4.4 Implement the Marginalia adapter (free API, JSON parse)
-- [ ] 4.5 Implement the Mwmbl adapter (JSON parse)
+- [x] 4.5 Implement the Mwmbl adapter (JSON parse)
 - [x] 4.6 Implement the Wikipedia adapter (JSON parse)
 - [x] 4.7 Confirm NO Google adapter exists or is registered (enforced by test in 7.6)
 
@@ -44,7 +44,7 @@
 
 ## 7. Unit tests
 
-- [ ] 7.1 Save per-engine HTML/JSON response fixtures and add a parse test per engine asserting extracted title/url/snippet against the fixture
+- [x] 7.1 Save per-engine HTML/JSON response fixtures and add a parse test per engine asserting extracted title/url/snippet against the fixture
 - [x] 7.2 Test dedup determinism: same URL across engines collapses to one with both engines recorded; distinct URLs preserved
 - [x] 7.3 Test ranking determinism: identical fixed inputs ranked twice yield byte-identical ordering; multi-engine agreement ranks above single-engine
 - [x] 7.4 Test fail-soft: one engine that throws and one that times out (via MockWebServer delay) still yield merged results from the rest; all-fail yields empty (no error)

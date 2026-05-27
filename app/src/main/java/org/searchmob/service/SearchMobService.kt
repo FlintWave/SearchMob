@@ -14,6 +14,8 @@ import androidx.core.app.ServiceCompat
 import org.searchmob.R
 import org.searchmob.engine.EngineRegistry
 import org.searchmob.engine.MetaSearchResultProvider
+import org.searchmob.engine.adapters.DuckDuckGoAdapter
+import org.searchmob.engine.adapters.MwmblAdapter
 import org.searchmob.engine.adapters.WikipediaAdapter
 import org.searchmob.server.LocalServerState
 import org.searchmob.server.SearchServer
@@ -29,7 +31,10 @@ import org.searchmob.server.WakeLockRequestGuard
 class SearchMobService : Service() {
     // Loopback HTTP server backed by the metasearch engine; each request acquires a short wake-lock.
     private val searchServer by lazy {
-        val registry = EngineRegistry(listOf(WikipediaAdapter()))
+        val registry =
+            EngineRegistry(
+                listOf(DuckDuckGoAdapter(), MwmblAdapter(), WikipediaAdapter()),
+            )
         SearchServer(
             provider = MetaSearchResultProvider(registry),
             guard = WakeLockRequestGuard(AndroidWorkLock(applicationContext)),
