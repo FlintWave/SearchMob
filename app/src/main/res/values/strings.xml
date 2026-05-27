@@ -1,4 +1,30 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">SearchMob</string>
+    <string name="home_tagline">Private, battery-friendly, on-device search.</string>
+
+    <!-- Foreground service -->
+    <string name="service_channel_name">Search service</string>
+    <string name="service_channel_description">Keeps the on-device search service available.</string>
+    <string name="service_notification_title">SearchMob is running</string>
+    <string name="service_notification_text">On-device private search is available.</string>
+    <string name="service_notification_stop">Stop</string>
+
+    <!-- Service controls -->
+    <string name="service_status_label">Service</string>
+    <string name="service_state_stopped">Stopped</string>
+    <string name="service_state_starting">Starting…</string>
+    <string name="service_state_running">Running</string>
+    <string name="service_start">Start</string>
+    <string name="service_stop">Stop</string>
+
+    <!-- Battery optimization -->
+    <string name="battery_label">Battery optimization</string>
+    <string name="battery_exempt">Exempt — the service can stay alive.</string>
+    <string name="battery_not_exempt">Not exempt — the system may kill the always-on service.</string>
+    <string name="battery_allow">Allow always-on</string>
+
+    <!-- OEM guidance -->
+    <string name="oem_guidance_button">Keep it alive on your phone</string>
+    <string name="oem_guidance_warning">Heads up: some manufacturers reset these settings after a firmware/OS update, so you may need to re-apply them.</string>
 </resources>
