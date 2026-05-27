@@ -167,12 +167,12 @@ fun ColumnScope.BrowserSetupBody(
     }
 
     InstructionCard(
-        title = str(R.string.setup_chrome_title),
+        title = str(R.string.setup_generic_title),
         steps =
             listOf(
-                str(R.string.setup_chrome_step1),
-                str(R.string.setup_chrome_step2),
-                str(R.string.setup_chrome_step3),
+                str(R.string.setup_generic_step1),
+                str(R.string.setup_generic_step2),
+                str(R.string.setup_generic_step3),
             ),
     )
     InstructionCard(
@@ -182,6 +182,15 @@ fun ColumnScope.BrowserSetupBody(
                 str(R.string.setup_firefox_step1),
                 str(R.string.setup_firefox_step2),
                 str(R.string.setup_firefox_step3),
+            ),
+    )
+    InstructionCard(
+        title = str(R.string.setup_chrome_title),
+        steps =
+            listOf(
+                str(R.string.setup_chrome_step1),
+                str(R.string.setup_chrome_step2),
+                str(R.string.setup_chrome_step3),
             ),
     )
     InstructionCard(

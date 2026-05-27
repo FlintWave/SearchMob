@@ -2,7 +2,7 @@
 
 - [ ] 1.1 Create branch `feat/add-onboarding-and-widget` off `main`
 - [ ] 1.2 Add `androidx.glance:glance-appwidget` (+ `glance-material3`) to the version catalog + app build
-- [ ] 1.3 No new dangerous permissions; confirm manifest adds only the widget `<receiver>` + metadata
+- [x] 1.3 No new dangerous permissions; confirm manifest adds only the widget `<receiver>` + metadata
 
 ## 2. Browser-setup guide
 
@@ -29,7 +29,7 @@
 
 ## 5. Verify, validate, PR & merge
 
-- [ ] 5.1 `./gradlew --no-daemon ktlintCheck lint test assembleDebug` green
+- [x] 5.1 `./gradlew --no-daemon ktlintCheck lint test assembleDebug` green
 - [ ] 5.2 On-device/VM: complete + skip the wizard (verify it doesn't reappear), copy a URL and paste it, add the widget and tap it to open Search
 - [ ] 5.3 `openspec validate add-onboarding-and-widget --strict`
 - [ ] 5.4 Open PR, confirm CI green, merge to `main`, then `openspec archive add-onboarding-and-widget`

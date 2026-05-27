@@ -84,7 +84,7 @@
 
     <!-- Browser-setup guide -->
     <string name="setup_title">Browser setup</string>
-    <string name="setup_intro">Add SearchMob as your browser\'s search engine so searches from the address bar go through your private, on-device server.</string>
+    <string name="setup_intro">Make SearchMob your browser\'s default search engine. The method is the same in most browsers: open the page below once, then add SearchMob from your browser\'s search settings. Browser-specific notes follow.</string>
     <string name="setup_visit_label">Page to visit</string>
     <string name="setup_template_label">Search template (for manual add)</string>
     <string name="setup_copy">Copy</string>
@@ -94,15 +94,20 @@
     <string name="setup_not_running_body">The on-device search server isn\'t running, so there\'s no address to add yet. Start the service, then come back here.</string>
     <string name="setup_start_service">Start service</string>
 
-    <string name="setup_chrome_title">Chrome</string>
-    <string name="setup_chrome_step1">Open the page above in Chrome at least once so it\'s discoverable.</string>
-    <string name="setup_chrome_step2">Go to Settings → Search engine → Manage search engines &amp; site search.</string>
-    <string name="setup_chrome_step3">Under \"Site search\", find SearchMob (or tap Add and paste the search template), then set it as default.</string>
+    <string name="setup_generic_title">Any browser (the general method)</string>
+    <string name="setup_generic_step1">Open the page above once — SearchMob advertises itself as a search engine when you visit it.</string>
+    <string name="setup_generic_step2">Open your browser\'s search-engine settings.</string>
+    <string name="setup_generic_step3">Pick SearchMob if it appears, or add a custom engine using the search template below (keep %s intact), then set it as default.</string>
 
-    <string name="setup_firefox_title">Firefox</string>
-    <string name="setup_firefox_step1">Open the page above in Firefox.</string>
-    <string name="setup_firefox_step2">Tap the menu → Settings → Search.</string>
-    <string name="setup_firefox_step3">Add a search engine using the search template, then set SearchMob as the default.</string>
+    <string name="setup_firefox_title">Firefox family (Firefox, Fennec, Mull, IronFox)</string>
+    <string name="setup_firefox_step1">Open the page above in your Firefox-based browser.</string>
+    <string name="setup_firefox_step2">Open the menu → Settings → Search → Default search engine → Add search engine.</string>
+    <string name="setup_firefox_step3">Use the search template as the URL (keep %s), name it SearchMob, save, then set it as the default.</string>
+
+    <string name="setup_chrome_title">Chromium browsers (Chrome, Brave, Edge, Vivaldi)</string>
+    <string name="setup_chrome_step1">Open the page above once so the browser can discover it.</string>
+    <string name="setup_chrome_step2">Go to Settings → Search engine → Manage search engines &amp; site search.</string>
+    <string name="setup_chrome_step3">Find SearchMob (or tap Add and paste the search template), then set it as default.</string>
 
     <string name="setup_manual_title">Other browsers (manual)</string>
     <string name="setup_manual_step1">In your browser\'s search-engine settings, add a custom engine.</string>
