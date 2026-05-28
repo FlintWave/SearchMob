@@ -1,6 +1,9 @@
 package org.searchmob.data.history
 
-/** A stored search-history entry. */
+import kotlinx.serialization.Serializable
+
+/** A stored search-history entry. Serializable so history can be exported/imported as JSON. */
+@Serializable
 data class HistoryEntry(val query: String, val timestampMs: Long)
 
 /**
@@ -14,6 +17,9 @@ interface HistoryStore {
     fun setEnabled(enabled: Boolean)
 
     fun add(entry: HistoryEntry)
+
+    /** Delete a single stored entry (matched by query and timestamp). No-op if it is not present. */
+    fun delete(entry: HistoryEntry)
 
     /** Non-expired entries as of [nowMs]; also sweeps expired entries opportunistically. */
     fun list(nowMs: Long): List<HistoryEntry>
@@ -61,6 +67,10 @@ class InMemoryHistoryStore(private val ttlMs: Long = 7L * 24 * 60 * 60 * 1000) :
 
     override fun add(entry: HistoryEntry) {
         if (on) entries.add(entry)
+    }
+
+    override fun delete(entry: HistoryEntry) {
+        entries.removeAll { it == entry }
     }
 
     override fun list(nowMs: Long): List<HistoryEntry> {

@@ -54,6 +54,12 @@ class SqlCipherHistoryStore(
     }
 
     @Synchronized
+    override fun delete(entry: HistoryEntry) {
+        if (db == null && !dbFile().exists()) return
+        database().historyDao().deleteEntry(entry.query, entry.timestampMs)
+    }
+
+    @Synchronized
     override fun list(nowMs: Long): List<HistoryEntry> {
         if (!on) return emptyList()
         val dao = database().historyDao()

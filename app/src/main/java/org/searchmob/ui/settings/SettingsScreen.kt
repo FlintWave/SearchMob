@@ -83,6 +83,7 @@ fun SettingsScreen(
     onBack: () -> Unit,
     onOpenBrowserSetup: () -> Unit,
     onOpenAbout: () -> Unit,
+    onOpenHistory: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val prefs by viewModel.preferencesState.collectAsStateWithLifecycle()
@@ -195,8 +196,13 @@ fun SettingsScreen(
                 tag = SettingsTestTags.HISTORY_SWITCH,
                 onCheckedChange = viewModel::setHistoryEnabled,
             )
-            OutlinedButton(onClick = viewModel::clearHistory) {
-                Text(str(R.string.settings_history_clear))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = onOpenHistory) {
+                    Text(str(R.string.settings_history_view))
+                }
+                OutlinedButton(onClick = viewModel::clearHistory) {
+                    Text(str(R.string.settings_history_clear))
+                }
             }
             ZeroKnowledgeRow()
 
