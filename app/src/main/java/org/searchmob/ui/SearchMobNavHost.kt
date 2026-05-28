@@ -8,6 +8,8 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import org.searchmob.ui.about.AboutScreen
+import org.searchmob.ui.history.HistoryScreen
+import org.searchmob.ui.history.HistoryViewModel
 import org.searchmob.ui.home.HomeScreen
 import org.searchmob.ui.search.SearchScreen
 import org.searchmob.ui.search.SearchViewModel
@@ -22,6 +24,7 @@ object Routes {
     const val SETTINGS = "settings"
     const val BROWSER_SETUP = "browser_setup"
     const val ABOUT = "about"
+    const val HISTORY = "history"
 }
 
 /**
@@ -60,7 +63,12 @@ fun SearchMobNavHost(
                 onBack = { navController.popBackStack() },
                 onOpenBrowserSetup = { navController.navigate(Routes.BROWSER_SETUP) },
                 onOpenAbout = { navController.navigate(Routes.ABOUT) },
+                onOpenHistory = { navController.navigate(Routes.HISTORY) },
             )
+        }
+        composable(Routes.HISTORY) {
+            val historyViewModel: HistoryViewModel = viewModel(factory = factory)
+            HistoryScreen(viewModel = historyViewModel, onBack = { navController.popBackStack() })
         }
         composable(Routes.BROWSER_SETUP) {
             BrowserSetupScreen(onBack = { navController.popBackStack() })

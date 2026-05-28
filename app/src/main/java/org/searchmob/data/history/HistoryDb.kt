@@ -48,6 +48,13 @@ interface HistoryDao {
     @Query("DELETE FROM history WHERE timestampMs < :cutoffMs")
     fun deleteOlderThan(cutoffMs: Long)
 
+    /** Delete a single stored entry matched by its query text and timestamp. */
+    @Query("DELETE FROM history WHERE query = :query AND timestampMs = :timestampMs")
+    fun deleteEntry(
+        query: String,
+        timestampMs: Long,
+    )
+
     @Query("DELETE FROM history")
     fun deleteAll()
 }

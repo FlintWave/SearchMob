@@ -2,6 +2,7 @@ package org.searchmob.ui
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
+import org.searchmob.ui.history.HistoryViewModel
 import org.searchmob.ui.search.SearchViewModel
 import org.searchmob.ui.settings.SettingsViewModel
 
@@ -29,6 +30,8 @@ class SearchMobViewModelFactory(
     override fun <T : ViewModel> create(modelClass: Class<T>): T =
         when {
             modelClass.isAssignableFrom(SettingsViewModel::class.java) -> settingsViewModel as T
+            modelClass.isAssignableFrom(HistoryViewModel::class.java) ->
+                HistoryViewModel(historyStore = deps.historyStore) as T
             modelClass.isAssignableFrom(SearchViewModel::class.java) ->
                 SearchViewModel(
                     repository = deps.searchRepository,
