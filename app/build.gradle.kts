@@ -61,7 +61,7 @@ val appVersionCode =
 
 android {
     namespace = "org.searchmob"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "org.searchmob"
@@ -104,10 +104,6 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    kotlinOptions {
-        jvmTarget = "17"
-    }
-
     buildFeatures {
         compose = true
     }
@@ -123,6 +119,12 @@ android {
                     "/META-INF/io.netty.versions.properties",
                 )
         }
+    }
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
     }
 }
 
