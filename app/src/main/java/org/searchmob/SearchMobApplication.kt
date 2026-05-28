@@ -7,6 +7,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import org.searchmob.data.StorageProvider
+import org.searchmob.data.prefs.RankingPreferences
 import org.searchmob.engine.correct.AssetDictionaryLoader
 import org.searchmob.engine.correct.OnDeviceSpellCorrector
 import org.searchmob.engine.correct.SpellCorrector
@@ -45,6 +46,9 @@ class SearchMobApplication : Application() {
     val spellCorrector: SpellCorrector by lazy {
         OnDeviceSpellCorrector(dictionary = { dictionaryLoader.current() })
     }
+
+    /** User result-ranking rules, persisted in the encrypted store; shared by the UI and the service. */
+    val rankingPreferences: RankingPreferences by lazy { RankingPreferences(storage.preferences) }
 
     override fun onCreate() {
         super.onCreate()

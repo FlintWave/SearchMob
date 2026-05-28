@@ -51,6 +51,8 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.launch
 import org.searchmob.R
+import org.searchmob.engine.rank.Lens
+import org.searchmob.engine.rank.RankingRules
 import org.searchmob.server.LocalServerState
 import org.searchmob.server.networkReachableUrl
 import org.searchmob.service.BatteryOptimization
@@ -85,6 +87,7 @@ fun SettingsScreen(
 ) {
     val prefs by viewModel.preferencesState.collectAsStateWithLifecycle()
     val keyPresence by viewModel.apiKeyPresence.collectAsStateWithLifecycle()
+    val ranking by viewModel.rankingRules.collectAsStateWithLifecycle()
     val showNetworkWarning by viewModel.showNetworkWarning.collectAsStateWithLifecycle()
     val port by LocalServerState.port.collectAsStateWithLifecycle()
     val context = LocalContext.current
@@ -190,6 +193,11 @@ fun SettingsScreen(
                 Text(str(R.string.settings_history_clear))
             }
             ZeroKnowledgeRow()
+
+            HorizontalDivider()
+
+            // --- Result ranking (personalization) ---
+            ResultRankingSection(rules = ranking, viewModel = viewModel)
 
             HorizontalDivider()
 
@@ -448,6 +456,226 @@ private fun ZeroKnowledgeRow() {
             },
         )
     }
+}
+
+@Composable
+private fun ResultRankingSection(
+    rules: RankingRules,
+    viewModel: SettingsViewModel,
+) {
+    var showAddLens by remember { mutableStateOf(false) }
+    var showImportGoggle by remember { mutableStateOf(false) }
+    var showImportRules by remember { mutableStateOf(false) }
+    var exportedJson by remember { mutableStateOf<String?>(null) }
+
+    SectionTitle(str(R.string.settings_section_ranking))
+    Text(str(R.string.settings_ranking_supporting), style = MaterialTheme.typography.bodySmall)
+
+    // Active lens (None plus each saved lens, with delete).
+    Text(str(R.string.settings_lens_active), style = MaterialTheme.typography.labelLarge)
+    LensRadio(label = str(R.string.settings_lens_none), selected = rules.activeLens == null) {
+        viewModel.selectLens(null)
+    }
+    rules.lenses.forEach { lens ->
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+            LensRadio(
+                label = lens.name,
+                selected = rules.activeLens == lens.name,
+                modifier = Modifier.weight(1f),
+            ) { viewModel.selectLens(lens.name) }
+            TextButton(onClick = { viewModel.deleteLens(lens.name) }) {
+                Text(str(R.string.settings_lens_delete))
+            }
+        }
+    }
+    OutlinedButton(onClick = { showAddLens = true }) { Text(str(R.string.settings_lens_add)) }
+
+    // Per-domain rules (created from the inline result menu; managed/cleared here).
+    if (rules.domainRules.isEmpty()) {
+        Text(str(R.string.settings_ranking_domains_empty), style = MaterialTheme.typography.bodySmall)
+    } else {
+        rules.domainRules.entries.sortedBy { it.key }.forEach { (domain, rule) ->
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    text = "$domain — ${rule.name.lowercase()}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.weight(1f),
+                )
+                TextButton(onClick = { viewModel.clearDomainRule(domain) }) {
+                    Text(str(R.string.rank_normal))
+                }
+            }
+        }
+    }
+
+    // Goggles.
+    Text(
+        text = str(R.string.settings_goggles) + ": " + rules.goggles.size,
+        style = MaterialTheme.typography.bodyMedium,
+    )
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        OutlinedButton(onClick = { showImportGoggle = true }) { Text(str(R.string.settings_goggles_import)) }
+        if (rules.goggles.isNotEmpty()) {
+            TextButton(onClick = viewModel::clearGoggles) { Text(str(R.string.settings_goggles_clear)) }
+        }
+    }
+
+    // Export / import all rules as JSON.
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        OutlinedButton(onClick = { viewModel.exportRulesJson { exportedJson = it } }) {
+            Text(str(R.string.settings_rules_export))
+        }
+        OutlinedButton(onClick = { showImportRules = true }) { Text(str(R.string.settings_rules_import)) }
+    }
+
+    if (showAddLens) {
+        AddLensDialog(
+            onDismiss = { showAddLens = false },
+            onSave = {
+                viewModel.saveLens(it)
+                showAddLens = false
+            },
+        )
+    }
+    if (showImportGoggle) {
+        PasteTextDialog(
+            title = str(R.string.settings_goggle_paste_title),
+            onDismiss = { showImportGoggle = false },
+            onConfirm = {
+                viewModel.importGoggles(it)
+                showImportGoggle = false
+            },
+        )
+    }
+    if (showImportRules) {
+        PasteTextDialog(
+            title = str(R.string.settings_rules_paste_title),
+            onDismiss = { showImportRules = false },
+            onConfirm = {
+                viewModel.importRulesJson(it)
+                showImportRules = false
+            },
+        )
+    }
+    exportedJson?.let { json ->
+        val clipboard = LocalClipboardManager.current
+        AlertDialog(
+            onDismissRequest = { exportedJson = null },
+            title = { Text(str(R.string.settings_rules_exported_title)) },
+            text = { Text(json, style = MaterialTheme.typography.bodySmall) },
+            confirmButton = {
+                TextButton(onClick = { clipboard.setText(AnnotatedString(json)) }) {
+                    Text(str(R.string.settings_rules_export))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { exportedJson = null }) { Text(str(R.string.settings_close)) }
+            },
+        )
+    }
+}
+
+/** A radio row used to pick the active lens. */
+@Composable
+private fun LensRadio(
+    label: String,
+    selected: Boolean,
+    modifier: Modifier = Modifier,
+    onSelect: () -> Unit,
+) {
+    Row(
+        modifier = modifier.fillMaxWidth().selectable(selected = selected, role = Role.RadioButton, onClick = onSelect),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        RadioButton(selected = selected, onClick = null)
+        Text(label, style = MaterialTheme.typography.bodyLarge)
+    }
+}
+
+/** Dialog to create a lens from comma-separated domain/keyword fields. */
+@Composable
+private fun AddLensDialog(
+    onDismiss: () -> Unit,
+    onSave: (Lens) -> Unit,
+) {
+    var name by remember { mutableStateOf("") }
+    var includeDomains by remember { mutableStateOf("") }
+    var excludeDomains by remember { mutableStateOf("") }
+    var includeKeywords by remember { mutableStateOf("") }
+    var excludeKeywords by remember { mutableStateOf("") }
+
+    fun split(s: String) = s.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(str(R.string.settings_lens_add)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    name,
+                    { name = it },
+                    label = { Text(str(R.string.settings_lens_name)) },
+                    singleLine = true,
+                )
+                OutlinedTextField(includeDomains, {
+                    includeDomains = it
+                }, label = { Text(str(R.string.settings_lens_include_domains)) })
+                OutlinedTextField(excludeDomains, {
+                    excludeDomains = it
+                }, label = { Text(str(R.string.settings_lens_exclude_domains)) })
+                OutlinedTextField(includeKeywords, {
+                    includeKeywords = it
+                }, label = { Text(str(R.string.settings_lens_include_keywords)) })
+                OutlinedTextField(excludeKeywords, {
+                    excludeKeywords = it
+                }, label = { Text(str(R.string.settings_lens_exclude_keywords)) })
+            }
+        },
+        confirmButton = {
+            TextButton(
+                enabled = name.isNotBlank(),
+                onClick = {
+                    onSave(
+                        Lens(
+                            name = name.trim(),
+                            includeDomains = split(includeDomains),
+                            excludeDomains = split(excludeDomains),
+                            includeKeywords = split(includeKeywords),
+                            excludeKeywords = split(excludeKeywords),
+                        ),
+                    )
+                },
+            ) { Text(str(R.string.settings_key_save)) }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(str(R.string.cancel)) } },
+    )
+}
+
+/** Dialog with a single multi-line field for pasting goggle rules or exported JSON. */
+@Composable
+private fun PasteTextDialog(
+    title: String,
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit,
+) {
+    var text by remember { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
+            OutlinedTextField(
+                value = text,
+                onValueChange = { text = it },
+                modifier = Modifier.fillMaxWidth(),
+                minLines = 4,
+            )
+        },
+        confirmButton = {
+            TextButton(enabled = text.isNotBlank(), onClick = { onConfirm(text) }) {
+                Text(str(R.string.settings_rules_import))
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(str(R.string.cancel)) } },
+    )
 }
 
 @Composable

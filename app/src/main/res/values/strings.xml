@@ -46,6 +46,12 @@
     <string name="search_source_prefix">via</string>
     <string name="search_did_you_mean">Did you mean:</string>
     <string name="search_showing_results_for">Showing results for</string>
+    <string name="rank_menu">Ranking for this site</string>
+    <string name="rank_block">Block</string>
+    <string name="rank_lower">Lower</string>
+    <string name="rank_raise">Raise</string>
+    <string name="rank_pin">Pin</string>
+    <string name="rank_normal">Normal (clear)</string>
 
     <!-- Settings -->
     <string name="settings_title">Settings</string>
@@ -77,6 +83,27 @@
     <string name="settings_zk_continue">Continue</string>
 
     <!-- Search suggestions (opt-in upstream autocomplete) -->
+    <string name="settings_section_ranking">Result ranking</string>
+    <string name="settings_ranking_supporting">Raise, lower, pin, or block sites and scope searches with lenses. All rules stay on your device.</string>
+    <string name="settings_lens_active">Active lens</string>
+    <string name="settings_lens_none">None</string>
+    <string name="settings_lens_add">Add lens</string>
+    <string name="settings_lens_delete">Delete lens</string>
+    <string name="settings_lens_name">Lens name</string>
+    <string name="settings_lens_include_domains">Include domains (comma-separated)</string>
+    <string name="settings_lens_exclude_domains">Exclude domains (comma-separated)</string>
+    <string name="settings_lens_include_keywords">Include keywords (comma-separated)</string>
+    <string name="settings_lens_exclude_keywords">Exclude keywords (comma-separated)</string>
+    <string name="settings_ranking_domains_empty">Block or boost a site from the menu on any result.</string>
+    <string name="settings_goggles">Imported goggle rules</string>
+    <string name="settings_goggles_import">Import goggle</string>
+    <string name="settings_goggles_clear">Clear goggle</string>
+    <string name="settings_goggle_paste_title">Paste goggle rules</string>
+    <string name="settings_rules_export">Export rules</string>
+    <string name="settings_rules_import">Import rules</string>
+    <string name="settings_rules_paste_title">Paste exported rules JSON</string>
+    <string name="settings_rules_exported_title">Rules (copy to back up)</string>
+    <string name="settings_close">Close</string>
     <string name="settings_section_suggestions">Suggestions</string>
     <string name="settings_suggestions_upstream">Live suggestions from the web</string>
     <string name="settings_suggestions_upstream_supporting">Off by default. When on, what you type is sent to DuckDuckGo\'s suggestion service through the privacy proxy as you type, to offer live autocomplete. Off keeps suggestions to your local history only.</string>

@@ -6,6 +6,7 @@ import org.searchmob.engine.MetaSearchResultProvider
 import org.searchmob.engine.correct.NoopSpellCorrector
 import org.searchmob.engine.correct.SpellCorrector
 import org.searchmob.engine.http.HttpClientFactory
+import org.searchmob.engine.rank.RankingRules
 import org.searchmob.server.SearchOutcome
 import org.searchmob.server.SearchResult
 
@@ -34,9 +35,15 @@ class InProcessSearchResultsRepository(
     private val registryProvider: () -> EngineRegistry,
     private val httpClient: OkHttpClient = HttpClientFactory.create(),
     private val corrector: SpellCorrector = NoopSpellCorrector,
+    private val rankingRules: suspend () -> RankingRules = { RankingRules.EMPTY },
 ) : SearchResultsRepository {
     private fun provider() =
-        MetaSearchResultProvider(registry = registryProvider(), httpClient = httpClient, corrector = corrector)
+        MetaSearchResultProvider(
+            registry = registryProvider(),
+            httpClient = httpClient,
+            corrector = corrector,
+            rankingRules = rankingRules,
+        )
 
     override suspend fun search(query: String): List<SearchResult> = provider().search(query)
 
