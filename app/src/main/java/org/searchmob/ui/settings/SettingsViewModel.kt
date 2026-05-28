@@ -36,6 +36,8 @@ class SettingsViewModel(
 
     private val mutableApiKeys = MutableStateFlow<Map<String, String>>(emptyMap())
 
+    private val mutableShowNetworkWarning = MutableStateFlow(false)
+
     /** Which engines currently have a key set (the key value itself is never exposed to the UI). */
     val apiKeyPresence: StateFlow<Set<String>> =
         mutableApiKeys
@@ -71,6 +73,36 @@ class SettingsViewModel(
 
     fun setHistoryEnabled(enabled: Boolean) {
         viewModelScope.launch { preferences.setHistoryEnabled(enabled) }
+    }
+
+    /**
+     * Whether the network-mode warning dialog is currently shown. Turning the toggle ON opens it;
+     * confirming or cancelling closes it. Turning OFF never opens it.
+     */
+    val showNetworkWarning: StateFlow<Boolean> = mutableShowNetworkWarning
+
+    /**
+     * Handle a network-mode toggle. Enabling is gated: it only opens the warning dialog and does NOT
+     * persist yet. Disabling persists immediately with no confirmation.
+     */
+    fun onNetworkAccessToggle(requestedOn: Boolean) {
+        if (requestedOn) {
+            mutableShowNetworkWarning.value = true
+        } else {
+            mutableShowNetworkWarning.value = false
+            viewModelScope.launch { preferences.setNetworkAccessEnabled(false) }
+        }
+    }
+
+    /** User confirmed the warning: persist network mode ON and close the dialog. */
+    fun confirmNetworkAccess() {
+        mutableShowNetworkWarning.value = false
+        viewModelScope.launch { preferences.setNetworkAccessEnabled(true) }
+    }
+
+    /** User cancelled the warning: leave network mode OFF and close the dialog. */
+    fun cancelNetworkAccess() {
+        mutableShowNetworkWarning.value = false
     }
 
     fun clearHistory() {

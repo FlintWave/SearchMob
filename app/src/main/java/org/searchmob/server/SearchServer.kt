@@ -38,7 +38,17 @@ import java.net.InetSocketAddress
 import java.net.ServerSocket
 
 const val LOOPBACK_HOST = "127.0.0.1"
+
+/** Wildcard bind address used only when the opt-in network mode is enabled (reachable off-device). */
+const val ALL_INTERFACES_HOST = "0.0.0.0"
 const val DEFAULT_PORT = 8787
+
+/**
+ * The address the embedded server binds to. Loopback-only by default; binds to all interfaces
+ * ("0.0.0.0") only when the user has opted into network mode, so other machines on the LAN/Tailscale
+ * network can reach it. Pure so the binding decision is unit-testable without a running server.
+ */
+fun bindHost(networkAccessEnabled: Boolean): String = if (networkAccessEnabled) ALL_INTERFACES_HOST else LOOPBACK_HOST
 
 /** Upper bound on the accepted `q` length; longer input is truncated before reaching the provider. */
 const val MAX_QUERY_LENGTH = 512
@@ -331,8 +341,9 @@ fun freeLoopbackPort(): Int =
     }
 
 /**
- * Embedded Ktor (CIO) HTTP server bound ONLY to loopback. Its lifecycle is owned by the foreground
- * service. Falls back to an available port if the preferred one is busy and exposes the bound port.
+ * Embedded Ktor (CIO) HTTP server. Bound ONLY to loopback by default; binds to all interfaces when the
+ * opt-in network mode is enabled (see [bindHost]). Its lifecycle is owned by the foreground service.
+ * Falls back to an available port if the preferred one is busy and exposes the bound port and host.
  */
 class SearchServer(
     private val provider: SearchResultProvider = StubSearchResultProvider(),
@@ -345,21 +356,49 @@ class SearchServer(
     var boundPort: Int = -1
         private set
 
+    /** The address the running server is bound to (loopback by default), or null when stopped. */
+    @Volatile
+    var boundHost: String? = null
+        private set
+
     val isRunning: Boolean get() = server != null
 
-    /** Starts the server (idempotent). Returns the actually-bound loopback port. */
+    /**
+     * Starts the server (idempotent). Binds to loopback unless [networkAccessEnabled] is true, in which
+     * case it binds to all interfaces so the LAN/Tailscale network can reach it. Returns the bound port.
+     */
     @Synchronized
-    fun start(preferredPort: Int = DEFAULT_PORT): Int {
+    fun start(
+        preferredPort: Int = DEFAULT_PORT,
+        networkAccessEnabled: Boolean = false,
+    ): Int {
         server?.let { return boundPort }
+        val host = bindHost(networkAccessEnabled)
         val port = if (isLoopbackPortFree(preferredPort)) preferredPort else freeLoopbackPort()
         val engine =
-            embeddedServer(CIO, host = LOOPBACK_HOST, port = port) {
+            embeddedServer(CIO, host = host, port = port) {
                 searchModule(provider, guard) { port }
             }
         engine.start(wait = false)
         server = engine
         boundPort = port
+        boundHost = host
         return port
+    }
+
+    /**
+     * Stops the running server (if any) and starts a fresh one on the host implied by
+     * [networkAccessEnabled]. Used by the service to switch between loopback and all-interfaces binding
+     * when the preference changes, without tearing down the foreground service. No-op-equivalent if the
+     * host is already correct (still rebinds to keep the call simple and the binding authoritative).
+     */
+    @Synchronized
+    fun restart(
+        preferredPort: Int = DEFAULT_PORT,
+        networkAccessEnabled: Boolean = false,
+    ): Int {
+        stop()
+        return start(preferredPort, networkAccessEnabled)
     }
 
     /** Gracefully stops the server, draining in-flight requests within the bounded window. */
@@ -371,5 +410,6 @@ class SearchServer(
         server?.stop(gracePeriodMillis, timeoutMillis)
         server = null
         boundPort = -1
+        boundHost = null
     }
 }

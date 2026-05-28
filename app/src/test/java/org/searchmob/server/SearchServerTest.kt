@@ -62,6 +62,46 @@ class SearchServerTest {
     }
 
     @Test
+    fun bindsLoopbackHostByDefault() {
+        val server = SearchServer()
+        val bound = server.start(freeLoopbackPort())
+        try {
+            assertEquals(LOOPBACK_HOST, server.boundHost)
+            assertEquals(200, waitForHealthz(bound))
+        } finally {
+            server.stop()
+        }
+    }
+
+    @Test
+    fun bindsAllInterfacesWhenNetworkModeOn() {
+        val server = SearchServer()
+        val bound = server.start(freeLoopbackPort(), networkAccessEnabled = true)
+        try {
+            assertEquals(ALL_INTERFACES_HOST, server.boundHost)
+            // Still reachable on loopback (0.0.0.0 is a superset of 127.0.0.1).
+            assertEquals(200, waitForHealthz(bound))
+        } finally {
+            server.stop()
+        }
+    }
+
+    @Test
+    fun restartRebindsToNetworkHost() {
+        val server = SearchServer()
+        val port = freeLoopbackPort()
+        server.start(port)
+        try {
+            assertEquals(LOOPBACK_HOST, server.boundHost)
+            server.restart(port, networkAccessEnabled = true)
+            assertEquals(ALL_INTERFACES_HOST, server.boundHost)
+            assertEquals(200, waitForHealthz(server.boundPort))
+        } finally {
+            server.stop()
+        }
+    }
+
+    @Test
     fun stopReleasesPortWithinBoundedTime() {
         val server = SearchServer()
         val bound = server.start(freeLoopbackPort())

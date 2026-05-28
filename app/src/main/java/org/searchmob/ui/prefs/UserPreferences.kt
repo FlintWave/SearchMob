@@ -14,6 +14,7 @@ data class UserPreferences(
     val dynamicColor: Boolean = true,
     val engineEnabled: Map<String, Boolean> = emptyMap(),
     val historyEnabled: Boolean = false,
+    val networkAccessEnabled: Boolean = false,
 ) {
     fun isEngineEnabled(engineId: String): Boolean = engineEnabled[engineId] ?: true
 }
@@ -25,4 +26,5 @@ object PreferenceKeys {
     const val ENGINE_ENABLED = "engine_enabled"
     const val HISTORY_ENABLED = "history_enabled"
     const val ONBOARDING_COMPLETED = "onboarding_completed"
+    const val NETWORK_ACCESS_ENABLED = "network_access_enabled"
 }

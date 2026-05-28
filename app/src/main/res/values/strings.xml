@@ -76,6 +76,16 @@
 
     <string name="settings_section_device">Keep the service alive</string>
 
+    <!-- Network mode (opt-in LAN/Tailscale exposure) -->
+    <string name="settings_section_network">Network</string>
+    <string name="settings_network_access">Allow access from your network (advanced)</string>
+    <string name="settings_network_access_supporting">Off by default. When on, other devices on your network can reach SearchMob.</string>
+    <string name="settings_network_warning_title">Allow network access?</string>
+    <string name="settings_network_warning">Only use this on protected networks shared with people and machines you know and trust, such as a Tailscale network. Never enable it on open or public Wi-Fi, like hotel or coffee-shop networks. SearchMob has no password, so anyone who can reach this device on the network can run searches through it.</string>
+    <string name="settings_network_warning_confirm">Enable</string>
+    <string name="settings_network_address_label">Reachable from your network</string>
+    <string name="settings_network_address_none">No network address is available right now. Connect to a network and check back here.</string>
+
     <!-- Home-screen widget -->
     <string name="widget_search_hint">Search the web</string>
     <string name="widget_description">A tappable search bar that opens SearchMob.</string>

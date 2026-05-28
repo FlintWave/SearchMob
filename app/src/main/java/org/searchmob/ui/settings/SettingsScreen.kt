@@ -16,6 +16,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -25,6 +26,8 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -33,15 +36,21 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.launch
 import org.searchmob.R
+import org.searchmob.server.LocalServerState
+import org.searchmob.server.networkReachableUrl
 import org.searchmob.service.BatteryOptimization
 import org.searchmob.service.OemGuidance
 import org.searchmob.ui.ApiKeyEngines
@@ -53,6 +62,8 @@ object SettingsTestTags {
     const val THEME_SYSTEM = "settings_theme_system"
     const val DYNAMIC_COLOR = "settings_dynamic_color"
     const val HISTORY_SWITCH = "settings_history_switch"
+    const val NETWORK_SWITCH = "settings_network_switch"
+    const val NETWORK_ADDRESS_COPY = "settings_network_address_copy"
     const val BROWSER_SETUP = "settings_browser_setup"
     const val ABOUT = "settings_about"
 
@@ -70,7 +81,13 @@ fun SettingsScreen(
 ) {
     val prefs by viewModel.preferencesState.collectAsStateWithLifecycle()
     val keyPresence by viewModel.apiKeyPresence.collectAsStateWithLifecycle()
+    val showNetworkWarning by viewModel.showNetworkWarning.collectAsStateWithLifecycle()
+    val port by LocalServerState.port.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    val clipboard = LocalClipboardManager.current
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+    val copiedMessage = str(R.string.setup_copied)
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -84,6 +101,7 @@ fun SettingsScreen(
                 },
             )
         },
+        snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { innerPadding ->
         Column(
             modifier =
@@ -168,6 +186,42 @@ fun SettingsScreen(
                 Text(str(R.string.settings_history_clear))
             }
             ZeroKnowledgeRow()
+
+            HorizontalDivider()
+
+            // --- Network mode (opt-in LAN/Tailscale exposure) ---
+            SectionTitle(str(R.string.settings_section_network))
+            ToggleRow(
+                label = str(R.string.settings_network_access),
+                supporting = str(R.string.settings_network_access_supporting),
+                checked = prefs.networkAccessEnabled,
+                tag = SettingsTestTags.NETWORK_SWITCH,
+                onCheckedChange = viewModel::onNetworkAccessToggle,
+            )
+            if (prefs.networkAccessEnabled) {
+                NetworkAddressCard(
+                    url = port?.let { networkReachableUrl(it) },
+                    onCopy = { value ->
+                        clipboard.setText(AnnotatedString(value))
+                        scope.launch { snackbarHostState.showSnackbar(copiedMessage) }
+                    },
+                )
+            }
+            if (showNetworkWarning) {
+                AlertDialog(
+                    onDismissRequest = viewModel::cancelNetworkAccess,
+                    title = { Text(str(R.string.settings_network_warning_title)) },
+                    text = { Text(str(R.string.settings_network_warning)) },
+                    confirmButton = {
+                        TextButton(onClick = viewModel::confirmNetworkAccess) {
+                            Text(str(R.string.settings_network_warning_confirm))
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = viewModel::cancelNetworkAccess) { Text(str(R.string.cancel)) }
+                    },
+                )
+            }
 
             HorizontalDivider()
 
@@ -296,6 +350,38 @@ private fun ApiKeyRow(
                 value = ""
             }) {
                 Text(str(R.string.settings_key_clear))
+            }
+        }
+    }
+}
+
+@Composable
+private fun NetworkAddressCard(
+    url: String?,
+    onCopy: (String) -> Unit,
+) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(
+                str(R.string.settings_network_address_label),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.primary,
+            )
+            if (url == null) {
+                Text(str(R.string.settings_network_address_none), style = MaterialTheme.typography.bodyMedium)
+            } else {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text(url, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                    OutlinedButton(
+                        onClick = { onCopy(url) },
+                        modifier = Modifier.testTag(SettingsTestTags.NETWORK_ADDRESS_COPY),
+                    ) {
+                        Text(str(R.string.setup_copy))
+                    }
+                }
             }
         }
     }

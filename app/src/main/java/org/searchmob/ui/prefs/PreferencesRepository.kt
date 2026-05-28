@@ -22,12 +22,14 @@ class PreferencesRepository(
             store.getBoolean(PreferenceKeys.DYNAMIC_COLOR, true),
             store.getBooleanMap(PreferenceKeys.ENGINE_ENABLED, engineDefaults),
             store.getBoolean(PreferenceKeys.HISTORY_ENABLED, false),
-        ) { themeRaw, dynamic, engines, history ->
+            store.getBoolean(PreferenceKeys.NETWORK_ACCESS_ENABLED, false),
+        ) { themeRaw, dynamic, engines, history, networkAccess ->
             UserPreferences(
                 themeMode = ThemeMode.fromName(themeRaw),
                 dynamicColor = dynamic,
                 engineEnabled = engines,
                 historyEnabled = history,
+                networkAccessEnabled = networkAccess,
             )
         }
 
@@ -37,6 +39,16 @@ class PreferencesRepository(
 
     suspend fun setOnboardingCompleted(completed: Boolean) =
         store.setBoolean(PreferenceKeys.ONBOARDING_COMPLETED, completed)
+
+    /**
+     * Whether the opt-in network mode is enabled. OFF by default; the server binds to loopback only
+     * unless this is true. The service observes this to (re)bind the embedded server.
+     */
+    val networkAccessEnabled: Flow<Boolean> =
+        store.getBoolean(PreferenceKeys.NETWORK_ACCESS_ENABLED, false)
+
+    suspend fun setNetworkAccessEnabled(enabled: Boolean) =
+        store.setBoolean(PreferenceKeys.NETWORK_ACCESS_ENABLED, enabled)
 
     suspend fun setThemeMode(mode: ThemeMode) = store.setString(PreferenceKeys.THEME_MODE, mode.name)
 
