@@ -47,6 +47,7 @@ object SetupTestTags {
     const val NOT_RUNNING = "setup_not_running"
     const val VISIT_COPY = "setup_visit_copy"
     const val TEMPLATE_COPY = "setup_template_copy"
+    const val SUGGEST_COPY = "setup_suggest_copy"
     const val OPEN_BROWSER = "setup_open_browser"
 }
 
@@ -158,6 +159,12 @@ fun ColumnScope.BrowserSetupBody(
         copyTag = SetupTestTags.TEMPLATE_COPY,
         onCopy = { onCopy(urls.searchTemplateUrl) },
     )
+    UrlCard(
+        label = str(R.string.setup_suggest_label),
+        url = urls.suggestionsTemplateUrl,
+        copyTag = SetupTestTags.SUGGEST_COPY,
+        onCopy = { onCopy(urls.suggestionsTemplateUrl) },
+    )
 
     Button(
         onClick = { onOpenUrl(urls.visitUrl) },
@@ -209,7 +216,6 @@ fun ColumnScope.BrowserSetupBody(
                 str(R.string.setup_suggestions_step1),
                 str(R.string.setup_suggestions_step2),
                 str(R.string.setup_suggestions_step3),
-                str(R.string.setup_suggestions_step4),
             ),
     )
 }
