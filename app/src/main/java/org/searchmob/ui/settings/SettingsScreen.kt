@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -43,6 +44,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
@@ -324,8 +326,20 @@ private fun ToggleRow(
     tag: String,
     onCheckedChange: (Boolean) -> Unit,
 ) {
+    // The whole row is the click target: a phone-finger tap on the label or supporting text flips the
+    // switch, not just a hit on the small Material3 Switch widget. The inner Switch is purely visual
+    // (onCheckedChange = null) so we do not register two competing click handlers on the same row.
     Row(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .toggleable(
+                    value = checked,
+                    role = Role.Switch,
+                    onValueChange = onCheckedChange,
+                )
+                .padding(vertical = 4.dp)
+                .testTag(tag),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
@@ -339,7 +353,7 @@ private fun ToggleRow(
                 )
             }
         }
-        Switch(checked = checked, onCheckedChange = onCheckedChange, modifier = Modifier.testTag(tag))
+        Switch(checked = checked, onCheckedChange = null)
     }
 }
 
