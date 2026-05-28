@@ -6,12 +6,16 @@ package org.searchmob.ui.setup
  * - [visitUrl] is the SearchMob home/OpenSearch page to open in the browser.
  * - [searchTemplateUrl] is the `…/search?q=%s` template a browser uses for query substitution (`%s`
  *   is the literal placeholder browsers expect, it is NOT URL-encoded here).
+ * - [suggestionsTemplateUrl] is the `…/suggest?q=%s` template that Firefox/Chromium custom-engine
+ *   forms accept in their separate Suggestion URL field, so autocomplete works without relying on
+ *   the browser auto-discovering the OpenSearch descriptor.
  *
- * Both are bound to `127.0.0.1` (loopback only) on the actually-bound [port].
+ * All three are bound to `127.0.0.1` (loopback only) on the actually-bound [port].
  */
 data class SetupUrls(
     val visitUrl: String,
     val searchTemplateUrl: String,
+    val suggestionsTemplateUrl: String,
 )
 
 /**
@@ -22,4 +26,5 @@ fun setupUrls(port: Int): SetupUrls =
     SetupUrls(
         visitUrl = "http://127.0.0.1:$port/",
         searchTemplateUrl = "http://127.0.0.1:$port/search?q=%s",
+        suggestionsTemplateUrl = "http://127.0.0.1:$port/suggest?q=%s",
     )
