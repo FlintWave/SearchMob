@@ -4,6 +4,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import org.searchmob.data.history.HistoryStore
 import org.searchmob.data.history.InMemoryHistoryStore
 import org.searchmob.data.prefs.EngineConfigPreferences
+import org.searchmob.data.prefs.RankingPreferences
 import org.searchmob.engine.EngineAdapter
 import org.searchmob.engine.EngineConfig
 import org.searchmob.engine.EngineRegistry
@@ -16,6 +17,7 @@ import org.searchmob.engine.adapters.MwmblAdapter
 import org.searchmob.engine.adapters.WikipediaAdapter
 import org.searchmob.engine.correct.NoopSpellCorrector
 import org.searchmob.engine.correct.SpellCorrector
+import org.searchmob.engine.rank.RankingRules
 import org.searchmob.ui.prefs.InMemoryPreferencesStore
 import org.searchmob.ui.prefs.PreferencesRepository
 import org.searchmob.ui.prefs.PreferencesStore
@@ -40,6 +42,7 @@ class AppDependencies(
     val historyStore: HistoryStore = InMemoryHistoryStore(),
     val engineConfig: EngineConfigPreferences? = null,
     val spellCorrector: SpellCorrector = NoopSpellCorrector,
+    val rankingPreferences: RankingPreferences? = null,
     private val adapters: List<EngineAdapter> = defaultAdapters(),
 ) {
     val preferencesRepository: PreferencesRepository =
@@ -82,7 +85,11 @@ class AppDependencies(
     val engineEnabled: MutableStateFlow<Map<String, Boolean>> = MutableStateFlow(emptyMap())
 
     val searchRepository: SearchResultsRepository =
-        InProcessSearchResultsRepository(registryProvider = ::buildRegistry, corrector = spellCorrector)
+        InProcessSearchResultsRepository(
+            registryProvider = ::buildRegistry,
+            corrector = spellCorrector,
+            rankingRules = { rankingPreferences?.load() ?: RankingRules.EMPTY },
+        )
 
     /** Build a fresh registry from the current toggle + key state. */
     fun buildRegistry(): EngineRegistry {

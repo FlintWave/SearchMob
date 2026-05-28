@@ -4,7 +4,9 @@ import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -13,11 +15,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -28,6 +33,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -37,6 +45,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.searchmob.R
+import org.searchmob.engine.rank.DomainRanker
+import org.searchmob.engine.rank.RankRule
 import org.searchmob.server.SearchResult
 
 /** Test tags so Compose UI tests can target each state distinctly. */
@@ -49,6 +59,7 @@ object SearchTestTags {
     const val RETRY = "search_retry"
     const val RESULTS = "search_results"
     const val DID_YOU_MEAN = "search_did_you_mean"
+    const val RANK_MENU = "search_rank_menu"
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -122,6 +133,7 @@ fun SearchScreen(
                         didYouMean = s.didYouMean,
                         showingResultsFor = s.showingResultsFor,
                         onSearchCorrected = viewModel::searchCorrected,
+                        onSetDomainRule = viewModel::setDomainRule,
                         onOpen = { url ->
                             // Open only the result URL; no query/identifier is attached.
                             context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
@@ -189,6 +201,7 @@ private fun ResultsList(
     didYouMean: String?,
     showingResultsFor: String?,
     onSearchCorrected: (String) -> Unit,
+    onSetDomainRule: (String, RankRule) -> Unit,
     onOpen: (String) -> Unit,
 ) {
     LazyColumn(
@@ -205,7 +218,7 @@ private fun ResultsList(
             }
         }
         items(results) { result ->
-            ResultCard(result = result, onOpen = onOpen)
+            ResultCard(result = result, onOpen = onOpen, onSetDomainRule = onSetDomainRule)
         }
     }
 }
@@ -250,7 +263,9 @@ private fun DidYouMeanBanner(
 private fun ResultCard(
     result: SearchResult,
     onOpen: (String) -> Unit,
+    onSetDomainRule: (String, RankRule) -> Unit,
 ) {
+    val host = remember(result.url) { DomainRanker.host(result.url) }
     Card(
         modifier = Modifier.fillMaxWidth(),
         onClick = { onOpen(result.url) },
@@ -259,12 +274,18 @@ private fun ResultCard(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-            Text(
-                text = result.title.ifBlank { result.url },
-                style = MaterialTheme.typography.titleMedium,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
+            Row(verticalAlignment = Alignment.Top) {
+                Text(
+                    text = result.title.ifBlank { result.url },
+                    style = MaterialTheme.typography.titleMedium,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
+                if (host != null) {
+                    RankMenu(onSelect = { rule -> onSetDomainRule(host, rule) })
+                }
+            }
             if (result.snippet.isNotBlank()) {
                 Text(
                     text = result.snippet,
@@ -278,6 +299,39 @@ private fun ResultCard(
                     text = stringResource(R.string.search_source_prefix) + " " + result.engine,
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.primary,
+                )
+            }
+        }
+    }
+}
+
+/** Overflow menu on a result that sets the per-domain ranking rule for that result's site. */
+@Composable
+private fun RankMenu(onSelect: (RankRule) -> Unit) {
+    var expanded by remember { mutableStateOf(false) }
+    Box {
+        IconButton(
+            onClick = { expanded = true },
+            modifier = Modifier.testTag(SearchTestTags.RANK_MENU),
+        ) {
+            Icon(Icons.Filled.MoreVert, contentDescription = stringResource(R.string.rank_menu))
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            val options =
+                listOf(
+                    R.string.rank_block to RankRule.BLOCK,
+                    R.string.rank_lower to RankRule.LOWER,
+                    R.string.rank_raise to RankRule.RAISE,
+                    R.string.rank_pin to RankRule.PIN,
+                    R.string.rank_normal to RankRule.NORMAL,
+                )
+            options.forEach { (labelRes, rule) ->
+                DropdownMenuItem(
+                    text = { Text(stringResource(labelRes)) },
+                    onClick = {
+                        expanded = false
+                        onSelect(rule)
+                    },
                 )
             }
         }

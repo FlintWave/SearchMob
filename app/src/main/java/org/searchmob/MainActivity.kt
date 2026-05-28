@@ -58,6 +58,7 @@ class MainActivity : ComponentActivity() {
             historyStore = app.storage.history,
             engineConfig = app.storage.engineConfig,
             spellCorrector = app.spellCorrector,
+            rankingPreferences = app.rankingPreferences,
         )
     }
 

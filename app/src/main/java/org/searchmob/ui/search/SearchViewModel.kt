@@ -10,6 +10,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.searchmob.data.prefs.RankingPreferences
+import org.searchmob.engine.rank.DomainRanker
+import org.searchmob.engine.rank.RankRule
 
 /**
  * Drives the search surface state machine:
@@ -26,6 +29,7 @@ class SearchViewModel(
     private val repository: SearchResultsRepository,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
     private val onRecordQuery: (String) -> Unit = {},
+    private val rankingPreferences: RankingPreferences? = null,
 ) : ViewModel() {
     private val mutableState = MutableStateFlow<SearchUiState>(SearchUiState.Idle)
     val state: StateFlow<SearchUiState> = mutableState.asStateFlow()
@@ -52,6 +56,31 @@ class SearchViewModel(
     fun searchCorrected(corrected: String) {
         mutableQuery.value = corrected
         dispatch(corrected)
+    }
+
+    /**
+     * Set a per-domain ranking rule from the inline result menu. Persists it to the encrypted store and
+     * re-ranks the currently shown results immediately (no re-fetch), so a Block hides the domain now.
+     */
+    fun setDomainRule(
+        domain: String,
+        rule: RankRule,
+    ) {
+        val prefs = rankingPreferences ?: return
+        viewModelScope.launch {
+            prefs.setDomainRule(domain, rule)
+            val rules = withContext(ioDispatcher) { prefs.load() }
+            val current = mutableState.value as? SearchUiState.Results ?: return@launch
+            val reranked =
+                DomainRanker.apply(
+                    items = current.results,
+                    rules = rules,
+                    hostOf = { DomainRanker.host(it.url) },
+                    textOf = { "${it.title} ${it.snippet}" },
+                )
+            mutableState.value =
+                if (reranked.isEmpty()) SearchUiState.Empty else current.copy(results = reranked)
+        }
     }
 
     private fun dispatch(raw: String) {

@@ -15,6 +15,11 @@ import kotlinx.coroutines.withContext
 import org.searchmob.data.history.HistoryEntry
 import org.searchmob.data.history.HistoryStore
 import org.searchmob.data.prefs.EngineConfigPreferences
+import org.searchmob.data.prefs.RankingPreferences
+import org.searchmob.engine.rank.Goggles
+import org.searchmob.engine.rank.Lens
+import org.searchmob.engine.rank.RankRule
+import org.searchmob.engine.rank.RankingRules
 import org.searchmob.ui.EngineDescriptor
 import org.searchmob.ui.prefs.PreferencesRepository
 import org.searchmob.ui.prefs.UserPreferences
@@ -32,6 +37,7 @@ class SettingsViewModel(
     private val engineEnabledSink: MutableStateFlow<Map<String, Boolean>>,
     private val apiKeysSink: MutableStateFlow<Map<String, String>>,
     private val engineConfig: EngineConfigPreferences? = null,
+    private val rankingPreferences: RankingPreferences? = null,
 ) : ViewModel() {
     val preferencesState: StateFlow<UserPreferences> =
         preferences.preferences.stateIn(viewModelScope, SharingStarted.Eagerly, UserPreferences())
@@ -47,6 +53,11 @@ class SettingsViewModel(
         mutableApiKeys
             .map { it.keys.toSet() }
             .stateIn(viewModelScope, SharingStarted.Eagerly, emptySet())
+
+    private val mutableRankingRules = MutableStateFlow(RankingRules.EMPTY)
+
+    /** The current personalization rules (domain rules, lenses, active lens, goggles) for the UI. */
+    val rankingRules: StateFlow<RankingRules> = mutableRankingRules
 
     init {
         // Mirror persisted prefs into the live engine-enabled + history sinks so the in-process
@@ -74,6 +85,84 @@ class SettingsViewModel(
                 apiKeysSink.value = stored
             }
         }
+
+        refreshRankingRules()
+    }
+
+    private fun refreshRankingRules() {
+        val prefs = rankingPreferences ?: return
+        viewModelScope.launch { mutableRankingRules.value = prefs.load() }
+    }
+
+    /** Clear a per-domain rule (set it to Normal) from the Settings list. */
+    fun clearDomainRule(domain: String) {
+        val prefs = rankingPreferences ?: return
+        viewModelScope.launch {
+            prefs.setDomainRule(domain, RankRule.NORMAL)
+            mutableRankingRules.value = prefs.load()
+        }
+    }
+
+    /** Create or replace a lens (matched by name). */
+    fun saveLens(lens: Lens) {
+        val prefs = rankingPreferences ?: return
+        viewModelScope.launch {
+            prefs.upsertLens(lens)
+            mutableRankingRules.value = prefs.load()
+        }
+    }
+
+    fun deleteLens(name: String) {
+        val prefs = rankingPreferences ?: return
+        viewModelScope.launch {
+            prefs.removeLens(name)
+            mutableRankingRules.value = prefs.load()
+        }
+    }
+
+    /** Select the active lens, or null to clear it. */
+    fun selectLens(name: String?) {
+        val prefs = rankingPreferences ?: return
+        viewModelScope.launch {
+            prefs.setActiveLens(name)
+            mutableRankingRules.value = prefs.load()
+        }
+    }
+
+    /** Import goggle rules from pasted/file text; replaces any previously imported goggles. */
+    fun importGoggles(text: String) {
+        val prefs = rankingPreferences ?: return
+        viewModelScope.launch {
+            prefs.importGoggles(Goggles.parse(text))
+            mutableRankingRules.value = prefs.load()
+        }
+    }
+
+    fun clearGoggles() {
+        val prefs = rankingPreferences ?: return
+        viewModelScope.launch {
+            prefs.importGoggles(emptyList())
+            mutableRankingRules.value = prefs.load()
+        }
+    }
+
+    /** Replace all rules from an exported JSON document; returns true on success. */
+    fun importRulesJson(
+        text: String,
+        onResult: (Boolean) -> Unit = {},
+    ) {
+        val prefs = rankingPreferences ?: return onResult(false)
+        viewModelScope.launch {
+            val ok = prefs.importJson(text)
+            if (ok) mutableRankingRules.value = prefs.load()
+            onResult(ok)
+        }
+    }
+
+    /** The full rule set as a JSON document for export, delivered via [onReady]. */
+    fun exportRulesJson(onReady: (String) -> Unit) {
+        val prefs = rankingPreferences ?: return onReady("{}")
+        viewModelScope.launch { onReady(prefs.exportJson()) }
     }
 
     fun setThemeMode(mode: ThemeMode) {

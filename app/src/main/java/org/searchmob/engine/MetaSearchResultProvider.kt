@@ -6,6 +6,8 @@ import org.searchmob.engine.aggregate.Aggregator
 import org.searchmob.engine.correct.NoopSpellCorrector
 import org.searchmob.engine.correct.SpellCorrector
 import org.searchmob.engine.http.HttpClientFactory
+import org.searchmob.engine.rank.DomainRanker
+import org.searchmob.engine.rank.RankingRules
 import org.searchmob.server.SearchOutcome
 import org.searchmob.server.SearchResult
 import org.searchmob.server.SearchResultProvider
@@ -25,18 +27,20 @@ class MetaSearchResultProvider(
     private val aggregator: Aggregator = Aggregator(),
     private val httpClient: OkHttpClient = HttpClientFactory.create(),
     private val corrector: SpellCorrector = NoopSpellCorrector,
+    private val rankingRules: suspend () -> RankingRules = { RankingRules.EMPTY },
 ) : SearchResultProvider {
     override suspend fun search(query: String): List<SearchResult> = searchWithCorrection(query).results
 
     override suspend fun searchWithCorrection(query: String): SearchOutcome {
         if (query.isBlank()) return SearchOutcome(emptyList())
 
-        val aggregated = aggregator.aggregate(SearchQuery(query), registry.activeEngines(httpClient))
-        val results = aggregated.results.map(::toSearchResult)
+        val rules = rankingRules()
+        val (results, upstreamRaw) = aggregateRanked(query, rules)
 
-        val upstream = aggregated.correction?.takeIf { !it.equals(query, ignoreCase = true) }
+        val upstreamCorrection = upstreamRaw?.takeIf { !it.equals(query, ignoreCase = true) }
         val onDevice = corrector.suggest(query)
-        val suggestion = upstream ?: onDevice?.corrected?.takeIf { !it.equals(query, ignoreCase = true) }
+        val suggestion =
+            upstreamCorrection ?: onDevice?.corrected?.takeIf { !it.equals(query, ignoreCase = true) }
 
         if (results.isNotEmpty()) {
             return SearchOutcome(results, didYouMean = suggestion)
@@ -45,17 +49,32 @@ class MetaSearchResultProvider(
         // The original query found nothing: auto-search a confident correction (an upstream correction,
         // or a high-confidence on-device one) and report what we searched instead.
         val autoCorrection =
-            upstream ?: onDevice?.takeIf { it.confidence >= AUTO_SEARCH_CONFIDENCE }?.corrected
+            upstreamCorrection ?: onDevice?.takeIf { it.confidence >= AUTO_SEARCH_CONFIDENCE }?.corrected
         if (autoCorrection == null || autoCorrection.equals(query, ignoreCase = true)) {
             return SearchOutcome(results, didYouMean = suggestion)
         }
-        val retry = aggregator.aggregate(SearchQuery(autoCorrection), registry.activeEngines(httpClient))
-        val retryResults = retry.results.map(::toSearchResult)
+        val (retryResults, _) = aggregateRanked(autoCorrection, rules)
         return if (retryResults.isEmpty()) {
             SearchOutcome(results, didYouMean = suggestion)
         } else {
             SearchOutcome(retryResults, showingResultsFor = autoCorrection)
         }
+    }
+
+    /** Aggregate [query], apply the personalization [rules] locally, and return (results, upstream correction). */
+    private suspend fun aggregateRanked(
+        query: String,
+        rules: RankingRules,
+    ): Pair<List<SearchResult>, String?> {
+        val aggregated = aggregator.aggregate(SearchQuery(query), registry.activeEngines(httpClient))
+        val ranked =
+            DomainRanker.apply(
+                items = aggregated.results,
+                rules = rules,
+                hostOf = { DomainRanker.host(it.url) },
+                textOf = { "${it.title} ${it.snippet}" },
+            )
+        return ranked.map(::toSearchResult) to aggregated.correction
     }
 
     private fun toSearchResult(result: AggregatedResult): SearchResult =
