@@ -11,6 +11,13 @@ import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import org.searchmob.R
 import org.searchmob.engine.EngineRegistry
 import org.searchmob.engine.MetaSearchResultProvider
@@ -24,6 +31,8 @@ import org.searchmob.engine.adapters.WikipediaAdapter
 import org.searchmob.server.LocalServerState
 import org.searchmob.server.SearchServer
 import org.searchmob.server.WakeLockRequestGuard
+import org.searchmob.ui.prefs.DataStorePreferencesStore
+import org.searchmob.ui.prefs.PreferencesRepository
 
 /**
  * The always-on backbone: a `specialUse` foreground service.
@@ -55,6 +64,22 @@ class SearchMobService : Service() {
         )
     }
 
+    // Reads the persisted network-mode preference so the bind host tracks the user's choice. Uses the
+    // same DataStore the UI writes to, so a toggle in Settings is observed here.
+    private val preferences by lazy {
+        PreferencesRepository(DataStorePreferencesStore(applicationContext))
+    }
+
+    // Service-scoped coroutine scope for observing the network-mode preference; cancelled on teardown.
+    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
+    // Latest known network-mode value, so the server is (re)bound on the correct host on (re)start.
+    @Volatile
+    private var networkAccessEnabled: Boolean = false
+
+    // Set once so the START_STICKY recreations don't register duplicate observers.
+    private var observingPreference = false
+
     override fun onCreate() {
         super.onCreate()
         SearchMobServiceState.markStarting()
@@ -72,10 +97,34 @@ class SearchMobService : Service() {
         }
         // Covers both a normal start and a START_STICKY recreation with a null intent.
         promoteToForeground()
-        val port = searchServer.start()
+        val port = searchServer.start(networkAccessEnabled = networkAccessEnabled)
         LocalServerState.setPort(port)
         SearchMobServiceState.markRunning()
+        observeNetworkAccessPreference()
         return START_STICKY
+    }
+
+    /**
+     * Watches the persisted network-mode preference and rebinds the embedded server when it changes,
+     * switching between loopback ("127.0.0.1") and all-interfaces ("0.0.0.0") binding. The foreground
+     * service itself stays up; only the embedded HTTP server is restarted on the new host. Registered
+     * once (idempotent across START_STICKY recreations).
+     */
+    private fun observeNetworkAccessPreference() {
+        if (observingPreference) return
+        observingPreference = true
+        preferences.networkAccessEnabled
+            .distinctUntilChanged()
+            // Drop the initial emission: the first server start already used the cached value, so the
+            // first value only triggers a rebind if it actually differs from what we started with.
+            .onEach { enabled ->
+                if (enabled == networkAccessEnabled) return@onEach
+                networkAccessEnabled = enabled
+                if (searchServer.isRunning) {
+                    val port = searchServer.restart(networkAccessEnabled = enabled)
+                    LocalServerState.setPort(port)
+                }
+            }.launchIn(serviceScope)
     }
 
     private fun promoteToForeground() {
@@ -92,6 +141,8 @@ class SearchMobService : Service() {
     }
 
     private fun stopAndCleanup() {
+        serviceScope.cancel()
+        observingPreference = false
         searchServer.stop()
         LocalServerState.setPort(null)
         ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
@@ -102,6 +153,8 @@ class SearchMobService : Service() {
     override fun onDestroy() {
         // If the system tears us down, release the socket and reflect that for observers. A
         // START_STICKY recreation will transition back to running via onStartCommand.
+        serviceScope.cancel()
+        observingPreference = false
         searchServer.stop()
         LocalServerState.setPort(null)
         if (SearchMobServiceState.current != ServiceState.Stopped) {

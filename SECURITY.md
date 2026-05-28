@@ -22,8 +22,12 @@ In scope: the SearchMob app, its local HTTP server, storage/encryption, and the 
 pipeline. Of particular interest:
 
 - Anything that leaks user queries or identity to upstream engines or third parties.
-- Bypasses of the loopback-only binding (the local server must never be reachable off-device until
-  the opt-in network mode ships, and even then only as configured).
+- Bypasses of the loopback-only binding. By default the local server binds to loopback (127.0.0.1)
+  only and must never be reachable off-device. An opt-in network mode now exists: it is OFF by
+  default and, before it can be enabled, the user must confirm an explicit warning. When it is on,
+  the server binds to all interfaces (0.0.0.0) so it is reachable on the local network, and it has no
+  authentication, so anyone who can reach the device on that network can run searches through it. A
+  bypass that exposes the server off-device without the user enabling network mode is in scope.
 - Weaknesses in encryption-at-rest or the optional zero-knowledge mode.
 - Supply-chain issues in dependencies or CI.
 

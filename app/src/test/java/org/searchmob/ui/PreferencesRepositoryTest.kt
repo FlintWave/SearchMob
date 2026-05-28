@@ -31,6 +31,7 @@ class PreferencesRepositoryTest {
             assertEquals(ThemeMode.SYSTEM, prefs.themeMode)
             assertTrue(prefs.dynamicColor)
             assertFalse(prefs.historyEnabled)
+            assertFalse(prefs.networkAccessEnabled)
             // All known engines default to enabled.
             assertTrue(prefs.isEngineEnabled("duckduckgo"))
             assertTrue(prefs.isEngineEnabled("mojeek"))
@@ -50,6 +51,19 @@ class PreferencesRepositoryTest {
             val r = repo()
             r.setHistoryEnabled(true)
             assertTrue(r.preferences.first().historyEnabled)
+        }
+
+    @Test
+    fun networkAccess_defaultsOffAndRoundTrips() =
+        runTest {
+            val r = repo()
+            assertFalse(r.preferences.first().networkAccessEnabled)
+            assertFalse(r.networkAccessEnabled.first())
+            r.setNetworkAccessEnabled(true)
+            assertTrue(r.preferences.first().networkAccessEnabled)
+            assertTrue(r.networkAccessEnabled.first())
+            r.setNetworkAccessEnabled(false)
+            assertFalse(r.networkAccessEnabled.first())
         }
 
     @Test
