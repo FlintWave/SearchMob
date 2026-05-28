@@ -25,7 +25,7 @@
     <string name="battery_allow">Allow always-on</string>
 
     <!-- OEM guidance -->
-    <string name="oem_guidance_button">Keep it alive on your phone</string>
+    <string name="oem_guidance_button">Open OEM keep-alive guide (web)</string>
     <string name="oem_guidance_warning">Heads up: some manufacturers reset these settings after a firmware/OS update, so you may need to re-apply them.</string>
 
     <!-- Common -->
