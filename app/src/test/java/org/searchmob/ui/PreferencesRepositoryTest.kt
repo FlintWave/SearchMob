@@ -32,6 +32,7 @@ class PreferencesRepositoryTest {
             assertTrue(prefs.dynamicColor)
             assertFalse(prefs.historyEnabled)
             assertFalse(prefs.networkAccessEnabled)
+            assertFalse(prefs.upstreamSuggestionsEnabled)
             // All known engines default to enabled.
             assertTrue(prefs.isEngineEnabled("duckduckgo"))
             assertTrue(prefs.isEngineEnabled("mojeek"))
@@ -64,6 +65,19 @@ class PreferencesRepositoryTest {
             assertTrue(r.networkAccessEnabled.first())
             r.setNetworkAccessEnabled(false)
             assertFalse(r.networkAccessEnabled.first())
+        }
+
+    @Test
+    fun upstreamSuggestions_defaultsOffAndRoundTrips() =
+        runTest {
+            val r = repo()
+            assertFalse(r.preferences.first().upstreamSuggestionsEnabled)
+            assertFalse(r.upstreamSuggestionsEnabled.first())
+            r.setUpstreamSuggestionsEnabled(true)
+            assertTrue(r.preferences.first().upstreamSuggestionsEnabled)
+            assertTrue(r.upstreamSuggestionsEnabled.first())
+            r.setUpstreamSuggestionsEnabled(false)
+            assertFalse(r.upstreamSuggestionsEnabled.first())
         }
 
     @Test

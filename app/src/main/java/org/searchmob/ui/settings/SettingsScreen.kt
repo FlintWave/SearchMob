@@ -62,6 +62,7 @@ object SettingsTestTags {
     const val THEME_SYSTEM = "settings_theme_system"
     const val DYNAMIC_COLOR = "settings_dynamic_color"
     const val HISTORY_SWITCH = "settings_history_switch"
+    const val SUGGESTIONS_UPSTREAM_SWITCH = "settings_suggestions_upstream_switch"
     const val NETWORK_SWITCH = "settings_network_switch"
     const val NETWORK_ADDRESS_COPY = "settings_network_address_copy"
     const val BROWSER_SETUP = "settings_browser_setup"
@@ -186,6 +187,18 @@ fun SettingsScreen(
                 Text(str(R.string.settings_history_clear))
             }
             ZeroKnowledgeRow()
+
+            HorizontalDivider()
+
+            // --- Suggestions (opt-in upstream autocomplete) ---
+            SectionTitle(str(R.string.settings_section_suggestions))
+            ToggleRow(
+                label = str(R.string.settings_suggestions_upstream),
+                supporting = str(R.string.settings_suggestions_upstream_supporting),
+                checked = prefs.upstreamSuggestionsEnabled,
+                tag = SettingsTestTags.SUGGESTIONS_UPSTREAM_SWITCH,
+                onCheckedChange = viewModel::setUpstreamSuggestionsEnabled,
+            )
 
             HorizontalDivider()
 

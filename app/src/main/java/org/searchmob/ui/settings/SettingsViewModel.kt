@@ -76,6 +76,14 @@ class SettingsViewModel(
     }
 
     /**
+     * Toggle the opt-in upstream (web) suggestions source. Unlike network mode there is no blocking
+     * warning dialog: the subtitle explains the trade-off and it persists immediately either way.
+     */
+    fun setUpstreamSuggestionsEnabled(enabled: Boolean) {
+        viewModelScope.launch { preferences.setUpstreamSuggestionsEnabled(enabled) }
+    }
+
+    /**
      * Whether the network-mode warning dialog is currently shown. Turning the toggle ON opens it;
      * confirming or cancelling closes it. Turning OFF never opens it.
      */

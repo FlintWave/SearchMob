@@ -17,8 +17,11 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import org.searchmob.R
+import org.searchmob.data.history.HistoryStore
+import org.searchmob.data.history.InMemoryHistoryStore
 import org.searchmob.engine.EngineRegistry
 import org.searchmob.engine.MetaSearchResultProvider
 import org.searchmob.engine.adapters.BraveApiAdapter
@@ -28,9 +31,13 @@ import org.searchmob.engine.adapters.MojeekAdapter
 import org.searchmob.engine.adapters.MojeekApiAdapter
 import org.searchmob.engine.adapters.MwmblAdapter
 import org.searchmob.engine.adapters.WikipediaAdapter
+import org.searchmob.engine.http.HttpClientFactory
 import org.searchmob.server.LocalServerState
 import org.searchmob.server.SearchServer
 import org.searchmob.server.WakeLockRequestGuard
+import org.searchmob.server.suggest.CompositeSuggestionsProvider
+import org.searchmob.server.suggest.HistorySuggestionsProvider
+import org.searchmob.server.suggest.UpstreamSuggestionsProvider
 import org.searchmob.ui.prefs.DataStorePreferencesStore
 import org.searchmob.ui.prefs.PreferencesRepository
 
@@ -42,6 +49,28 @@ import org.searchmob.ui.prefs.PreferencesRepository
  * transitions to [SearchMobServiceState]. It is event-driven and holds NO wake-lock while idle.
  */
 class SearchMobService : Service() {
+    // Opt-in, local-only search history. In-memory reference for now (the storage phase binds the
+    // SQLCipher store); it backs both the recorder and the local suggestions source. Off by default.
+    private val historyStore: HistoryStore by lazy { InMemoryHistoryStore() }
+
+    // Latest opt-in upstream-suggestions value, read by the composite provider's gate at request time.
+    @Volatile
+    private var upstreamSuggestionsEnabled: Boolean = false
+
+    // Suggestions: always-on local history plus an upstream source contacted ONLY when the opt-in
+    // preference is on. The upstream fetch uses a short-timeout privacy-proxy client so typing never
+    // hangs; on any failure it returns nothing.
+    private val suggestionsProvider by lazy {
+        CompositeSuggestionsProvider(
+            history = HistorySuggestionsProvider(historyStore),
+            upstream =
+                UpstreamSuggestionsProvider(
+                    httpClient = HttpClientFactory.create(connectTimeoutMs = 2_000, readTimeoutMs = 2_000),
+                ),
+            upstreamEnabled = { upstreamSuggestionsEnabled },
+        )
+    }
+
     // Loopback HTTP server backed by the metasearch engine; each request acquires a short wake-lock.
     private val searchServer by lazy {
         val registry =
@@ -61,6 +90,7 @@ class SearchMobService : Service() {
         SearchServer(
             provider = MetaSearchResultProvider(registry),
             guard = WakeLockRequestGuard(AndroidWorkLock(applicationContext)),
+            suggestionsProvider = suggestionsProvider,
         )
     }
 
@@ -79,6 +109,9 @@ class SearchMobService : Service() {
 
     // Set once so the START_STICKY recreations don't register duplicate observers.
     private var observingPreference = false
+
+    // Set once so the START_STICKY recreations don't register duplicate suggestion observers.
+    private var observingSuggestions = false
 
     override fun onCreate() {
         super.onCreate()
@@ -101,6 +134,7 @@ class SearchMobService : Service() {
         LocalServerState.setPort(port)
         SearchMobServiceState.markRunning()
         observeNetworkAccessPreference()
+        observeSuggestionsPreferences()
         return START_STICKY
     }
 
@@ -127,6 +161,24 @@ class SearchMobService : Service() {
             }.launchIn(serviceScope)
     }
 
+    /**
+     * Watches the suggestion-related preferences so the local source and the upstream gate track the
+     * user's choices without a relaunch: history enabled/disabled toggles the local source (also
+     * purging stored entries when turned off, per the history store's contract), and the opt-in
+     * upstream flag flips the composite provider's gate. Registered once (idempotent across recreations).
+     */
+    private fun observeSuggestionsPreferences() {
+        if (observingSuggestions) return
+        observingSuggestions = true
+        preferences.preferences
+            .map { it.historyEnabled to it.upstreamSuggestionsEnabled }
+            .distinctUntilChanged()
+            .onEach { (history, upstream) ->
+                if (historyStore.enabled != history) historyStore.setEnabled(history)
+                upstreamSuggestionsEnabled = upstream
+            }.launchIn(serviceScope)
+    }
+
     private fun promoteToForeground() {
         val notification = buildNotification()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
@@ -143,6 +195,7 @@ class SearchMobService : Service() {
     private fun stopAndCleanup() {
         serviceScope.cancel()
         observingPreference = false
+        observingSuggestions = false
         searchServer.stop()
         LocalServerState.setPort(null)
         ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
@@ -155,6 +208,7 @@ class SearchMobService : Service() {
         // START_STICKY recreation will transition back to running via onStartCommand.
         serviceScope.cancel()
         observingPreference = false
+        observingSuggestions = false
         searchServer.stop()
         LocalServerState.setPort(null)
         if (SearchMobServiceState.current != ServiceState.Stopped) {
