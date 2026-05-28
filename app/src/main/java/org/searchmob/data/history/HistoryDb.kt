@@ -28,6 +28,22 @@ interface HistoryDao {
     @Query("SELECT * FROM history WHERE timestampMs >= :cutoffMs ORDER BY timestampMs DESC")
     fun listSince(cutoffMs: Long): List<HistoryRow>
 
+    /**
+     * Distinct non-expired past queries that start with [prefix] (case-insensitive via NOCASE),
+     * most-recent first, capped to [limit]. Used to power local search suggestions. The
+     * most-recent ordering groups by query and ranks each distinct query by its newest occurrence,
+     * so a query typed twice is not duplicated and surfaces at its latest position.
+     */
+    @Query(
+        "SELECT query FROM history WHERE timestampMs >= :cutoffMs AND query LIKE :prefix || '%' " +
+            "COLLATE NOCASE GROUP BY query COLLATE NOCASE ORDER BY MAX(timestampMs) DESC LIMIT :limit",
+    )
+    fun suggestSince(
+        prefix: String,
+        cutoffMs: Long,
+        limit: Int,
+    ): List<String>
+
     /** Opportunistic TTL sweep: physically delete rows older than the cutoff. */
     @Query("DELETE FROM history WHERE timestampMs < :cutoffMs")
     fun deleteOlderThan(cutoffMs: Long)

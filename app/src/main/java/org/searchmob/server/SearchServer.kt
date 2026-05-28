@@ -34,6 +34,11 @@ import kotlinx.html.submitInput
 import kotlinx.html.textInput
 import kotlinx.html.title
 import kotlinx.html.unsafe
+import kotlinx.serialization.json.add
+import kotlinx.serialization.json.addJsonArray
+import kotlinx.serialization.json.buildJsonArray
+import org.searchmob.server.suggest.NoSuggestionsProvider
+import org.searchmob.server.suggest.SuggestionsProvider
 import java.net.InetSocketAddress
 import java.net.ServerSocket
 
@@ -53,6 +58,12 @@ fun bindHost(networkAccessEnabled: Boolean): String = if (networkAccessEnabled) 
 /** Upper bound on the accepted `q` length; longer input is truncated before reaching the provider. */
 const val MAX_QUERY_LENGTH = 512
 
+/** Maximum number of suggestions returned from `/suggest` (local + opt-in upstream, merged). */
+const val MAX_SUGGESTIONS = 8
+
+/** Content type for OpenSearch Suggestions JSON, as the spec and browsers expect. */
+const val SUGGESTIONS_CONTENT_TYPE_SUBTYPE = "x-suggestions+json"
+
 /**
  * Configures the SearchMob HTTP routes on an [Application]. Shared by the real [SearchServer] and by
  * `testApplication` tests so the HTTP contract is exercised identically. No request/access logging is
@@ -61,6 +72,7 @@ const val MAX_QUERY_LENGTH = 512
 fun Application.searchModule(
     provider: SearchResultProvider,
     guard: RequestWakeGuard = NoopRequestWakeGuard,
+    suggestionsProvider: SuggestionsProvider = NoSuggestionsProvider,
     boundPort: () -> Int,
 ) {
     install(ContentNegotiation) { json() }
@@ -80,6 +92,22 @@ fun Application.searchModule(
             val query = call.request.queryParameters["q"].orEmpty().take(MAX_QUERY_LENGTH)
             val results = if (query.isBlank()) emptyList() else guard.aroundRequest { provider.search(query) }
             call.respond(SearchResponse(query = query, results = results))
+        }
+        get("/suggest") {
+            val query = call.request.queryParameters["q"].orEmpty().take(MAX_QUERY_LENGTH)
+            // Blank/empty (including whitespace-only) returns the empty pair ["", []] and never touches
+            // a suggestion source, so an idle/empty address bar costs nothing and echoes nothing back.
+            if (query.isBlank()) {
+                call.respondText(
+                    suggestionsJson("", emptyList()),
+                    ContentType("application", SUGGESTIONS_CONTENT_TYPE_SUBTYPE),
+                )
+                return@get
+            }
+            call.respondText(
+                suggestionsJson(query, suggestionsProvider.suggest(query, MAX_SUGGESTIONS)),
+                ContentType("application", SUGGESTIONS_CONTENT_TYPE_SUBTYPE),
+            )
         }
         get("/opensearch.xml") {
             call.respondText(
@@ -220,6 +248,20 @@ private fun HEAD.openSearchLink() {
     }
 }
 
+/**
+ * Builds the OpenSearch Suggestions JSON body: the two-element array `["<query>", ["s1", "s2", ...]]`.
+ * Built with kotlinx.serialization so the query and every suggestion are correctly JSON-escaped (the
+ * query is browser-controlled, so manual string concatenation would be unsafe).
+ */
+fun suggestionsJson(
+    query: String,
+    suggestions: List<String>,
+): String =
+    buildJsonArray {
+        add(query)
+        addJsonArray { suggestions.forEach { add(it) } }
+    }.toString()
+
 /** Spec-compliant OpenSearch descriptor whose URL templates target the actual bound loopback origin. */
 fun openSearchDescriptor(port: Int): String {
     val origin = "http://$LOOPBACK_HOST:$port"
@@ -230,6 +272,7 @@ fun openSearchDescriptor(port: Int): String {
   <InputEncoding>UTF-8</InputEncoding>
   <Url type="text/html" template="$origin/search?q={searchTerms}"/>
   <Url type="application/json" template="$origin/api/search?q={searchTerms}&amp;format=json"/>
+  <Url type="application/x-suggestions+json" template="$origin/suggest?q={searchTerms}"/>
 </OpenSearchDescription>
 """
 }
@@ -348,6 +391,7 @@ fun freeLoopbackPort(): Int =
 class SearchServer(
     private val provider: SearchResultProvider = StubSearchResultProvider(),
     private val guard: RequestWakeGuard = NoopRequestWakeGuard,
+    private val suggestionsProvider: SuggestionsProvider = NoSuggestionsProvider,
 ) {
     @Volatile
     private var server: EmbeddedServer<*, *>? = null
@@ -377,7 +421,7 @@ class SearchServer(
         val port = if (isLoopbackPortFree(preferredPort)) preferredPort else freeLoopbackPort()
         val engine =
             embeddedServer(CIO, host = host, port = port) {
-                searchModule(provider, guard) { port }
+                searchModule(provider, guard, suggestionsProvider) { port }
             }
         engine.start(wait = false)
         server = engine

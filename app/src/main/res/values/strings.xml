@@ -74,6 +74,11 @@
     <string name="settings_zk_warning">Your data is encrypted with a passphrase only you know. If you lose this passphrase, your stored data is permanently unrecoverable. There is no reset or recovery.</string>
     <string name="settings_zk_continue">Continue</string>
 
+    <!-- Search suggestions (opt-in upstream autocomplete) -->
+    <string name="settings_section_suggestions">Suggestions</string>
+    <string name="settings_suggestions_upstream">Live suggestions from the web</string>
+    <string name="settings_suggestions_upstream_supporting">Off by default. When on, what you type is sent to DuckDuckGo\'s suggestion service through the privacy proxy as you type, to offer live autocomplete. Off keeps suggestions to your local history only.</string>
+
     <string name="settings_section_device">Keep the service alive</string>
 
     <!-- Network mode (opt-in LAN/Tailscale exposure) -->

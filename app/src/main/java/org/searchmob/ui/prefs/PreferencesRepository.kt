@@ -18,19 +18,26 @@ class PreferencesRepository(
 
     val preferences: Flow<UserPreferences> =
         combine(
-            store.getString(PreferenceKeys.THEME_MODE, ThemeMode.SYSTEM.name),
-            store.getBoolean(PreferenceKeys.DYNAMIC_COLOR, true),
-            store.getBooleanMap(PreferenceKeys.ENGINE_ENABLED, engineDefaults),
-            store.getBoolean(PreferenceKeys.HISTORY_ENABLED, false),
-            store.getBoolean(PreferenceKeys.NETWORK_ACCESS_ENABLED, false),
-        ) { themeRaw, dynamic, engines, history, networkAccess ->
-            UserPreferences(
-                themeMode = ThemeMode.fromName(themeRaw),
-                dynamicColor = dynamic,
-                engineEnabled = engines,
-                historyEnabled = history,
-                networkAccessEnabled = networkAccess,
-            )
+            // First five flows feed the typed five-arg combine; the sixth is folded in below because
+            // there is no typed six-arg combine overload. Keep this in sync with the data class fields.
+            combine(
+                store.getString(PreferenceKeys.THEME_MODE, ThemeMode.SYSTEM.name),
+                store.getBoolean(PreferenceKeys.DYNAMIC_COLOR, true),
+                store.getBooleanMap(PreferenceKeys.ENGINE_ENABLED, engineDefaults),
+                store.getBoolean(PreferenceKeys.HISTORY_ENABLED, false),
+                store.getBoolean(PreferenceKeys.NETWORK_ACCESS_ENABLED, false),
+            ) { themeRaw, dynamic, engines, history, networkAccess ->
+                UserPreferences(
+                    themeMode = ThemeMode.fromName(themeRaw),
+                    dynamicColor = dynamic,
+                    engineEnabled = engines,
+                    historyEnabled = history,
+                    networkAccessEnabled = networkAccess,
+                )
+            },
+            store.getBoolean(PreferenceKeys.UPSTREAM_SUGGESTIONS_ENABLED, false),
+        ) { base, upstreamSuggestions ->
+            base.copy(upstreamSuggestionsEnabled = upstreamSuggestions)
         }
 
     /** Whether the first-run wizard has been completed or skipped. Gates the wizard in navigation. */
@@ -49,6 +56,18 @@ class PreferencesRepository(
 
     suspend fun setNetworkAccessEnabled(enabled: Boolean) =
         store.setBoolean(PreferenceKeys.NETWORK_ACCESS_ENABLED, enabled)
+
+    /**
+     * Whether the opt-in upstream (web) suggestions source is enabled. OFF by default: with it off,
+     * suggestions come only from the local encrypted history and nothing is sent off-device. When ON,
+     * partial queries are sent to DuckDuckGo's suggestion service through the privacy proxy as the user
+     * types. The /suggest route observes this to decide whether to contact the upstream provider.
+     */
+    val upstreamSuggestionsEnabled: Flow<Boolean> =
+        store.getBoolean(PreferenceKeys.UPSTREAM_SUGGESTIONS_ENABLED, false)
+
+    suspend fun setUpstreamSuggestionsEnabled(enabled: Boolean) =
+        store.setBoolean(PreferenceKeys.UPSTREAM_SUGGESTIONS_ENABLED, enabled)
 
     suspend fun setThemeMode(mode: ThemeMode) = store.setString(PreferenceKeys.THEME_MODE, mode.name)
 

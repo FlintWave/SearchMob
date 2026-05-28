@@ -18,6 +18,18 @@ interface HistoryStore {
     /** Non-expired entries as of [nowMs]; also sweeps expired entries opportunistically. */
     fun list(nowMs: Long): List<HistoryEntry>
 
+    /**
+     * Distinct, non-expired past queries that prefix-match [prefix] case-insensitively, most-recent
+     * first, capped to [limit]. Powers local search suggestions. Returns an empty list (never throws)
+     * when history is disabled, locked, empty, or [prefix] is blank, so suggestions are always safe to
+     * request. [nowMs] is the clock used for TTL expiry, like [list].
+     */
+    fun suggest(
+        prefix: String,
+        limit: Int,
+        nowMs: Long,
+    ): List<String>
+
     /** Delete all entries but keep history enabled. */
     fun clear()
 
@@ -55,6 +67,25 @@ class InMemoryHistoryStore(private val ttlMs: Long = 7L * 24 * 60 * 60 * 1000) :
         if (!on) return emptyList()
         entries.removeAll { nowMs - it.timestampMs > ttlMs }
         return entries.toList()
+    }
+
+    override fun suggest(
+        prefix: String,
+        limit: Int,
+        nowMs: Long,
+    ): List<String> {
+        if (!on || prefix.isBlank() || limit <= 0) return emptyList()
+        val lowerPrefix = prefix.lowercase()
+        // Newest first, distinct (case-insensitive, keeping the first/newest casing seen), capped.
+        val seen = LinkedHashSet<String>()
+        list(nowMs)
+            .asReversed() // list() preserves insertion order (oldest->newest); reverse for newest-first.
+            .asSequence()
+            .filter { it.query.lowercase().startsWith(lowerPrefix) }
+            .forEach { entry ->
+                if (seen.none { it.equals(entry.query, ignoreCase = true) }) seen.add(entry.query)
+            }
+        return seen.take(limit)
     }
 
     override fun clear() {

@@ -57,6 +57,21 @@ class SqlCipherHistoryStore(
             .map { HistoryEntry(it.query, it.timestampMs) }
     }
 
+    override fun suggest(
+        prefix: String,
+        limit: Int,
+        nowMs: Long,
+    ): List<String> {
+        if (!on || prefix.isBlank() || limit <= 0) return emptyList()
+        // Fail-soft: a locked vault makes the DEK provider throw, and we must never let a suggestion
+        // lookup surface that as an error (typing would break). Treat any failure as "no suggestions".
+        return runCatching {
+            val dao = database().historyDao()
+            sweep(dao, nowMs)
+            dao.suggestSince(prefix, nowMs - ttlMs, limit)
+        }.getOrDefault(emptyList())
+    }
+
     override fun clear() {
         if (db == null && !dbFile().exists()) return
         database().historyDao().deleteAll()
