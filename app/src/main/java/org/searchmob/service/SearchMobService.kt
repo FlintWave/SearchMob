@@ -20,8 +20,8 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import org.searchmob.R
+import org.searchmob.SearchMobApplication
 import org.searchmob.data.history.HistoryStore
-import org.searchmob.data.history.InMemoryHistoryStore
 import org.searchmob.engine.EngineRegistry
 import org.searchmob.engine.MetaSearchResultProvider
 import org.searchmob.engine.adapters.BraveApiAdapter
@@ -49,9 +49,10 @@ import org.searchmob.ui.prefs.PreferencesRepository
  * transitions to [SearchMobServiceState]. It is event-driven and holds NO wake-lock while idle.
  */
 class SearchMobService : Service() {
-    // Opt-in, local-only search history. In-memory reference for now (the storage phase binds the
-    // SQLCipher store); it backs both the recorder and the local suggestions source. Off by default.
-    private val historyStore: HistoryStore by lazy { InMemoryHistoryStore() }
+    // Opt-in, local-only search history: the SQLCipher store shared process-wide via the Application,
+    // so the browser-facing /suggest source and the in-app recorder read and write the same encrypted
+    // DB. Off by default.
+    private val historyStore: HistoryStore by lazy { (application as SearchMobApplication).storage.history }
 
     // Latest opt-in upstream-suggestions value, read by the composite provider's gate at request time.
     @Volatile

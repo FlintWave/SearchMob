@@ -27,11 +27,15 @@ class SqlCipherHistoryStore(
     private val ttlMs: Long = DEFAULT_TTL_MS,
     private val nowMsProvider: () -> Long = System::currentTimeMillis,
 ) : HistoryStore {
-    private var on = false
+    // This store is shared process-wide between the UI graph and the foreground service, so its calls
+    // can arrive concurrently (e.g. browser-driven /suggest while the UI records a query). The mutating
+    // methods are @Synchronized on this instance and `on` is volatile so the enabled getter is lock-free.
+    @Volatile private var on = false
     private var db: HistoryDatabase? = null
 
     override val enabled: Boolean get() = on
 
+    @Synchronized
     override fun setEnabled(enabled: Boolean) {
         if (enabled) {
             on = true
@@ -41,6 +45,7 @@ class SqlCipherHistoryStore(
         }
     }
 
+    @Synchronized
     override fun add(entry: HistoryEntry) {
         if (!on) return
         val dao = database().historyDao()
@@ -48,6 +53,7 @@ class SqlCipherHistoryStore(
         dao.insert(HistoryRow(query = entry.query, timestampMs = entry.timestampMs))
     }
 
+    @Synchronized
     override fun list(nowMs: Long): List<HistoryEntry> {
         if (!on) return emptyList()
         val dao = database().historyDao()
@@ -57,6 +63,7 @@ class SqlCipherHistoryStore(
             .map { HistoryEntry(it.query, it.timestampMs) }
     }
 
+    @Synchronized
     override fun suggest(
         prefix: String,
         limit: Int,
@@ -72,11 +79,13 @@ class SqlCipherHistoryStore(
         }.getOrDefault(emptyList())
     }
 
+    @Synchronized
     override fun clear() {
         if (db == null && !dbFile().exists()) return
         database().historyDao().deleteAll()
     }
 
+    @Synchronized
     override fun disable() {
         on = false
         db?.close()
@@ -84,6 +93,7 @@ class SqlCipherHistoryStore(
         deleteDbFiles()
     }
 
+    @Synchronized
     override fun closeHandle() {
         // Drop the live (DEK-keyed) handle but keep history enabled and the encrypted file on disk.
         // The next access re-opens it lazily once the DEK is available again.

@@ -3,6 +3,7 @@ package org.searchmob.ui
 import kotlinx.coroutines.flow.MutableStateFlow
 import org.searchmob.data.history.HistoryStore
 import org.searchmob.data.history.InMemoryHistoryStore
+import org.searchmob.data.prefs.EngineConfigPreferences
 import org.searchmob.engine.EngineAdapter
 import org.searchmob.engine.EngineConfig
 import org.searchmob.engine.EngineRegistry
@@ -24,16 +25,18 @@ import org.searchmob.ui.search.SearchResultsRepository
  * adapters, the preference state, the results repository, and the history store, and rebuilds the
  * [EngineRegistry] on demand from the current per-engine toggles and BYO API keys.
  *
- * INJECTION POINTS (owned by other phases, wired here, not reimplemented):
- * - [PreferencesStore]: defaults to the in-memory store; the storage phase binds an encrypted
- *   DataStore implementation here for reboot persistence.
- * - [HistoryStore]: defaults to the in-memory reference; the storage phase binds the SQLCipher store.
- * - API keys: held in [apiKeys] in memory by default; the storage phase routes read/write/clear
- *   through `EncryptedPreferencesCodec` + `Vault` (never DataStore plaintext, never logs).
+ * INJECTION POINTS:
+ * - [PreferencesStore]: the non-secret UI prefs (theme, toggles). Defaults to the in-memory store;
+ *   the real app binds the plaintext DataStore (these values are not sensitive).
+ * - [HistoryStore]: defaults to the in-memory reference; the real app binds the shared SQLCipher store
+ *   from [org.searchmob.SearchMobApplication].
+ * - [engineConfig]: the DEK-encrypted preferences bridge that persists BYO API keys at rest. Null in
+ *   tests, where keys stay in the in-memory [apiKeys] cache only.
  */
 class AppDependencies(
     val preferencesStore: PreferencesStore = InMemoryPreferencesStore(),
     val historyStore: HistoryStore = InMemoryHistoryStore(),
+    val engineConfig: EngineConfigPreferences? = null,
     private val adapters: List<EngineAdapter> = defaultAdapters(),
 ) {
     val preferencesRepository: PreferencesRepository =
@@ -50,10 +53,27 @@ class AppDependencies(
         }
 
     /**
-     * In-memory BYO API keys keyed by engine id. TODO(storage phase): replace this with read/write
-     * through `EncryptedPreferencesCodec` + `Vault`; never persist keys as DataStore plaintext.
+     * Runtime cache of BYO API keys keyed by engine id, read synchronously by [buildRegistry]. The
+     * durable copy lives encrypted in [engineConfig]; this cache is hydrated from it at startup (see
+     * [hydrateApiKeys]) and kept in sync by the settings layer on each write.
      */
     val apiKeys: MutableStateFlow<Map<String, String>> = MutableStateFlow(emptyMap())
+
+    /**
+     * Load the persisted (encrypted) BYO API keys into the [apiKeys] runtime cache. Call once at
+     * startup so the engine registry picks them up before the user opens settings. A no-op when no
+     * [engineConfig] is bound (tests) or while the vault is locked (the read fails soft).
+     */
+    suspend fun hydrateApiKeys() {
+        val config = engineConfig ?: return
+        val loaded =
+            engineCatalog
+                .filter { it.requiresApiKey }
+                .mapNotNull { descriptor ->
+                    runCatching { config.apiKey(descriptor.id) }.getOrNull()?.let { descriptor.id to it }
+                }.toMap()
+        if (loaded.isNotEmpty()) apiKeys.value = loaded
+    }
 
     /** Latest per-engine enabled snapshot, updated by the settings layer; used to build the registry. */
     val engineEnabled: MutableStateFlow<Map<String, Boolean>> = MutableStateFlow(emptyMap())
