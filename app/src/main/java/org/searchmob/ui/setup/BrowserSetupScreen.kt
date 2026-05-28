@@ -202,6 +202,16 @@ fun ColumnScope.BrowserSetupBody(
                 str(R.string.setup_manual_step3),
             ),
     )
+    InstructionCard(
+        title = str(R.string.setup_suggestions_title),
+        steps =
+            listOf(
+                str(R.string.setup_suggestions_step1),
+                str(R.string.setup_suggestions_step2),
+                str(R.string.setup_suggestions_step3),
+                str(R.string.setup_suggestions_step4),
+            ),
+    )
 }
 
 @Composable

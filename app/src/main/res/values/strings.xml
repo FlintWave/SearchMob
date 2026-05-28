@@ -140,6 +140,12 @@
     <string name="setup_manual_step2">Paste the search template as the query URL, and keep the %s placeholder intact.</string>
     <string name="setup_manual_step3">Set the new engine as your default.</string>
 
+    <string name="setup_suggestions_title">Show search suggestions (optional)</string>
+    <string name="setup_suggestions_step1">Autocomplete only appears if your browser is set to display suggestions, and many browsers have this off by default.</string>
+    <string name="setup_suggestions_step2">Firefox family (Firefox, Fennec, Mull, IronFox): menu → Settings → Search → turn on Show search suggestions.</string>
+    <string name="setup_suggestions_step3">Chromium browsers (Chrome, Brave, Edge, Vivaldi): Settings → Search engine (or Address bar) → turn on Show search suggestions.</string>
+    <string name="setup_suggestions_step4">SearchMob suggests from your local search history by default. To also pull live web autocomplete, open SearchMob Settings → Suggestions and turn on Live suggestions from the web.</string>
+
     <!-- First-run wizard -->
     <string name="onboarding_skip">Skip</string>
     <string name="onboarding_back">Back</string>
