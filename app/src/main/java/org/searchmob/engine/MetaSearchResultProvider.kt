@@ -23,12 +23,21 @@ import org.searchmob.server.SearchResultProvider
  * correction is searched automatically and reported via [SearchOutcome.showingResultsFor].
  */
 class MetaSearchResultProvider(
-    private val registry: EngineRegistry,
+    private val registryProvider: suspend () -> EngineRegistry,
     private val aggregator: Aggregator = Aggregator(),
     private val httpClient: OkHttpClient = HttpClientFactory.create(),
     private val corrector: SpellCorrector = NoopSpellCorrector,
     private val rankingRules: suspend () -> RankingRules = { RankingRules.EMPTY },
 ) : SearchResultProvider {
+    /** Convenience constructor for a fixed registry (tests and callers without dynamic config). */
+    constructor(
+        registry: EngineRegistry,
+        aggregator: Aggregator = Aggregator(),
+        httpClient: OkHttpClient = HttpClientFactory.create(),
+        corrector: SpellCorrector = NoopSpellCorrector,
+        rankingRules: suspend () -> RankingRules = { RankingRules.EMPTY },
+    ) : this({ registry }, aggregator, httpClient, corrector, rankingRules)
+
     override suspend fun search(query: String): List<SearchResult> = searchWithCorrection(query).results
 
     override suspend fun searchWithCorrection(query: String): SearchOutcome {
@@ -66,7 +75,7 @@ class MetaSearchResultProvider(
         query: String,
         rules: RankingRules,
     ): Pair<List<SearchResult>, String?> {
-        val aggregated = aggregator.aggregate(SearchQuery(query), registry.activeEngines(httpClient))
+        val aggregated = aggregator.aggregate(SearchQuery(query), registryProvider().activeEngines(httpClient))
         val ranked =
             DomainRanker.apply(
                 items = aggregated.results,
