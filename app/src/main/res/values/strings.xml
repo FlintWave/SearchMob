@@ -79,6 +79,15 @@
     <string name="settings_suggestions_upstream">Live suggestions from the web</string>
     <string name="settings_suggestions_upstream_supporting">Off by default. When on, what you type is sent to DuckDuckGo\'s suggestion service through the privacy proxy as you type, to offer live autocomplete. Off keeps suggestions to your local history only.</string>
 
+    <!-- Updates (opt-out launch-time GitHub check) -->
+    <string name="settings_section_updates">Updates</string>
+    <string name="settings_update_check">Check for updates on launch</string>
+    <string name="settings_update_check_supporting">On by default. Checks GitHub about once a day for a newer release, through the privacy proxy. This is the only outbound traffic that is not a search. Turn it off to disable it.</string>
+    <string name="update_available_title">Update available</string>
+    <string name="update_available_body">A newer version of SearchMob is available: %1$s. You can download it from the releases page.</string>
+    <string name="update_open_releases">Open releases page</string>
+    <string name="update_not_now">Not now</string>
+
     <string name="settings_section_device">Keep the service alive</string>
 
     <!-- Network mode (opt-in LAN/Tailscale exposure) -->
@@ -163,11 +172,11 @@
     <string name="about_what_body">SearchMob is a private, on-device metasearch app. It runs a small local service on your phone and queries public search engines directly on your behalf. There are no SearchMob servers, so your searches never pass through any service we operate.</string>
 
     <string name="about_nodata_title">We never receive your data</string>
-    <string name="about_nodata_body">SearchMob sends nothing back to its developers. The only outbound network calls the app makes are the searches you run.</string>
+    <string name="about_nodata_body">SearchMob sends nothing back to its developers. The only outbound traffic is the searches you run, plus an optional once-a-day update check to GitHub that you can turn off in Settings.</string>
     <string name="about_nodata_item_telemetry">No telemetry, no analytics, and no crash or diagnostic reporting.</string>
     <string name="about_nodata_item_accounts">No accounts to sign in to and no advertising IDs.</string>
     <string name="about_nodata_item_ids">No device identifiers. We don\'t read your ANDROID_ID, IMEI, or MAC address.</string>
-    <string name="about_nodata_item_outbound">No background phone-home: the app makes no outbound calls except the searches you run.</string>
+    <string name="about_nodata_item_outbound">No background phone-home: the app makes no outbound calls except the searches you run and an optional once-a-day update check to GitHub, routed through the privacy proxy, that you can turn off in Settings.</string>
 
     <string name="about_protect_title">How it protects you when you search</string>
     <string name="about_protect_proxy">SearchMob acts as a privacy proxy to the upstream engines. Requests carry no cookies, no referrer, and no user or device identifier, and the User-Agent is rotated on each request. It never scrapes Google.</string>

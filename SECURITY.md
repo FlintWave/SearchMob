@@ -34,5 +34,10 @@ pipeline. Of particular interest:
 ## Good to know
 
 - The app contains no telemetry and collects no analytics or device identifiers.
+- The only outbound traffic is the searches you run, plus an optional launch-time update check that
+  queries the GitHub Releases API (https://api.github.com/repos/FlintWave/SearchMob/releases/latest)
+  about once a day to see whether a newer version exists. It is on by default, routed through the same
+  privacy proxy as searches (no cookies, stripped headers, rotated User-Agent), sends no query or
+  identifier, never auto-downloads or auto-installs, and can be turned off in Settings.
 - Releases are signed; verify checksums/signatures on downloaded artifacts.
 - Third-party GitHub Actions are pinned by commit SHA.

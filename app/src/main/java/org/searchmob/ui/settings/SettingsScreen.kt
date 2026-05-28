@@ -63,6 +63,7 @@ object SettingsTestTags {
     const val DYNAMIC_COLOR = "settings_dynamic_color"
     const val HISTORY_SWITCH = "settings_history_switch"
     const val SUGGESTIONS_UPSTREAM_SWITCH = "settings_suggestions_upstream_switch"
+    const val UPDATE_CHECK_SWITCH = "settings_update_check_switch"
     const val NETWORK_SWITCH = "settings_network_switch"
     const val NETWORK_ADDRESS_COPY = "settings_network_address_copy"
     const val BROWSER_SETUP = "settings_browser_setup"
@@ -198,6 +199,18 @@ fun SettingsScreen(
                 checked = prefs.upstreamSuggestionsEnabled,
                 tag = SettingsTestTags.SUGGESTIONS_UPSTREAM_SWITCH,
                 onCheckedChange = viewModel::setUpstreamSuggestionsEnabled,
+            )
+
+            HorizontalDivider()
+
+            // --- Updates (opt-out launch-time GitHub check) ---
+            SectionTitle(str(R.string.settings_section_updates))
+            ToggleRow(
+                label = str(R.string.settings_update_check),
+                supporting = str(R.string.settings_update_check_supporting),
+                checked = prefs.updateCheckEnabled,
+                tag = SettingsTestTags.UPDATE_CHECK_SWITCH,
+                onCheckedChange = viewModel::setUpdateCheckEnabled,
             )
 
             HorizontalDivider()

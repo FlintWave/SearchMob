@@ -84,6 +84,14 @@ class SettingsViewModel(
     }
 
     /**
+     * Toggle the opt-out launch-time update check. ON by default; the subtitle discloses the GitHub
+     * call and that it routes through the privacy proxy. Persists immediately with no warning dialog.
+     */
+    fun setUpdateCheckEnabled(enabled: Boolean) {
+        viewModelScope.launch { preferences.setUpdateCheckEnabled(enabled) }
+    }
+
+    /**
      * Whether the network-mode warning dialog is currently shown. Turning the toggle ON opens it;
      * confirming or cancelling closes it. Turning OFF never opens it.
      */

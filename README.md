@@ -21,7 +21,9 @@ so those engines see no cookies/identifier from you, and keeps anything it store
   then de-duplicated and re-ranked. The app proxies the requests: upstream engines see no cookies, no
   referrer, no user/device identifier, and a rotated User-Agent. It **never scrapes Google**.
 - **No data ever leaves for us.** No analytics, no crash/diagnostic reporting, no accounts, no ad IDs,
-  no device identifiers. The only outbound traffic is the searches you run.
+  no device identifiers. The only outbound traffic is the searches you run, plus an optional once-a-day
+  update check to GitHub (on by default, routed through the privacy proxy) that you can turn off in
+  Settings.
 - **Always-on, battery-friendly.** A native `specialUse` foreground service runs a loopback-only HTTP
   search server, restarts on boot, and is event-driven. It holds **no wake-lock while idle**, so the
   CPU sleeps and idle drain is near-zero.
