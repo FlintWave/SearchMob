@@ -2,6 +2,7 @@ package org.searchmob.ui.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -10,8 +11,10 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.searchmob.data.history.HistoryEntry
 import org.searchmob.data.history.HistoryStore
+import org.searchmob.data.prefs.EngineConfigPreferences
 import org.searchmob.ui.EngineDescriptor
 import org.searchmob.ui.prefs.PreferencesRepository
 import org.searchmob.ui.prefs.UserPreferences
@@ -28,6 +31,7 @@ class SettingsViewModel(
     private val engineCatalog: List<EngineDescriptor>,
     private val engineEnabledSink: MutableStateFlow<Map<String, Boolean>>,
     private val apiKeysSink: MutableStateFlow<Map<String, String>>,
+    private val engineConfig: EngineConfigPreferences? = null,
 ) : ViewModel() {
     val preferencesState: StateFlow<UserPreferences> =
         preferences.preferences.stateIn(viewModelScope, SharingStarted.Eagerly, UserPreferences())
@@ -50,8 +54,26 @@ class SettingsViewModel(
         preferences.preferences
             .onEach { prefs ->
                 engineEnabledSink.value = engineCatalog.associate { it.id to prefs.isEngineEnabled(it.id) }
-                if (historyStore.enabled != prefs.historyEnabled) historyStore.setEnabled(prefs.historyEnabled)
+                // setEnabled(false) deletes the encrypted DB file, so keep it off the main thread.
+                if (historyStore.enabled != prefs.historyEnabled) {
+                    withContext(Dispatchers.IO) { historyStore.setEnabled(prefs.historyEnabled) }
+                }
             }.launchIn(viewModelScope)
+
+        // Load the persisted (encrypted) BYO API keys so key presence and the registry reflect what is
+        // already stored, without exposing the key values to the UI beyond this view model.
+        viewModelScope.launch {
+            val stored =
+                engineCatalog
+                    .filter { it.requiresApiKey }
+                    .mapNotNull { engine ->
+                        runCatching { engineConfig?.apiKey(engine.id) }.getOrNull()?.let { engine.id to it }
+                    }.toMap()
+            if (stored.isNotEmpty()) {
+                mutableApiKeys.value = stored
+                apiKeysSink.value = stored
+            }
+        }
     }
 
     fun setThemeMode(mode: ThemeMode) {
@@ -122,17 +144,23 @@ class SettingsViewModel(
     }
 
     fun clearHistory() {
-        historyStore.clear()
-    }
-
-    /** Record a query if history is enabled. Wired into the search flow as the recorder callback. */
-    fun recordQuery(query: String) {
-        historyStore.add(HistoryEntry(query, System.currentTimeMillis()))
+        // The SQLCipher-backed store touches the database, which must not run on the main thread.
+        viewModelScope.launch(Dispatchers.IO) { historyStore.clear() }
     }
 
     /**
-     * Save (or replace) a BYO API key. TODO(storage phase): route through `EncryptedPreferencesCodec`
-     * + `Vault` instead of the in-memory sink. Never log the key.
+     * Record a query if history is enabled. Wired into the search flow as the recorder callback. Runs
+     * off the main thread because the encrypted store performs Room/SQLCipher I/O.
+     */
+    fun recordQuery(query: String) {
+        val entry = HistoryEntry(query, System.currentTimeMillis())
+        viewModelScope.launch(Dispatchers.IO) { historyStore.add(entry) }
+    }
+
+    /**
+     * Save (or replace) a BYO API key. The durable copy is written through [engineConfig], where it is
+     * AES-256-GCM-encrypted at rest; the in-memory caches keep the live registry in sync. The key is
+     * never logged.
      */
     fun setApiKey(
         engineId: String,
@@ -143,6 +171,7 @@ class SettingsViewModel(
         if (trimmed.isEmpty()) next.remove(engineId) else next[engineId] = trimmed
         mutableApiKeys.value = next
         apiKeysSink.value = next
+        viewModelScope.launch { engineConfig?.setApiKey(engineId, trimmed.ifEmpty { null }) }
     }
 
     fun clearApiKey(engineId: String) = setApiKey(engineId, "")

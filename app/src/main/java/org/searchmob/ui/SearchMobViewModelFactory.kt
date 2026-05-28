@@ -20,6 +20,7 @@ class SearchMobViewModelFactory(
             engineCatalog = deps.engineCatalog,
             engineEnabledSink = deps.engineEnabled,
             apiKeysSink = deps.apiKeys,
+            engineConfig = deps.engineConfig,
         )
     }
 

@@ -48,10 +48,16 @@ import org.searchmob.update.UpdateInfo
 import org.searchmob.widget.SearchDeepLink
 
 class MainActivity : ComponentActivity() {
-    // App-scoped dependency graph. INJECTION POINT: the storage phase swaps the default in-memory
-    // PreferencesStore / HistoryStore here for encrypted-DataStore + SQLCipher implementations.
+    // App-scoped dependency graph. Non-secret UI prefs use the plaintext DataStore; the history store
+    // and the encrypted API-key prefs come from the process-wide StorageProvider so the UI and the
+    // foreground service share one encrypted store.
     private val deps: AppDependencies by lazy {
-        AppDependencies(preferencesStore = DataStorePreferencesStore(applicationContext))
+        val storage = (application as SearchMobApplication).storage
+        AppDependencies(
+            preferencesStore = DataStorePreferencesStore(applicationContext),
+            historyStore = storage.history,
+            engineConfig = storage.engineConfig,
+        )
     }
 
     // Set when the launching/relaunching intent asks to open Search (home-screen widget deep link).
@@ -69,6 +75,9 @@ class MainActivity : ComponentActivity() {
 
         // Start the always-on service when the app is opened (idempotent if already running).
         ServiceController.start(this)
+
+        // Load persisted (encrypted) BYO API keys into the engine registry's runtime cache.
+        lifecycleScope.launch { withContext(Dispatchers.IO) { deps.hydrateApiKeys() } }
 
         if (SearchDeepLink.shouldOpenSearch(intent)) openSearchToken = System.nanoTime()
 
