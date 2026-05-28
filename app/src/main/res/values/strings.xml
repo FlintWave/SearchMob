@@ -44,6 +44,8 @@
     <string name="search_error_title">Search failed</string>
     <string name="search_retry">Retry</string>
     <string name="search_source_prefix">via</string>
+    <string name="search_did_you_mean">Did you mean:</string>
+    <string name="search_showing_results_for">Showing results for</string>
 
     <!-- Settings -->
     <string name="settings_title">Settings</string>

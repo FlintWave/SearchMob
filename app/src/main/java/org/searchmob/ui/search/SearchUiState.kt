@@ -19,6 +19,14 @@ sealed interface SearchUiState {
     /** A search failed (all engines errored / request failed). */
     data class Error(val message: String) : SearchUiState
 
-    /** A search completed with one or more results. */
-    data class Results(val results: List<SearchResult>) : SearchUiState
+    /**
+     * A search completed with one or more results. [didYouMean] is a correction to offer while showing
+     * results for the original query; [showingResultsFor] is set instead when the original query was
+     * empty and these results are for that auto-searched correction.
+     */
+    data class Results(
+        val results: List<SearchResult>,
+        val didYouMean: String? = null,
+        val showingResultsFor: String? = null,
+    ) : SearchUiState
 }

@@ -24,6 +24,12 @@ abstract class HttpEngineAdapter : EngineAdapter {
     /** Parse a successful response body into normalized items. Public so it can be fixture-tested. */
     abstract fun parse(body: String): List<EngineResultItem>
 
+    /**
+     * Extract the engine's own spelling correction ("did you mean" / "showing results for X") from the
+     * response, or null if it offers none. Default: no correction. Public so it can be fixture-tested.
+     */
+    open fun parseCorrection(body: String): String? = null
+
     override suspend fun search(
         query: SearchQuery,
         ctx: EngineContext,
@@ -59,7 +65,7 @@ abstract class HttpEngineAdapter : EngineAdapter {
                 } else {
                     when (val body = readBoundedBody(it)) {
                         null -> EngineResult.Failure("response body over $MAX_RESPONSE_BYTES bytes")
-                        else -> EngineResult.Success(parse(body))
+                        else -> EngineResult.Success(parse(body), parseCorrection(body))
                     }
                 }
             }

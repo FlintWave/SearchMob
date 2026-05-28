@@ -43,4 +43,18 @@ class MojeekAdapter(
             )
         }
     }
+
+    /**
+     * Mojeek shows "Did you mean: <correction>" above results. Selectors are verified against live
+     * HTML; if they miss, the on-device corrector still covers the case.
+     */
+    override fun parseCorrection(body: String): String? {
+        val doc = Jsoup.parse(body)
+        return firstText(
+            doc,
+            "p.did-you-mean a",
+            ".did-you-mean a",
+            "a.spell",
+        )
+    }
 }

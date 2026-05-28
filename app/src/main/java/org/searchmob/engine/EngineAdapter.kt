@@ -31,7 +31,14 @@ data class EngineContext(
 
 /** Fail-soft result of one engine: items on success, or a reason on failure, never thrown to the aggregator. */
 sealed interface EngineResult {
-    data class Success(val items: List<EngineResultItem>) : EngineResult
+    /**
+     * Items from one engine. [correction] is the engine's own spelling correction ("did you mean" /
+     * "showing results for X") when it exposed one in this response, else null.
+     */
+    data class Success(
+        val items: List<EngineResultItem>,
+        val correction: String? = null,
+    ) : EngineResult
 
     data class Failure(val reason: String, val cause: Throwable? = null) : EngineResult
 }

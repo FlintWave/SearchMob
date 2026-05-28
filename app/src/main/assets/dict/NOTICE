@@ -1,0 +1,17 @@
+words.txt.gz is a generated correction dictionary (word<TAB>weight, gzip). It is built by
+tools/build-dictionary.py from these free-licensed sources:
+
+- English word frequencies: hermitdave/FrequencyWords, content/2018/en/en_50k.txt
+  MIT License, Copyright (c) 2016 Hermit Dave. Derived from the OpenSubtitles corpus.
+  https://github.com/hermitdave/FrequencyWords
+
+- First names: dominictarr/random-name, first-names.txt (public domain)
+  https://github.com/dominictarr/random-name
+
+- Surnames: dominictarr/random-name, names.txt (public domain)
+  https://github.com/dominictarr/random-name
+
+Names that carry no corpus frequency are assigned a fixed baseline weight so they are plausible
+correction candidates without outranking genuinely common words. To regenerate:
+
+    python3 tools/build-dictionary.py

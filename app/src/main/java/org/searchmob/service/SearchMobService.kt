@@ -89,7 +89,11 @@ class SearchMobService : Service() {
                 ),
             )
         SearchServer(
-            provider = MetaSearchResultProvider(registry),
+            provider =
+                MetaSearchResultProvider(
+                    registry,
+                    corrector = (application as SearchMobApplication).spellCorrector,
+                ),
             guard = WakeLockRequestGuard(AndroidWorkLock(applicationContext)),
             suggestionsProvider = suggestionsProvider,
         )

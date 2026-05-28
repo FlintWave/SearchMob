@@ -16,4 +16,8 @@ data class SearchResult(
 data class SearchResponse(
     val query: String,
     val results: List<SearchResult>,
+    /** A spelling correction to offer ("did you mean"); results are still for [query]. */
+    val didYouMean: String? = null,
+    /** Set when [query] returned nothing and results are for this auto-searched correction instead. */
+    val showingResultsFor: String? = null,
 )
