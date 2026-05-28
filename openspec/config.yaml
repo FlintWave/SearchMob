@@ -46,7 +46,7 @@ context: |
   - HTTP client for engine fan-out: OkHttp + (HTML parsing) Jsoup.
 
   DISTRIBUTION & LICENSE:
-  - Open source on GitHub (owner: ErikChevalier), distributed via GitHub Releases and F-Droid.
+  - Open source on GitHub (owner: FlintWave), distributed via GitHub Releases and F-Droid.
     NOT targeting Google Play (off-Play removes specialUse review + battery-exemption rejection).
   - License: AGPL-3.0-or-later (privacy-aligned strong copyleft).
   - CI/CD (GitHub Actions, pin third-party actions by commit SHA): actions/setup-java@v4 (Temurin

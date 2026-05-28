@@ -4,6 +4,7 @@ import org.searchmob.data.crypto.Argon2idKdf
 import org.searchmob.data.crypto.Dek
 import org.searchmob.data.crypto.DekWrapper
 import org.searchmob.data.crypto.Kdf
+import org.searchmob.data.crypto.KdfParams
 import org.searchmob.data.crypto.PassphraseDekWrapper
 import java.security.SecureRandom
 import java.util.Base64
@@ -38,7 +39,14 @@ class StorageBootstrap(
     private val metadataStore: BootstrapMetadataStore,
     private val keystoreWrapper: DekWrapper,
     private val vault: Vault = Vault(),
-    private val kdfFactory: () -> Kdf = { Argon2idKdf() },
+    private val kdfFactory: (KdfParams) -> Kdf = { params ->
+        Argon2idKdf(
+            iterations = params.iterations,
+            memoryKib = params.memoryKib,
+            parallelism = params.parallelism,
+        )
+    },
+    private val kdfParams: KdfParams = KdfParams(),
     private val saltSize: Int = DEFAULT_SALT_SIZE,
     private val securityLevelProvider: () -> String = { "unknown" },
     private val keyDeleter: () -> Unit = {},
@@ -89,7 +97,9 @@ class StorageBootstrap(
     fun unlockWithPassphrase(passphrase: CharArray): Boolean {
         val meta = metadataStore.read() ?: return false
         if (meta.mode != WrapMode.PASSPHRASE) return false
-        val wrapper = PassphraseDekWrapper(kdfFactory(), passphrase, decode(meta.saltBase64))
+        // Derive the KEK from the STORED KDF params so it is reproducible even if defaults changed.
+        val kdf = kdfFactory(meta.kdfParams())
+        val wrapper = PassphraseDekWrapper(kdf, passphrase, decode(meta.saltBase64))
         val dek = wrapper.unwrap(decode(meta.wrappedDekBase64)) ?: return false
         vault.unlock(dek)
         return true
@@ -110,13 +120,19 @@ class StorageBootstrap(
         check(vault.isUnlocked) { "Cannot enable zero-knowledge mode while locked." }
         val dek = vault.dek()
         val salt = randomSalt()
-        val wrapped = PassphraseDekWrapper(kdfFactory(), passphrase, salt).wrap(dek)
+        // Wrap with the current KDF params and record them so later unlocks reproduce the same KEK.
+        val params = kdfParams
+        val wrapped = PassphraseDekWrapper(kdfFactory(params), passphrase, salt).wrap(dek)
         metadataStore.write(
             BootstrapMetadata(
                 wrappedDekBase64 = encode(wrapped),
                 saltBase64 = encode(salt),
                 mode = WrapMode.PASSPHRASE,
                 securityLevel = securityLevelProvider(),
+                kdfAlgorithm = params.algorithm,
+                kdfIterations = params.iterations,
+                kdfMemoryKib = params.memoryKib,
+                kdfParallelism = params.parallelism,
             ),
         )
         // The Keystore wrapping key is no longer the wrapper of record; drop it.
@@ -147,6 +163,14 @@ class StorageBootstrap(
     fun dekProvider(): () -> ByteArray = vault::dek
 
     fun vault(): Vault = vault
+
+    private fun BootstrapMetadata.kdfParams(): KdfParams =
+        KdfParams(
+            algorithm = kdfAlgorithm,
+            iterations = kdfIterations,
+            memoryKib = kdfMemoryKib,
+            parallelism = kdfParallelism,
+        )
 
     private fun randomSalt(): ByteArray = ByteArray(saltSize).also { SecureRandom().nextBytes(it) }
 

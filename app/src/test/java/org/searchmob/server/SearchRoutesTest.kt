@@ -5,6 +5,7 @@ import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.testing.testApplication
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import javax.xml.parsers.DocumentBuilderFactory
@@ -13,6 +14,12 @@ class SearchRoutesTest {
     private class FakeProvider(private val title: String) : SearchResultProvider {
         override suspend fun search(query: String): List<SearchResult> =
             listOf(SearchResult(title = title, url = "https://fake.test/$query", engine = "fake"))
+    }
+
+    /** Echoes a single result whose URL is controlled by the query, so href rendering can be inspected. */
+    private class UrlProvider(private val url: String) : SearchResultProvider {
+        override suspend fun search(query: String): List<SearchResult> =
+            listOf(SearchResult(title = "HOSTILE_TITLE", url = url, engine = "fake"))
     }
 
     @Test
@@ -82,5 +89,58 @@ class SearchRoutesTest {
                     .newDocumentBuilder()
                     .parse(body.byteInputStream())
             assertEquals("OpenSearchDescription", doc.documentElement.tagName)
+        }
+
+    @Test
+    fun isSafeHttpUrlAllowsOnlyHttpAndHttps() {
+        assertTrue(isSafeHttpUrl("http://example.com/"))
+        assertTrue(isSafeHttpUrl("https://example.com/path?q=1"))
+        assertFalse(isSafeHttpUrl("javascript:alert(1)"))
+        assertFalse(isSafeHttpUrl("JavaScript:alert(1)"))
+        assertFalse(isSafeHttpUrl("data:text/html,<script>alert(1)</script>"))
+        assertFalse(isSafeHttpUrl("file:///etc/passwd"))
+        assertFalse(isSafeHttpUrl("/relative/path"))
+        assertFalse(isSafeHttpUrl(""))
+        // Malformed URLs must be treated as unsafe rather than throwing.
+        assertFalse(isSafeHttpUrl("ht tp://broken url"))
+    }
+
+    @Test
+    fun unsafeResultUrlIsNotRenderedAsHref() =
+        testApplication {
+            application { searchModule(UrlProvider("javascript:alert(1)")) { DEFAULT_PORT } }
+            val body = client.get("/search?q=x").bodyAsText()
+            // Title still shown, but never inside an href to the hostile scheme.
+            assertTrue(body.contains("HOSTILE_TITLE"))
+            assertFalse(body.contains("href=\"javascript:"))
+        }
+
+    @Test
+    fun safeResultUrlIsRenderedAsHref() =
+        testApplication {
+            application { searchModule(UrlProvider("https://safe.test/page")) { DEFAULT_PORT } }
+            val body = client.get("/search?q=x").bodyAsText()
+            assertTrue(body.contains("href=\"https://safe.test/page\""))
+        }
+
+    @Test
+    fun overlongQueryIsCappedBeforeReachingProvider() =
+        testApplication {
+            val seen = StringBuilder()
+            val recorder =
+                object : SearchResultProvider {
+                    override suspend fun search(query: String): List<SearchResult> {
+                        seen.append(query)
+                        return emptyList()
+                    }
+                }
+            application { searchModule(recorder) { DEFAULT_PORT } }
+            val longQuery = "a".repeat(MAX_QUERY_LENGTH + 100)
+            client.get("/search?q=$longQuery")
+            assertEquals(MAX_QUERY_LENGTH, seen.length)
+
+            seen.clear()
+            client.get("/api/search?q=$longQuery")
+            assertEquals(MAX_QUERY_LENGTH, seen.length)
         }
 }

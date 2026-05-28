@@ -4,6 +4,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.searchmob.data.crypto.AesGcm
 import org.searchmob.data.crypto.Dek
 import org.searchmob.data.prefs.EncryptedPreferencesCodec
 
@@ -36,5 +37,15 @@ class EncryptedPreferencesCodecTest {
     fun emptyBlobDecodesToEmptyMap() {
         val codec = EncryptedPreferencesCodec { Dek.generate() }
         assertTrue(codec.decode(ByteArray(0)).isEmpty())
+    }
+
+    @Test
+    fun malformedButDecryptablePayloadYieldsEmptyNotCrash() {
+        val dek = Dek.generate()
+        val codec = EncryptedPreferencesCodec { dek }
+        // A payload that authenticates under the DEK (valid GCM) but is NOT valid JSON for a string
+        // map: GCM decrypt succeeds, the JSON parse must degrade to an empty map rather than throwing.
+        val blob = AesGcm.encrypt(dek, "not-json-at-all".encodeToByteArray())
+        assertTrue(codec.decode(blob).isEmpty())
     }
 }

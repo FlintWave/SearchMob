@@ -40,6 +40,9 @@ import java.net.ServerSocket
 const val LOOPBACK_HOST = "127.0.0.1"
 const val DEFAULT_PORT = 8787
 
+/** Upper bound on the accepted `q` length; longer input is truncated before reaching the provider. */
+const val MAX_QUERY_LENGTH = 512
+
 /**
  * Configures the SearchMob HTTP routes on an [Application]. Shared by the real [SearchServer] and by
  * `testApplication` tests so the HTTP contract is exercised identically. No request/access logging is
@@ -59,12 +62,12 @@ fun Application.searchModule(
             call.respondText("ok")
         }
         get("/search") {
-            val query = call.request.queryParameters["q"].orEmpty()
+            val query = call.request.queryParameters["q"].orEmpty().take(MAX_QUERY_LENGTH)
             val results = if (query.isBlank()) emptyList() else guard.aroundRequest { provider.search(query) }
             call.respondHtml { renderResultsPage(query, results) }
         }
         get("/api/search") {
-            val query = call.request.queryParameters["q"].orEmpty()
+            val query = call.request.queryParameters["q"].orEmpty().take(MAX_QUERY_LENGTH)
             val results = if (query.isBlank()) emptyList() else guard.aroundRequest { provider.search(query) }
             call.respond(SearchResponse(query = query, results = results))
         }
@@ -106,7 +109,14 @@ private fun HTML.renderResultsPage(
                     results.forEach { result ->
                         div("result") {
                             div("url") { +displayUrl(result.url) }
-                            a(href = result.url, classes = "title") { +result.title }
+                            // Only emit a clickable link for http(s) URLs. A javascript:/data:/file: URL
+                            // would survive HTML escaping in href and could execute in the loopback origin,
+                            // so render its title as plain text instead.
+                            if (isSafeHttpUrl(result.url)) {
+                                a(href = result.url, classes = "title") { +result.title }
+                            } else {
+                                span("title") { +result.title }
+                            }
                             if (result.snippet.isNotBlank()) {
                                 p("snippet") { +result.snippet }
                             }
@@ -170,6 +180,19 @@ private fun FlowContent.themeToggle() {
         +"Theme"
     }
 }
+
+/**
+ * True only when [url] parses and uses an http or https scheme. Anything else (javascript:, data:,
+ * file:, a relative/scheme-less value, or a URL that fails to parse) is treated as unsafe so it never
+ * becomes a clickable href.
+ */
+fun isSafeHttpUrl(url: String): Boolean =
+    runCatching {
+        when (java.net.URI(url).scheme?.lowercase()) {
+            "http", "https" -> true
+            else -> false
+        }
+    }.getOrDefault(false)
 
 /** A human-friendly breadcrumb form of a result URL (host › path). */
 private fun displayUrl(rawUrl: String): String =

@@ -16,6 +16,17 @@ interface Kdf {
     ): ByteArray
 }
 
+/**
+ * The KDF parameters recorded alongside a passphrase-wrapped DEK so the exact same KEK can be derived
+ * on later unlocks even if the compile-time defaults change. Defaults to the current Argon2id profile.
+ */
+data class KdfParams(
+    val algorithm: String = Argon2idKdf.ALGORITHM,
+    val iterations: Int = Argon2idKdf.DEFAULT_ITERATIONS,
+    val memoryKib: Int = Argon2idKdf.DEFAULT_MEMORY_KIB,
+    val parallelism: Int = Argon2idKdf.DEFAULT_PARALLELISM,
+)
+
 /** PBKDF2-HMAC-SHA256. Portable (JVM + Android); high iteration count. */
 class Pbkdf2Kdf(private val iterations: Int = 210_000) : Kdf {
     override fun derive(

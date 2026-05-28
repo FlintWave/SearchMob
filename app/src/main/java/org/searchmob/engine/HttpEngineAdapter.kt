@@ -6,6 +6,9 @@ import kotlinx.coroutines.withContext
 import okhttp3.Request
 import org.searchmob.engine.http.Politeness
 
+/** Hard cap on how many bytes of an upstream body are read; a larger body is treated as a failure. */
+const val MAX_RESPONSE_BYTES = 2L * 1024 * 1024
+
 /**
  * Base for adapters that fetch one HTTP response and parse it. Handles the IO dispatch, the call,
  * HTTP error mapping, and fail-soft exception handling, so concrete adapters only build the request
@@ -54,9 +57,29 @@ abstract class HttpEngineAdapter : EngineAdapter {
                 if (!it.isSuccessful) {
                     EngineResult.Failure("HTTP $code")
                 } else {
-                    EngineResult.Success(parse(it.body?.string().orEmpty()))
+                    when (val body = readBoundedBody(it)) {
+                        null -> EngineResult.Failure("response body over $MAX_RESPONSE_BYTES bytes")
+                        else -> EngineResult.Success(parse(body))
+                    }
                 }
             }
         }
+    }
+
+    /**
+     * Reads at most [MAX_RESPONSE_BYTES] from the response body and returns it as a String, or null if
+     * the upstream sent more than the cap. The source is read incrementally (no full pre-buffering), so
+     * an oversized or unbounded body is rejected without being fully materialized in memory.
+     */
+    private fun readBoundedBody(response: okhttp3.Response): String? {
+        val body = response.body ?: return ""
+        val source = body.source()
+        // request(n) returns true only if at least n bytes are available; if MAX_RESPONSE_BYTES + 1
+        // bytes can be buffered the body is over the cap, so we reject it as a failed fetch.
+        if (source.request(MAX_RESPONSE_BYTES + 1)) {
+            return null
+        }
+        val charset = body.contentType()?.charset() ?: Charsets.UTF_8
+        return source.buffer.readString(charset)
     }
 }

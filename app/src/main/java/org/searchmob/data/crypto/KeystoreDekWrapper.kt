@@ -113,6 +113,11 @@ class KeystoreDekWrapper(
         if (strongBox && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             builder.setIsStrongBoxBacked(true)
         }
+        // Bind the key to a device-unlocked state so the wrapped DEK cannot be unwrapped while the
+        // device is locked (API 28+).
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            builder.setUnlockedDeviceRequired(true)
+        }
         if (requireUserAuthentication) {
             applyUserAuthentication(builder)
         }

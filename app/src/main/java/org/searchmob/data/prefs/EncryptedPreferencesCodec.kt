@@ -1,5 +1,6 @@
 package org.searchmob.data.prefs
 
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -17,6 +18,12 @@ class EncryptedPreferencesCodec(private val dek: () -> ByteArray) {
     fun decode(blob: ByteArray): Map<String, String> {
         if (blob.isEmpty()) return emptyMap()
         val plaintext = AesGcm.decrypt(dek(), blob) ?: return emptyMap()
-        return Json.decodeFromString<Map<String, String>>(plaintext.decodeToString())
+        // The payload authenticated under GCM but could still be structurally corrupt; degrade to an
+        // empty map rather than letting a SerializationException escape the codec.
+        return try {
+            Json.decodeFromString<Map<String, String>>(plaintext.decodeToString())
+        } catch (_: SerializationException) {
+            emptyMap()
+        }
     }
 }
