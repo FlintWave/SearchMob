@@ -154,6 +154,7 @@ dependencies {
     implementation(libs.ktor.serialization.kotlinx.json)
     implementation(libs.okhttp)
     implementation(libs.jsoup)
+    implementation(libs.commons.codec)
 
     // Home-screen widget (Jetpack Glance): Compose-based app widget + Material3 theming for day/night.
     implementation(libs.androidx.glance.appwidget)

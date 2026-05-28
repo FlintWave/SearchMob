@@ -15,6 +15,7 @@ coroutines = "1.11.0"
 ktor = "3.5.0"
 okhttp = "4.12.0"
 jsoup = "1.22.2"
+commonsCodec = "1.18.0"
 ksp = "2.3.9"
 datastore = "1.2.1"
 room = "2.8.4"
@@ -53,6 +54,7 @@ ktor-server-test-host = { group = "io.ktor", name = "ktor-server-test-host", ver
 okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhttp" }
 okhttp-mockwebserver = { group = "com.squareup.okhttp3", name = "mockwebserver", version.ref = "okhttp" }
 jsoup = { group = "org.jsoup", name = "jsoup", version.ref = "jsoup" }
+commons-codec = { group = "commons-codec", name = "commons-codec", version.ref = "commonsCodec" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitExt" }
 androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espressoCore" }

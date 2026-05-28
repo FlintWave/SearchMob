@@ -1,11 +1,26 @@
 package org.searchmob.server
 
 /**
+ * Results plus an optional spelling correction. [didYouMean] is a suggestion to offer while still
+ * showing the original query's results. [showingResultsFor] is set instead when the original query
+ * returned nothing and a confident correction was searched automatically, so [results] are for the
+ * correction and the UI can link back to the original.
+ */
+data class SearchOutcome(
+    val results: List<SearchResult>,
+    val didYouMean: String? = null,
+    val showingResultsFor: String? = null,
+)
+
+/**
  * Source of search results behind the HTTP routes. The routes depend only on this abstraction so a
  * later change (`add-metasearch-engine-core`) can substitute the real engine without route changes.
  */
 interface SearchResultProvider {
     suspend fun search(query: String): List<SearchResult>
+
+    /** Search and also report any spelling correction. Defaults to results with no correction. */
+    suspend fun searchWithCorrection(query: String): SearchOutcome = SearchOutcome(search(query))
 }
 
 /** Deterministic placeholder provider used until the metasearch engine lands. */

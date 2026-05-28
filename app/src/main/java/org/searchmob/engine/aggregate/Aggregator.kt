@@ -21,6 +21,12 @@ data class AggregatedResult(
     val score: Double,
 )
 
+/** Ranked results plus the consensus upstream spelling correction, if any engine offered one. */
+data class AggregationResult(
+    val results: List<AggregatedResult>,
+    val correction: String? = null,
+)
+
 /**
  * Queries enabled engines in parallel with bounded concurrency, tolerates per-engine failure and
  * timeout (returning partial results), dedups by normalized URL, and ranks by deterministic
@@ -33,9 +39,9 @@ class Aggregator(
     suspend fun aggregate(
         query: SearchQuery,
         engines: List<Pair<EngineAdapter, EngineContext>>,
-    ): List<AggregatedResult> {
+    ): AggregationResult {
         val semaphore = Semaphore(maxConcurrent)
-        val perEngine: List<List<EngineResultItem>> =
+        val successes: List<EngineResult.Success> =
             supervisorScope {
                 engines
                     .map { (adapter, ctx) ->
@@ -48,11 +54,31 @@ class Aggregator(
                                 } catch (_: Exception) {
                                     null
                                 }
-                            (result as? EngineResult.Success)?.items ?: emptyList()
+                            result as? EngineResult.Success
                         }
                     }.awaitAll()
-            }
-        return rank(perEngine.flatten())
+            }.filterNotNull()
+        val results = rank(successes.flatMap { it.items })
+        return AggregationResult(results, consensusCorrection(query.terms, successes))
+    }
+
+    /**
+     * The most frequently reported upstream correction (ties resolve to the first seen), grouped
+     * case-insensitively and ignoring any correction equal to the original query. Null when none.
+     */
+    private fun consensusCorrection(
+        query: String,
+        successes: List<EngineResult.Success>,
+    ): String? {
+        val byKey = LinkedHashMap<String, Pair<String, Int>>()
+        for (success in successes) {
+            val correction = success.correction?.trim()?.takeIf { it.isNotBlank() } ?: continue
+            if (correction.equals(query.trim(), ignoreCase = true)) continue
+            val key = correction.lowercase()
+            val existing = byKey[key]
+            byKey[key] = if (existing == null) correction to 1 else existing.first to existing.second + 1
+        }
+        return byKey.values.maxByOrNull { it.second }?.first
     }
 
     private fun rank(items: List<EngineResultItem>): List<AggregatedResult> {

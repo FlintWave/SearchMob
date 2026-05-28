@@ -19,6 +19,7 @@ class AggregatorTest {
         private val items: List<EngineResultItem>,
         private val delayMs: Long = 0,
         private val throwError: Boolean = false,
+        private val correction: String? = null,
         private val onEnter: (() -> Unit)? = null,
         private val onExit: (() -> Unit)? = null,
     ) : EngineAdapter {
@@ -33,7 +34,7 @@ class AggregatorTest {
             try {
                 if (delayMs > 0) delay(delayMs)
                 if (throwError) throw RuntimeException("boom")
-                return EngineResult.Success(items)
+                return EngineResult.Success(items, correction)
             } finally {
                 onExit?.invoke()
             }
@@ -53,7 +54,7 @@ class AggregatorTest {
         runTest {
             val a = FakeEngine("a", listOf(item("a", "https://example.com/x", 0, snippet = "from a")))
             val b = FakeEngine("b", listOf(item("b", "https://www.example.com/x/", 0)))
-            val out = Aggregator().aggregate(SearchQuery("q"), listOf(a to ctx(), b to ctx()))
+            val out = Aggregator().aggregate(SearchQuery("q"), listOf(a to ctx(), b to ctx())).results
             assertEquals(1, out.size)
             assertEquals(setOf("a", "b"), out[0].engines.toSet())
             assertEquals("from a", out[0].snippet)
@@ -68,9 +69,9 @@ class AggregatorTest {
                     listOf(item("a", "https://shared.com", 0), item("a", "https://onlya.com", 1)),
                 )
             val b = FakeEngine("b", listOf(item("b", "https://shared.com", 0)))
-            val first = Aggregator().aggregate(SearchQuery("q"), listOf(a to ctx(), b to ctx()))
+            val first = Aggregator().aggregate(SearchQuery("q"), listOf(a to ctx(), b to ctx())).results
             assertEquals("https://shared.com", first.first().url)
-            val second = Aggregator().aggregate(SearchQuery("q"), listOf(a to ctx(), b to ctx()))
+            val second = Aggregator().aggregate(SearchQuery("q"), listOf(a to ctx(), b to ctx())).results
             assertEquals(first.map { it.url }, second.map { it.url })
         }
 
@@ -85,14 +86,31 @@ class AggregatorTest {
                     SearchQuery("q"),
                     listOf(ok to ctx(1_000), boom to ctx(1_000), slow to ctx(1_000)),
                 )
-            assertEquals(listOf("https://ok.com"), out.map { it.url })
+            assertEquals(listOf("https://ok.com"), out.results.map { it.url })
         }
 
     @Test
     fun allFailYieldsEmptyNoError() =
         runTest {
             val boom = FakeEngine("boom", emptyList(), throwError = true)
-            assertTrue(Aggregator().aggregate(SearchQuery("q"), listOf(boom to ctx())).isEmpty())
+            assertTrue(Aggregator().aggregate(SearchQuery("q"), listOf(boom to ctx())).results.isEmpty())
+        }
+
+    @Test
+    fun consensusCorrectionPicksMostFrequentAndIgnoresEchoOfQuery() =
+        runTest {
+            val a = FakeEngine("a", listOf(item("a", "https://a.com", 0)), correction = "john depp")
+            val b = FakeEngine("b", listOf(item("b", "https://b.com", 0)), correction = "John Depp")
+            val c = FakeEngine("c", listOf(item("c", "https://c.com", 0)), correction = "jon depp")
+            val out = Aggregator().aggregate(SearchQuery("jon dep"), listOf(a to ctx(), b to ctx(), c to ctx()))
+            assertEquals("john depp", out.correction)
+        }
+
+    @Test
+    fun noCorrectionWhenNoneReported() =
+        runTest {
+            val a = FakeEngine("a", listOf(item("a", "https://a.com", 0)))
+            assertEquals(null, Aggregator().aggregate(SearchQuery("q"), listOf(a to ctx())).correction)
         }
 
     @Test

@@ -41,6 +41,7 @@ import org.searchmob.server.suggest.NoSuggestionsProvider
 import org.searchmob.server.suggest.SuggestionsProvider
 import java.net.InetSocketAddress
 import java.net.ServerSocket
+import java.net.URLEncoder
 
 const val LOOPBACK_HOST = "127.0.0.1"
 
@@ -85,13 +86,34 @@ fun Application.searchModule(
         }
         get("/search") {
             val query = call.request.queryParameters["q"].orEmpty().take(MAX_QUERY_LENGTH)
-            val results = if (query.isBlank()) emptyList() else guard.aroundRequest { provider.search(query) }
-            call.respondHtml { renderResultsPage(query, results) }
+            val outcome =
+                if (query.isBlank()) {
+                    SearchOutcome(
+                        emptyList(),
+                    )
+                } else {
+                    guard.aroundRequest { provider.searchWithCorrection(query) }
+                }
+            call.respondHtml { renderResultsPage(query, outcome) }
         }
         get("/api/search") {
             val query = call.request.queryParameters["q"].orEmpty().take(MAX_QUERY_LENGTH)
-            val results = if (query.isBlank()) emptyList() else guard.aroundRequest { provider.search(query) }
-            call.respond(SearchResponse(query = query, results = results))
+            val outcome =
+                if (query.isBlank()) {
+                    SearchOutcome(
+                        emptyList(),
+                    )
+                } else {
+                    guard.aroundRequest { provider.searchWithCorrection(query) }
+                }
+            call.respond(
+                SearchResponse(
+                    query = query,
+                    results = outcome.results,
+                    didYouMean = outcome.didYouMean,
+                    showingResultsFor = outcome.showingResultsFor,
+                ),
+            )
         }
         get("/suggest") {
             val query = call.request.queryParameters["q"].orEmpty().take(MAX_QUERY_LENGTH)
@@ -120,8 +142,9 @@ fun Application.searchModule(
 
 private fun HTML.renderResultsPage(
     query: String,
-    results: List<SearchResult>,
+    outcome: SearchOutcome,
 ) {
+    val results = outcome.results
     head { pageHead(if (query.isBlank()) "SearchMob" else "$query · SearchMob") }
     body {
         attributes["data-page"] = "results"
@@ -141,9 +164,17 @@ private fun HTML.renderResultsPage(
         div("results") {
             when {
                 query.isBlank() -> p("empty") { +"Enter a query to search." }
-                results.isEmpty() -> p("empty") { +"No results for “$query”." }
+                results.isEmpty() -> {
+                    outcome.didYouMean?.let { didYouMeanLine(it) }
+                    p("empty") { +"No results for “$query”." }
+                }
                 else -> {
-                    p("meta") { +"Results for “$query”" }
+                    if (outcome.showingResultsFor != null) {
+                        p("meta") { +"Showing results for “${outcome.showingResultsFor}”" }
+                    } else {
+                        p("meta") { +"Results for “$query”" }
+                    }
+                    outcome.didYouMean?.let { didYouMeanLine(it) }
                     results.forEach { result ->
                         div("result") {
                             div("url") { +displayUrl(result.url) }
@@ -171,6 +202,14 @@ private fun HTML.renderResultsPage(
             }
         }
         script { unsafe { +THEME_TOGGLE_JS } }
+    }
+}
+
+/** A "Did you mean: <correction>" line linking to a fresh search for the correction. */
+private fun FlowContent.didYouMeanLine(correction: String) {
+    p("didyoumean") {
+        +"Did you mean: "
+        a(href = "/search?q=${URLEncoder.encode(correction, "UTF-8")}") { +correction }
     }
 }
 

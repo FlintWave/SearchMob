@@ -52,11 +52,12 @@ class MainActivity : ComponentActivity() {
     // and the encrypted API-key prefs come from the process-wide StorageProvider so the UI and the
     // foreground service share one encrypted store.
     private val deps: AppDependencies by lazy {
-        val storage = (application as SearchMobApplication).storage
+        val app = application as SearchMobApplication
         AppDependencies(
             preferencesStore = DataStorePreferencesStore(applicationContext),
-            historyStore = storage.history,
-            engineConfig = storage.engineConfig,
+            historyStore = app.storage.history,
+            engineConfig = app.storage.engineConfig,
+            spellCorrector = app.spellCorrector,
         )
     }
 

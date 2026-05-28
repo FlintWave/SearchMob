@@ -2,6 +2,7 @@ package org.searchmob.ui.search
 
 import android.content.Intent
 import android.net.Uri
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -47,6 +48,7 @@ object SearchTestTags {
     const val ERROR = "search_error"
     const val RETRY = "search_retry"
     const val RESULTS = "search_results"
+    const val DID_YOU_MEAN = "search_did_you_mean"
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -117,6 +119,9 @@ fun SearchScreen(
                 is SearchUiState.Results ->
                     ResultsList(
                         results = s.results,
+                        didYouMean = s.didYouMean,
+                        showingResultsFor = s.showingResultsFor,
+                        onSearchCorrected = viewModel::searchCorrected,
                         onOpen = { url ->
                             // Open only the result URL; no query/identifier is attached.
                             context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
@@ -181,15 +186,63 @@ private fun ErrorState(
 @Composable
 private fun ResultsList(
     results: List<SearchResult>,
+    didYouMean: String?,
+    showingResultsFor: String?,
+    onSearchCorrected: (String) -> Unit,
     onOpen: (String) -> Unit,
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize().testTag(SearchTestTags.RESULTS),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
+        if (didYouMean != null || showingResultsFor != null) {
+            item {
+                DidYouMeanBanner(
+                    didYouMean = didYouMean,
+                    showingResultsFor = showingResultsFor,
+                    onSearchCorrected = onSearchCorrected,
+                )
+            }
+        }
         items(results) { result ->
             ResultCard(result = result, onOpen = onOpen)
         }
+    }
+}
+
+/**
+ * "Did you mean" / "Showing results for" banner. The suggestion form is tappable and re-runs the
+ * search with the correction; the auto-corrected form is informational (the original found nothing).
+ */
+@Composable
+private fun DidYouMeanBanner(
+    didYouMean: String?,
+    showingResultsFor: String?,
+    onSearchCorrected: (String) -> Unit,
+) {
+    when {
+        didYouMean != null ->
+            Text(
+                text = stringResource(R.string.search_did_you_mean) + " " + didYouMean,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.primary,
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .testTag(SearchTestTags.DID_YOU_MEAN)
+                        .clickable { onSearchCorrected(didYouMean) }
+                        .padding(vertical = 8.dp),
+            )
+        showingResultsFor != null ->
+            Text(
+                text = stringResource(R.string.search_showing_results_for) + " " + showingResultsFor,
+                style = MaterialTheme.typography.bodyMedium,
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .testTag(SearchTestTags.DID_YOU_MEAN)
+                        .padding(vertical = 8.dp),
+            )
     }
 }
 

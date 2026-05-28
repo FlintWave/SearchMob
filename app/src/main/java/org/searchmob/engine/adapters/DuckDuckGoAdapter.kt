@@ -46,6 +46,20 @@ class DuckDuckGoAdapter(
         }
     }
 
+    /**
+     * DuckDuckGo's no-JS page surfaces a spelling suggestion as a link in the results header. Selectors
+     * are verified against live HTML; if they miss, the on-device corrector still covers the case.
+     */
+    override fun parseCorrection(body: String): String? {
+        val doc = Jsoup.parse(body)
+        return firstText(
+            doc,
+            "a.js-spelling-suggestion-link",
+            ".did-you-mean a",
+            "#did_you_mean a",
+        )
+    }
+
     /** DuckDuckGo wraps result links as `//duckduckgo.com/l/?uddg=<encoded-url>&rut=...`. */
     private fun decodeRedirect(href: String): String? {
         val marker = href.indexOf("uddg=")

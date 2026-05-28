@@ -48,6 +48,12 @@ class SearchViewModel(
         if (lastDispatched.isNotBlank()) dispatch(lastDispatched)
     }
 
+    /** Accept a "did you mean" suggestion: put it in the query field and search for it. */
+    fun searchCorrected(corrected: String) {
+        mutableQuery.value = corrected
+        dispatch(corrected)
+    }
+
     private fun dispatch(raw: String) {
         val terms = raw.trim()
         if (terms.isEmpty()) return
@@ -58,18 +64,23 @@ class SearchViewModel(
             viewModelScope.launch {
                 val outcome =
                     runCatching {
-                        withContext(ioDispatcher) { repository.search(terms) }
+                        withContext(ioDispatcher) { repository.searchWithCorrection(terms) }
                     }
                 mutableState.value =
                     outcome.fold(
-                        onSuccess = { results ->
-                            if (results.isEmpty()) {
+                        onSuccess = { result ->
+                            if (result.results.isEmpty()) {
                                 SearchUiState.Empty
                             } else {
-                                // Record only after a successful search; the recorder itself gates on
-                                // the history toggle, so store-nothing is honored when history is off.
-                                onRecordQuery(terms)
-                                SearchUiState.Results(results)
+                                // Record the query actually answered (the correction when we auto-searched
+                                // it), so a typo never pollutes history. The recorder gates on the history
+                                // toggle, so store-nothing is honored when history is off.
+                                onRecordQuery(result.showingResultsFor ?: terms)
+                                SearchUiState.Results(
+                                    results = result.results,
+                                    didYouMean = result.didYouMean,
+                                    showingResultsFor = result.showingResultsFor,
+                                )
                             }
                         },
                         onFailure = { error ->
