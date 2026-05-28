@@ -11,7 +11,7 @@ telemetry of any kind**. It aggregates results from several search engines, acts
 so those engines see no cookies/identifier from you, and keeps anything it stores encrypted at rest
 (with an optional zero-knowledge mode).
 
-> **Status:** first release, **`26.05.01`**. Functional and verified on Android 15. Ongoing work and
+> **Status:** latest release **`26.05.02`**. Functional and verified on Android 15. Ongoing work and
 > design live in [`ROADMAP.md`](ROADMAP.md) and [`openspec/`](openspec/).
 
 ## What it does
