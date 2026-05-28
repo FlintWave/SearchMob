@@ -16,6 +16,7 @@ data class UserPreferences(
     val historyEnabled: Boolean = false,
     val networkAccessEnabled: Boolean = false,
     val upstreamSuggestionsEnabled: Boolean = false,
+    val updateCheckEnabled: Boolean = true,
 ) {
     fun isEngineEnabled(engineId: String): Boolean = engineEnabled[engineId] ?: true
 }
@@ -29,4 +30,8 @@ object PreferenceKeys {
     const val ONBOARDING_COMPLETED = "onboarding_completed"
     const val NETWORK_ACCESS_ENABLED = "network_access_enabled"
     const val UPSTREAM_SUGGESTIONS_ENABLED = "upstream_suggestions_enabled"
+    const val UPDATE_CHECK_ENABLED = "update_check_enabled"
+
+    // Stored as a string because the store has no Long type; parsed back to a Long timestamp.
+    const val LAST_UPDATE_CHECK_MS = "last_update_check_ms"
 }

@@ -2,6 +2,7 @@ package org.searchmob.ui.prefs
 
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import org.searchmob.ui.theme.ThemeMode
 
 /**
@@ -18,8 +19,8 @@ class PreferencesRepository(
 
     val preferences: Flow<UserPreferences> =
         combine(
-            // First five flows feed the typed five-arg combine; the sixth is folded in below because
-            // there is no typed six-arg combine overload. Keep this in sync with the data class fields.
+            // First five flows feed the typed five-arg combine; the rest are folded in below because
+            // there is no typed combine overload past five. Keep this in sync with the data class fields.
             combine(
                 store.getString(PreferenceKeys.THEME_MODE, ThemeMode.SYSTEM.name),
                 store.getBoolean(PreferenceKeys.DYNAMIC_COLOR, true),
@@ -36,8 +37,12 @@ class PreferencesRepository(
                 )
             },
             store.getBoolean(PreferenceKeys.UPSTREAM_SUGGESTIONS_ENABLED, false),
-        ) { base, upstreamSuggestions ->
-            base.copy(upstreamSuggestionsEnabled = upstreamSuggestions)
+            store.getBoolean(PreferenceKeys.UPDATE_CHECK_ENABLED, true),
+        ) { base, upstreamSuggestions, updateCheck ->
+            base.copy(
+                upstreamSuggestionsEnabled = upstreamSuggestions,
+                updateCheckEnabled = updateCheck,
+            )
         }
 
     /** Whether the first-run wizard has been completed or skipped. Gates the wizard in navigation. */
@@ -68,6 +73,30 @@ class PreferencesRepository(
 
     suspend fun setUpstreamSuggestionsEnabled(enabled: Boolean) =
         store.setBoolean(PreferenceKeys.UPSTREAM_SUGGESTIONS_ENABLED, enabled)
+
+    /**
+     * Whether the opt-out launch-time update check is enabled. ON by default: about once a day the app
+     * asks GitHub Releases for a newer version through the privacy proxy. This is the only outbound
+     * traffic that is not a search; turning it off disables it entirely.
+     */
+    val updateCheckEnabled: Flow<Boolean> =
+        store.getBoolean(PreferenceKeys.UPDATE_CHECK_ENABLED, true)
+
+    suspend fun setUpdateCheckEnabled(enabled: Boolean) = store.setBoolean(PreferenceKeys.UPDATE_CHECK_ENABLED, enabled)
+
+    /** One-shot read of the update-check enabled flag for the launch-time coordinator. */
+    suspend fun updateCheckEnabled(): Boolean = updateCheckEnabled.first()
+
+    /**
+     * Timestamp (epoch millis) of the last launch-time update-check attempt, used to throttle to about
+     * once a day. Defaults to 0 (never checked). Persisted as a string because the store has no Long
+     * type; an unparseable value is treated as 0 so a corrupt value never blocks a check.
+     */
+    suspend fun lastUpdateCheckMs(): Long =
+        store.getString(PreferenceKeys.LAST_UPDATE_CHECK_MS, "0").first().toLongOrNull() ?: 0L
+
+    suspend fun setLastUpdateCheckMs(value: Long) =
+        store.setString(PreferenceKeys.LAST_UPDATE_CHECK_MS, value.toString())
 
     suspend fun setThemeMode(mode: ThemeMode) = store.setString(PreferenceKeys.THEME_MODE, mode.name)
 

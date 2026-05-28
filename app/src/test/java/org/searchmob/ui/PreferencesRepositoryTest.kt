@@ -33,6 +33,8 @@ class PreferencesRepositoryTest {
             assertFalse(prefs.historyEnabled)
             assertFalse(prefs.networkAccessEnabled)
             assertFalse(prefs.upstreamSuggestionsEnabled)
+            // Update check is the one new opt-OUT default: on unless turned off.
+            assertTrue(prefs.updateCheckEnabled)
             // All known engines default to enabled.
             assertTrue(prefs.isEngineEnabled("duckduckgo"))
             assertTrue(prefs.isEngineEnabled("mojeek"))
@@ -78,6 +80,30 @@ class PreferencesRepositoryTest {
             assertTrue(r.upstreamSuggestionsEnabled.first())
             r.setUpstreamSuggestionsEnabled(false)
             assertFalse(r.upstreamSuggestionsEnabled.first())
+        }
+
+    @Test
+    fun updateCheck_defaultsOnAndRoundTrips() =
+        runTest {
+            val r = repo()
+            assertTrue(r.preferences.first().updateCheckEnabled)
+            assertTrue(r.updateCheckEnabled.first())
+            assertTrue(r.updateCheckEnabled())
+            r.setUpdateCheckEnabled(false)
+            assertFalse(r.preferences.first().updateCheckEnabled)
+            assertFalse(r.updateCheckEnabled.first())
+            assertFalse(r.updateCheckEnabled())
+            r.setUpdateCheckEnabled(true)
+            assertTrue(r.updateCheckEnabled.first())
+        }
+
+    @Test
+    fun lastUpdateCheckMs_defaultsZeroAndRoundTrips() =
+        runTest {
+            val r = repo()
+            assertEquals(0L, r.lastUpdateCheckMs())
+            r.setLastUpdateCheckMs(1_700_000_000_000L)
+            assertEquals(1_700_000_000_000L, r.lastUpdateCheckMs())
         }
 
     @Test
