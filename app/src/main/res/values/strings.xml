@@ -68,6 +68,7 @@
     <string name="settings_section_keys">Bring-your-own API keys</string>
     <string name="settings_key_brave">Brave Search API key</string>
     <string name="settings_key_mojeek">Mojeek Search API key</string>
+    <string name="settings_key_kagi">Kagi Search API token</string>
     <string name="settings_key_hint">API key</string>
     <string name="settings_key_set">key set</string>
     <string name="settings_key_save">Save</string>

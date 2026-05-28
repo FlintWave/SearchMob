@@ -16,16 +16,19 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import org.searchmob.R
 import org.searchmob.SearchMobApplication
 import org.searchmob.data.history.HistoryStore
+import org.searchmob.engine.EngineConfig
 import org.searchmob.engine.EngineRegistry
 import org.searchmob.engine.MetaSearchResultProvider
 import org.searchmob.engine.adapters.BraveApiAdapter
 import org.searchmob.engine.adapters.DuckDuckGoAdapter
+import org.searchmob.engine.adapters.KagiApiAdapter
 import org.searchmob.engine.adapters.MarginaliaAdapter
 import org.searchmob.engine.adapters.MojeekAdapter
 import org.searchmob.engine.adapters.MojeekApiAdapter
@@ -72,26 +75,46 @@ class SearchMobService : Service() {
         )
     }
 
+    // The metasearch engines for the browser-facing server: free by default, plus the BYO-key APIs
+    // (inactive until a key is configured).
+    private val engineAdapters =
+        listOf(
+            DuckDuckGoAdapter(),
+            MojeekAdapter(),
+            MarginaliaAdapter(),
+            MwmblAdapter(),
+            WikipediaAdapter(),
+            BraveApiAdapter(),
+            MojeekApiAdapter(),
+            KagiApiAdapter(),
+        )
+
+    /**
+     * Build the registry for one search from the user's per-engine enabled flags (UI prefs) and the
+     * decrypted BYO keys (encrypted store), so a configured Brave/Mojeek/Kagi key activates that engine
+     * on the browser path too, not only in the in-app search.
+     */
+    private suspend fun buildRegistry(): EngineRegistry {
+        val app = application as SearchMobApplication
+        val userPrefs = preferences.preferences.first()
+        val configs =
+            engineAdapters.associate { adapter ->
+                adapter.id to
+                    EngineConfig(
+                        engineId = adapter.id,
+                        enabled = userPrefs.isEngineEnabled(adapter.id),
+                        apiKey = runCatching { app.storage.engineConfig.apiKey(adapter.id) }.getOrNull(),
+                    )
+            }
+        return EngineRegistry(adapters = engineAdapters, configs = configs)
+    }
+
     // Loopback HTTP server backed by the metasearch engine; each request acquires a short wake-lock.
     private val searchServer by lazy {
-        val registry =
-            EngineRegistry(
-                listOf(
-                    // Free by default:
-                    DuckDuckGoAdapter(),
-                    MojeekAdapter(),
-                    MarginaliaAdapter(),
-                    MwmblAdapter(),
-                    WikipediaAdapter(),
-                    // Bring-your-own-key (inactive until a key is configured):
-                    BraveApiAdapter(),
-                    MojeekApiAdapter(),
-                ),
-            )
         SearchServer(
             provider =
                 MetaSearchResultProvider(
-                    registry,
+                    registryProvider = ::buildRegistry,
                     corrector = (application as SearchMobApplication).spellCorrector,
                     rankingRules = { (application as SearchMobApplication).rankingPreferences.load() },
                 ),

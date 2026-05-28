@@ -177,6 +177,12 @@ fun SettingsScreen(
                 onSave = { viewModel.setApiKey(ApiKeyEngines.MOJEEK, it) },
                 onClear = { viewModel.clearApiKey(ApiKeyEngines.MOJEEK) },
             )
+            ApiKeyRow(
+                label = str(R.string.settings_key_kagi),
+                hasKey = ApiKeyEngines.KAGI in keyPresence,
+                onSave = { viewModel.setApiKey(ApiKeyEngines.KAGI, it) },
+                onClear = { viewModel.clearApiKey(ApiKeyEngines.KAGI) },
+            )
 
             HorizontalDivider()
 

@@ -10,6 +10,7 @@ import org.searchmob.engine.EngineConfig
 import org.searchmob.engine.EngineRegistry
 import org.searchmob.engine.adapters.BraveApiAdapter
 import org.searchmob.engine.adapters.DuckDuckGoAdapter
+import org.searchmob.engine.adapters.KagiApiAdapter
 import org.searchmob.engine.adapters.MarginaliaAdapter
 import org.searchmob.engine.adapters.MojeekAdapter
 import org.searchmob.engine.adapters.MojeekApiAdapter
@@ -108,7 +109,7 @@ class AppDependencies(
     }
 
     companion object {
-        /** All in-process engine adapters: free scrapers/APIs + the two BYO-key APIs. */
+        /** All in-process engine adapters: free scrapers/APIs + the BYO-key APIs. */
         fun defaultAdapters(): List<EngineAdapter> =
             listOf(
                 DuckDuckGoAdapter(),
@@ -118,6 +119,7 @@ class AppDependencies(
                 WikipediaAdapter(),
                 BraveApiAdapter(),
                 MojeekApiAdapter(),
+                KagiApiAdapter(),
             )
     }
 }
@@ -133,4 +135,5 @@ data class EngineDescriptor(
 object ApiKeyEngines {
     const val BRAVE = "brave-api"
     const val MOJEEK = "mojeek-api"
+    const val KAGI = "kagi-api"
 }
