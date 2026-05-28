@@ -82,6 +82,10 @@ See [`CONTRIBUTING.md`](CONTRIBUTING.md). We use [Conventional Commits](https://
 and build each feature on its own branch, tested before merge. Please also read
 [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md) and, for security reports, [`SECURITY.md`](SECURITY.md).
 
+## Credits
+
+App icon: <a href="https://www.flaticon.com/free-icons/search" title="search icons">Search icons created by Freepik - Flaticon</a>.
+
 ## License
 
 [AGPL-3.0-or-later](LICENSE). If you run a modified version that users interact with over a network,
