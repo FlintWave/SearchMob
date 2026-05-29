@@ -123,6 +123,8 @@ class SearchMobService : Service() {
                 ),
             guard = WakeLockRequestGuard(AndroidWorkLock(applicationContext)),
             suggestionsProvider = suggestionsProvider,
+            // Lets the served page's personalization controls read and persist rules (loopback-only).
+            rankingPreferences = (application as SearchMobApplication).rankingPreferences,
         )
     }
 
