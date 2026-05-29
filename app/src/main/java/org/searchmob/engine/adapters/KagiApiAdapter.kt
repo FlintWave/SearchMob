@@ -1,22 +1,25 @@
 package org.searchmob.engine.adapters
 
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.intOrNull
+import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.put
+import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
 import org.searchmob.engine.EngineContext
 import org.searchmob.engine.EngineResultItem
 import org.searchmob.engine.HttpEngineAdapter
 import org.searchmob.engine.SearchCategory
 import org.searchmob.engine.SearchQuery
-import java.net.URLEncoder
 
 /**
- * Kagi Search API (bring-your-own key). Inactive until the user supplies a Kagi token. The response is
- * `{data:[{t,url,title,snippet}, ...]}` where `t == 0` marks a search result and other `t` values
- * (e.g. related searches) are ignored. Authenticated with `Authorization: Bot <token>`.
+ * Kagi Search API (bring-your-own key), v1. Inactive until the user supplies a Kagi API key (from
+ * kagi.com/api/keys). Per Kagi's OpenAPI spec it is a POST to `https://kagi.com/api/v1/search` with a
+ * JSON body `{"query": "..."}` and HTTP Bearer auth. Web results are under `data.search[]`, each with
+ * `url`, `title`, and `snippet`.
  */
 class KagiApiAdapter(
     private val baseUrl: String = "https://kagi.com",
@@ -30,24 +33,27 @@ class KagiApiAdapter(
         query: SearchQuery,
         ctx: EngineContext,
     ): Request {
-        val url = "$baseUrl/api/v0/search?q=${URLEncoder.encode(query.terms, "UTF-8")}"
+        val payload =
+            buildJsonObject { put("query", query.terms) }
+                .toString()
+                .toRequestBody(JSON_MEDIA_TYPE)
         return Request.Builder()
-            .url(url)
+            .url("$baseUrl/api/v1/search")
             .header("Accept", "application/json")
-            .header("Authorization", "Bot ${ctx.apiKey.orEmpty()}")
-            .get()
+            .header("Authorization", "Bearer ${ctx.apiKey.orEmpty()}")
+            .post(payload)
             .build()
     }
 
     override fun parse(body: String): List<EngineResultItem> {
-        val data =
+        val search =
             Json.parseToJsonElement(body)
-                .jsonObject["data"]?.jsonArray
+                .jsonObject["data"]?.jsonObject
+                ?.get("search")?.jsonArray
                 ?: return emptyList()
         var position = 0
-        return data.mapNotNull { element ->
+        return search.mapNotNull { element ->
             val obj = element.jsonObject
-            if (obj["t"]?.jsonPrimitive?.intOrNull != 0) return@mapNotNull null
             val url = obj["url"]?.jsonPrimitive?.content.orEmpty()
             if (url.isBlank()) return@mapNotNull null
             EngineResultItem(
@@ -58,5 +64,9 @@ class KagiApiAdapter(
                 position = position++,
             )
         }
+    }
+
+    private companion object {
+        val JSON_MEDIA_TYPE = "application/json".toMediaType()
     }
 }
