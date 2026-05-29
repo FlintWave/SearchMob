@@ -94,18 +94,19 @@
 
     <!-- Search suggestions (opt-in upstream autocomplete) -->
     <string name="settings_section_ranking">Result ranking</string>
-    <string name="settings_ranking_supporting">Raise, lower, pin, or block sites and scope searches with lenses. All rules stay on your device.</string>
-    <string name="settings_lens_active">Active lens</string>
+    <string name="settings_ranking_supporting">Raise, lower, pin, or block sites and focus searches with scopes. All rules stay on your device.</string>
+    <string name="settings_lens_active">Active scope</string>
     <string name="settings_lens_none">None</string>
-    <string name="settings_lens_add">Add lens</string>
-    <string name="settings_lens_delete">Delete lens</string>
-    <string name="settings_lens_name">Lens name</string>
+    <string name="settings_lens_add">Add scope</string>
+    <string name="settings_lens_add_samples">Add sample scopes</string>
+    <string name="settings_lens_delete">Delete scope</string>
+    <string name="settings_lens_name">Scope name</string>
     <string name="settings_lens_include_domains">Include domains (comma-separated)</string>
     <string name="settings_lens_exclude_domains">Exclude domains (comma-separated)</string>
     <string name="settings_lens_include_keywords">Include keywords (comma-separated)</string>
     <string name="settings_lens_exclude_keywords">Exclude keywords (comma-separated)</string>
     <string name="settings_ranking_domains_empty">Block or boost a site from the menu on any result.</string>
-    <string name="settings_goggles">Imported goggle rules</string>
+    <string name="settings_goggles">Imported goggle rules (Brave Goggles format)</string>
     <string name="settings_goggles_import">Import goggle</string>
     <string name="settings_goggles_clear">Clear goggle</string>
     <string name="settings_goggle_paste_title">Paste goggle rules</string>
@@ -240,6 +241,8 @@
     <string name="about_version">Version %1$s</string>
     <string name="about_license">License: AGPL-3.0-or-later</string>
     <string name="about_copyright">Copyright © 2026 FlintWave. Contact: flintwave@tuta.com</string>
+    <string name="about_attribution">Search icons created by Freepik - Flaticon.</string>
+    <string name="about_trademarks">SearchMob is not affiliated with, endorsed by, or sponsored by DuckDuckGo, Mojeek, Marginalia, Mwmbl, Wikipedia, Brave, Kagi, Google, or Tailscale. All product names, logos, and brands are the property of their respective owners and are used only to identify the services SearchMob interoperates with.</string>
     <string name="about_repo_button">View source on GitHub</string>
     <string name="about_bug_button">Report a bug</string>
 </resources>

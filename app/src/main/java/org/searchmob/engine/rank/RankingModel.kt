@@ -31,6 +31,58 @@ data class GoggleRule(
     val action: RankRule,
 )
 
+/**
+ * Built-in example scopes (lenses), ready to use and instructive to read. Shared with the desktop
+ * app so both ship the same set. Domain matching is by registrable parent, so a bare "edu" entry
+ * matches every *.edu host. Not active by default; the user picks one.
+ */
+val DEFAULT_SAMPLE_LENSES: List<Lens> =
+    listOf(
+        Lens(
+            name = "Academic & research",
+            includeDomains =
+                listOf(
+                    "edu", "arxiv.org", "nature.com", "sciencedirect.com", "springer.com",
+                    "jstor.org", "ncbi.nlm.nih.gov", "researchgate.net", "semanticscholar.org",
+                ),
+        ),
+        Lens(
+            name = "Developer docs",
+            includeDomains =
+                listOf(
+                    "developer.mozilla.org",
+                    "docs.python.org",
+                    "stackoverflow.com",
+                    "github.com",
+                    "readthedocs.io",
+                    "devdocs.io",
+                    "pkg.go.dev",
+                    "docs.rs",
+                ),
+        ),
+        Lens(
+            name = "Recipes & cooking",
+            includeDomains =
+                listOf(
+                    "seriouseats.com",
+                    "allrecipes.com",
+                    "bonappetit.com",
+                    "epicurious.com",
+                    "food.com",
+                    "kingarthurbaking.com",
+                ),
+        ),
+        Lens(
+            name = "Reference & learning",
+            includeDomains =
+                listOf("wikipedia.org", "britannica.com", "khanacademy.org", "archive.org", "edu"),
+        ),
+        Lens(
+            name = "Less clutter (no Pinterest/Quora)",
+            excludeDomains = listOf("pinterest.com", "quora.com"),
+        ),
+    )
+
 /** The complete on-device personalization rule set. Serialized as one JSON blob in the encrypted store. */
 @Serializable
 data class RankingRules(

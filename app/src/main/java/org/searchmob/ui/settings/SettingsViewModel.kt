@@ -16,6 +16,7 @@ import org.searchmob.data.history.HistoryEntry
 import org.searchmob.data.history.HistoryStore
 import org.searchmob.data.prefs.EngineConfigPreferences
 import org.searchmob.data.prefs.RankingPreferences
+import org.searchmob.engine.rank.DEFAULT_SAMPLE_LENSES
 import org.searchmob.engine.rank.Goggles
 import org.searchmob.engine.rank.Lens
 import org.searchmob.engine.rank.RankRule
@@ -116,6 +117,16 @@ class SettingsViewModel(
         val prefs = rankingPreferences ?: return
         viewModelScope.launch {
             prefs.removeLens(name)
+            mutableRankingRules.value = prefs.load()
+        }
+    }
+
+    /** Add the built-in sample scopes (skipping any whose name already exists). */
+    fun addSampleLenses() {
+        val prefs = rankingPreferences ?: return
+        viewModelScope.launch {
+            val existing = prefs.load().lenses.map { it.name }.toSet()
+            DEFAULT_SAMPLE_LENSES.filter { it.name !in existing }.forEach { prefs.upsertLens(it) }
             mutableRankingRules.value = prefs.load()
         }
     }
