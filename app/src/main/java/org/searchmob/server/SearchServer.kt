@@ -1,17 +1,23 @@
 package org.searchmob.server
 
 import io.ktor.http.ContentType
+import io.ktor.http.HttpStatusCode
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.Application
+import io.ktor.server.application.ApplicationCall
 import io.ktor.server.application.install
 import io.ktor.server.cio.CIO
 import io.ktor.server.engine.EmbeddedServer
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.html.respondHtml
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.server.plugins.origin
+import io.ktor.server.request.receiveParameters
 import io.ktor.server.response.respond
+import io.ktor.server.response.respondRedirect
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.get
+import io.ktor.server.routing.post
 import io.ktor.server.routing.routing
 import kotlinx.html.ButtonType
 import kotlinx.html.FlowContent
@@ -24,10 +30,14 @@ import kotlinx.html.button
 import kotlinx.html.div
 import kotlinx.html.form
 import kotlinx.html.head
+import kotlinx.html.hiddenInput
+import kotlinx.html.label
 import kotlinx.html.link
 import kotlinx.html.meta
+import kotlinx.html.option
 import kotlinx.html.p
 import kotlinx.html.script
+import kotlinx.html.select
 import kotlinx.html.span
 import kotlinx.html.style
 import kotlinx.html.submitInput
@@ -37,10 +47,15 @@ import kotlinx.html.unsafe
 import kotlinx.serialization.json.add
 import kotlinx.serialization.json.addJsonArray
 import kotlinx.serialization.json.buildJsonArray
+import org.searchmob.data.prefs.RankingPreferences
+import org.searchmob.engine.rank.DomainRanker
+import org.searchmob.engine.rank.RankRule
+import org.searchmob.engine.rank.RankingRules
 import org.searchmob.server.suggest.NoSuggestionsProvider
 import org.searchmob.server.suggest.SuggestionsProvider
 import java.net.InetSocketAddress
 import java.net.ServerSocket
+import java.net.URI
 import java.net.URLEncoder
 
 const val LOOPBACK_HOST = "127.0.0.1"
@@ -74,6 +89,7 @@ fun Application.searchModule(
     provider: SearchResultProvider,
     guard: RequestWakeGuard = NoopRequestWakeGuard,
     suggestionsProvider: SuggestionsProvider = NoSuggestionsProvider,
+    rankingPreferences: RankingPreferences? = null,
     boundPort: () -> Int,
 ) {
     install(ContentNegotiation) { json() }
@@ -94,7 +110,11 @@ fun Application.searchModule(
                 } else {
                     guard.aroundRequest { provider.searchWithCorrection(query) }
                 }
-            call.respondHtml { renderResultsPage(query, outcome) }
+            val rules = rankingPreferences?.load() ?: RankingRules.EMPTY
+            // Only the loopback owner gets the editing controls; a network visitor sees a read-only
+            // page, because the mutation routes below are loopback-only.
+            val editable = rankingPreferences != null && isOwnerRequest(call)
+            call.respondHtml { renderResultsPage(query, outcome, rules, editable) }
         }
         get("/api/search") {
             val query = call.request.queryParameters["q"].orEmpty().take(MAX_QUERY_LENGTH)
@@ -137,12 +157,73 @@ fun Application.searchModule(
                 ContentType("application", "opensearchdescription+xml"),
             )
         }
+        // Personalization edits from the served UI. Owner-only (loopback) + same-origin: a device
+        // reaching the server over the network can search but cannot change the owner's rules.
+        post("/rules/domain") {
+            if (!guardMutation(call, rankingPreferences)) return@post
+            val params = call.receiveParameters()
+            val domain = params["domain"].orEmpty().trim()
+            val rule = runCatching { RankRule.valueOf(params["action"].orEmpty().trim().uppercase()) }.getOrNull()
+            if (domain.isNotEmpty() && rule != null) rankingPreferences!!.setDomainRule(domain, rule)
+            redirectBack(call)
+        }
+        post("/scope") {
+            if (!guardMutation(call, rankingPreferences)) return@post
+            val lens = call.receiveParameters()["lens"].orEmpty().trim()
+            rankingPreferences!!.setActiveLens(lens.ifEmpty { null })
+            redirectBack(call)
+        }
     }
+}
+
+/** Loopback names only: the served editing routes are for the machine's own browser, never the LAN. */
+internal fun isLoopbackHost(host: String): Boolean {
+    val h = host.trim().lowercase()
+    return h == "localhost" || h == "::1" || h.startsWith("127.")
+}
+
+private fun isOwnerRequest(call: ApplicationCall): Boolean = isLoopbackHost(call.request.origin.remoteHost)
+
+/** CSRF guard: a present `Origin` must be one of our own (loopback) origins; absent is same-origin. */
+private fun sameOrigin(call: ApplicationCall): Boolean {
+    val origin = call.request.headers["Origin"] ?: return true
+    val host = runCatching { URI(origin).host }.getOrNull() ?: return false
+    return isLoopbackHost(host)
+}
+
+/**
+ * Gate a mutation route: respond and return false unless personalization is available and the
+ * caller is the loopback owner posting from our own origin. Keeps the route bodies terse.
+ */
+private suspend fun guardMutation(
+    call: ApplicationCall,
+    rankingPreferences: RankingPreferences?,
+): Boolean {
+    if (rankingPreferences == null) {
+        call.respondText("Personalization is read-only here.", status = HttpStatusCode.ServiceUnavailable)
+        return false
+    }
+    if (!isOwnerRequest(call) || !sameOrigin(call)) {
+        call.respondText("Forbidden", status = HttpStatusCode.Forbidden)
+        return false
+    }
+    return true
+}
+
+/** Return to the page the POST came from when it is one of our own origins; else home. */
+private suspend fun redirectBack(call: ApplicationCall) {
+    val target =
+        call.request.headers["Referer"]
+            ?.takeIf { runCatching { URI(it).host }.getOrNull()?.let(::isLoopbackHost) == true }
+            ?: "/"
+    call.respondRedirect(target, permanent = false)
 }
 
 private fun HTML.renderResultsPage(
     query: String,
     outcome: SearchOutcome,
+    rules: RankingRules = RankingRules.EMPTY,
+    editable: Boolean = false,
 ) {
     val results = outcome.results
     head { pageHead(if (query.isBlank()) "SearchMob" else "$query · SearchMob") }
@@ -175,6 +256,7 @@ private fun HTML.renderResultsPage(
                         p("meta") { +"Results for “$query”" }
                     }
                     outcome.didYouMean?.let { didYouMeanLine(it) }
+                    if (editable) scopeBar(rules)
                     results.forEach { result ->
                         div("result") {
                             div("url") { +displayUrl(result.url) }
@@ -196,6 +278,7 @@ private fun HTML.renderResultsPage(
                                     }
                                 }
                             }
+                            if (editable) rankControls(result.url, rules)
                         }
                     }
                 }
@@ -210,6 +293,63 @@ private fun FlowContent.didYouMeanLine(correction: String) {
     p("didyoumean") {
         +"Did you mean: "
         a(href = "/search?q=${URLEncoder.encode(correction, "UTF-8")}") { +correction }
+    }
+}
+
+/** Scope (lens) selector; rendered only when the profile has at least one lens defined. */
+private fun FlowContent.scopeBar(rules: RankingRules) {
+    if (rules.lenses.isEmpty()) return
+    form(action = "/scope", method = FormMethod.post, classes = "scopebar") {
+        label { +"Scope:" }
+        select {
+            attributes["name"] = "lens"
+            attributes["onchange"] = "this.form.submit()"
+            option {
+                attributes["value"] = ""
+                +"No scope"
+            }
+            rules.lenses.forEach { lens ->
+                option {
+                    attributes["value"] = lens.name
+                    if (lens.name == rules.activeLens) attributes["selected"] = "selected"
+                    +lens.name
+                }
+            }
+        }
+        // JS auto-submits on change; this covers the JS-off case.
+        button(type = ButtonType.submit) { +"Apply" }
+    }
+}
+
+/** Per-result domain controls (block / lower / raise / pin / reset) as a single POST form. */
+private fun FlowContent.rankControls(
+    url: String,
+    rules: RankingRules,
+) {
+    val domain = DomainRanker.host(url) ?: return
+    val current = rules.domainRules[domain]
+    form(action = "/rules/domain", method = FormMethod.post, classes = "rank") {
+        span("state") { +domain }
+        hiddenInput(name = "domain") { value = domain }
+        listOf(
+            RankRule.BLOCK to "Block",
+            RankRule.LOWER to "Lower",
+            RankRule.RAISE to "Raise",
+            RankRule.PIN to "Pin",
+        ).forEach { (rule, lbl) ->
+            button(type = ButtonType.submit, classes = if (current == rule) "on" else "") {
+                attributes["name"] = "action"
+                attributes["value"] = rule.name
+                +lbl
+            }
+        }
+        if (current != null) {
+            button(type = ButtonType.submit) {
+                attributes["name"] = "action"
+                attributes["value"] = "NORMAL"
+                +"Reset"
+            }
+        }
     }
 }
 
@@ -376,6 +516,13 @@ private val PAGE_CSS =
     .engines{display:flex;flex-wrap:wrap;gap:6px}
     .chip{background:var(--chip-bg);color:var(--chip-fg);font-size:11px;padding:2px 9px;border-radius:10px}
     .empty{color:var(--muted);text-align:center;padding:48px 0}
+    .scopebar{display:flex;align-items:center;gap:8px;margin:0 0 18px;font-size:13px;color:var(--muted)}
+    .scopebar select{font-size:13px;padding:3px 6px;border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--fg)}
+    .rank{display:flex;flex-wrap:wrap;gap:6px;margin-top:5px;align-items:center}
+    .rank .state{font-size:11px;color:var(--muted);margin-right:2px}
+    .rank button{font-size:11px;padding:2px 9px;border:1px solid var(--border);border-radius:10px;background:var(--card);color:var(--muted);cursor:pointer}
+    .rank button:hover{border-color:var(--accent);color:var(--fg)}
+    .rank button.on{background:var(--accent);color:#fff;border-color:var(--accent)}
     @media (max-width:560px){.topbar .logo{display:none}}
     """.trimIndent()
 
@@ -431,6 +578,7 @@ class SearchServer(
     private val provider: SearchResultProvider = StubSearchResultProvider(),
     private val guard: RequestWakeGuard = NoopRequestWakeGuard,
     private val suggestionsProvider: SuggestionsProvider = NoSuggestionsProvider,
+    private val rankingPreferences: RankingPreferences? = null,
 ) {
     @Volatile
     private var server: EmbeddedServer<*, *>? = null
@@ -460,7 +608,7 @@ class SearchServer(
         val port = if (isLoopbackPortFree(preferredPort)) preferredPort else freeLoopbackPort()
         val engine =
             embeddedServer(CIO, host = host, port = port) {
-                searchModule(provider, guard, suggestionsProvider) { port }
+                searchModule(provider, guard, suggestionsProvider, rankingPreferences) { port }
             }
         engine.start(wait = false)
         server = engine
