@@ -6,14 +6,13 @@ import org.junit.Test
 
 class KagiApiAdapterTest {
     @Test
-    fun parsesSearchResultsAndDropsRelatedSearches() {
+    fun parsesWebSearchResults() {
         val body =
             """
-            {"data":[
-              {"t":0,"url":"https://a.com","title":"A","snippet":"sa"},
-              {"t":0,"url":"https://b.com","title":"B","snippet":"sb"},
-              {"t":1,"list":["related one","related two"]}
-            ]}
+            {"meta":{"ms":12},"data":{"search":[
+              {"url":"https://a.com","title":"A","snippet":"sa"},
+              {"url":"https://b.com","title":"B","snippet":"sb"}
+            ]}}
             """.trimIndent()
         val items = KagiApiAdapter().parse(body)
         assertEquals(2, items.size)
@@ -23,13 +22,14 @@ class KagiApiAdapterTest {
     }
 
     @Test
-    fun emptyWhenNoData() {
+    fun emptyWhenNoSearchResults() {
+        assertTrue(KagiApiAdapter().parse("""{"meta":{},"data":{"image":[]}}""").isEmpty())
         assertTrue(KagiApiAdapter().parse("{}").isEmpty())
     }
 
     @Test
     fun skipsResultsWithoutUrl() {
-        val body = """{"data":[{"t":0,"title":"no url"},{"t":0,"url":"https://ok.com","title":"ok"}]}"""
+        val body = """{"data":{"search":[{"title":"no url"},{"url":"https://ok.com","title":"ok"}]}}"""
         assertEquals(listOf("https://ok.com"), KagiApiAdapter().parse(body).map { it.url })
     }
 }

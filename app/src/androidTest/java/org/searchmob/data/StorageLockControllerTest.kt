@@ -10,6 +10,7 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.searchmob.data.crypto.Dek
@@ -25,6 +26,9 @@ import org.searchmob.data.history.SqlCipherHistoryStore
 class StorageLockControllerTest {
     private val context = ApplicationProvider.getApplicationContext<Context>()
 
+    // Delete any leftover encrypted DB before and after each test so a stale file (from a prior run or
+    // a different DEK) never trips "file is not a database".
+    @Before
     @After
     fun cleanup() {
         SqlCipherHistoryStore(context, { Dek.generate() }).disable()
@@ -85,8 +89,10 @@ class StorageLockControllerTest {
         // re-opens lazily with the same key and the encrypted data is still there.
         val dek = Dek.generate()
         val vault = Vault().apply { unlock(dek) }
+        // The history store keeps its own copy of the key: locking the vault zeroes the vault's array
+        // in place, which models production where re-unlock supplies the key again for the reopen.
         val history =
-            history(dek).apply {
+            history(dek.copyOf()).apply {
                 setEnabled(true)
                 add(HistoryEntry("survives", 1_000))
             }

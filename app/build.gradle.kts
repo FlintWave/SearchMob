@@ -70,7 +70,7 @@ android {
         versionCode = appVersionCode
         versionName = appVersionName
 
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        testInstrumentationRunner = "org.searchmob.SearchMobTestRunner"
     }
 
     signingConfigs {

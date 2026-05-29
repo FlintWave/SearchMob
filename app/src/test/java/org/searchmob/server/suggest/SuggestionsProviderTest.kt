@@ -201,6 +201,24 @@ class SuggestionsProviderTest {
         }
 
     @Test
+    fun composite_doesNotServeLocalHistoryWhenLocalDisabled() =
+        runTest {
+            // Network mode: local history must not be queried or served (it would leak to LAN clients).
+            val local = StaticProvider(listOf("private local query"))
+            val upstream = StaticProvider(listOf("upstream item"))
+            val composite =
+                CompositeSuggestionsProvider(
+                    local,
+                    upstream,
+                    upstreamEnabled = { true },
+                    localEnabled = { false },
+                )
+            val result = composite.suggest("p", limit = 8)
+            assertEquals(listOf("upstream item"), result)
+            assertTrue("local history must not be queried when disabled", !local.called)
+        }
+
+    @Test
     fun composite_emptyForBlankQuery() =
         runTest {
             val local = StaticProvider(listOf("x"))

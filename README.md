@@ -17,9 +17,15 @@ so those engines see no cookies/identifier from you, and keeps anything it store
 ## What it does
 
 - **Private metasearch on your device.** Queries are fanned out in parallel to **DuckDuckGo, Mojeek,
-  Marginalia, Mwmbl, and Wikipedia** (plus optional bring-your-own **Brave** / **Mojeek API** keys),
-  then de-duplicated and re-ranked. The app proxies the requests: upstream engines see no cookies, no
-  referrer, no user/device identifier, and a rotated User-Agent. It **never scrapes Google**.
+  Marginalia, Mwmbl, and Wikipedia** (plus optional bring-your-own **Brave**, **Mojeek**, and **Kagi**
+  API keys), then de-duplicated and re-ranked. The app proxies the requests: upstream engines see no
+  cookies, no referrer, no user/device identifier, and a rotated User-Agent. It **never scrapes Google**.
+- **Typo and "similar sounding" tolerance.** A misspelled query surfaces a "Did you mean" suggestion,
+  from the engines' own correction when offered, otherwise from a fully on-device corrector (phonetic +
+  edit-distance over a bundled dictionary, enriched by your own history). No new outbound calls.
+- **Your ranking, your bubble.** Raise, lower, pin, or block any site; scope searches with named
+  lenses; or import a subset of [Brave Goggles](https://search.brave.com/help/goggles). All rules stay
+  on-device (encrypted) and are applied locally to the results, and exportable as JSON.
 - **No data ever leaves for us.** No analytics, no crash/diagnostic reporting, no accounts, no ad IDs,
   no device identifiers. The only outbound traffic is the searches you run, plus an optional once-a-day
   update check to GitHub (on by default, routed through the privacy proxy) that you can turn off in
@@ -33,8 +39,10 @@ so those engines see no cookies/identifier from you, and keeps anything it store
 - **Customizable.** In-app search UI plus light/dark/Material-You theming, per-engine toggles, and a
   home-screen search widget. Preferences persist across reboots.
 - **Encrypted at rest, store-nothing by default.** Search history is **off** by default; when enabled
-  it's local-only, encrypted, user-purgeable, with an optional zero-knowledge passphrase. (See the
-  in-app **About & privacy** screen for the full methodology and caveats.)
+  it's local-only, encrypted (SQLCipher + Android Keystore), user-purgeable, with an optional
+  zero-knowledge passphrase. You can **view your history in the app, delete individual entries, and
+  export/import it as JSON** to move it to a new device. BYO API keys are likewise encrypted at rest.
+  (See the in-app **About & privacy** screen for the full methodology and caveats.)
 
 ## Install
 

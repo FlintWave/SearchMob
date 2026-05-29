@@ -104,15 +104,17 @@ class UpstreamSuggestionsProvider(
 }
 
 /**
- * Merges local and (opt-in) upstream suggestions. Local history is ALWAYS queried; the upstream
- * provider is queried ONLY when [upstreamEnabled] returns true (the default-off opt-in preference).
- * Results are merged local-first, de-duplicated case-insensitively (keeping the first/local casing),
- * and capped to [maxTotal].
+ * Merges local and (opt-in) upstream suggestions. Local history is queried unless [localEnabled]
+ * returns false (used to suppress it while network mode is on, so the owner's history is not served
+ * as autocomplete to other devices on the network). The upstream provider is queried ONLY when
+ * [upstreamEnabled] returns true (the default-off opt-in preference). Results are merged local-first,
+ * de-duplicated case-insensitively (keeping the first/local casing), and capped to [maxTotal].
  */
 class CompositeSuggestionsProvider(
     private val history: SuggestionsProvider,
     private val upstream: SuggestionsProvider,
     private val upstreamEnabled: () -> Boolean,
+    private val localEnabled: () -> Boolean = { true },
     private val maxTotal: Int = 8,
 ) : SuggestionsProvider {
     override suspend fun suggest(
@@ -123,7 +125,8 @@ class CompositeSuggestionsProvider(
         val cap = minOf(limit, maxTotal)
         if (cap <= 0) return emptyList()
 
-        val local = history.suggest(query, cap)
+        // Local history is suppressed in network mode so it is not exposed to other network clients.
+        val local = if (localEnabled()) history.suggest(query, cap) else emptyList()
         // Ask upstream only when the opt-in preference is on; otherwise it is never contacted.
         val remote = if (upstreamEnabled()) upstream.suggest(query, cap) else emptyList()
 

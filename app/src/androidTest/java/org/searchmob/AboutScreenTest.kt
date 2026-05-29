@@ -6,6 +6,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -26,7 +27,7 @@ class AboutScreenTest {
                 AboutScreenContent(version = "4.2.0", onBack = {}, onOpenRepo = {})
             }
         }
-        composeTestRule.onNodeWithTag(AboutTestTags.VERSION).assertIsDisplayed()
+        composeTestRule.onNodeWithTag(AboutTestTags.VERSION).performScrollTo().assertIsDisplayed()
         composeTestRule.onNodeWithText("Version 4.2.0").assertIsDisplayed()
     }
 
@@ -38,7 +39,7 @@ class AboutScreenTest {
                 AboutScreenContent(version = "1.0.0", onBack = {}, onOpenRepo = { opened = true })
             }
         }
-        composeTestRule.onNodeWithTag(AboutTestTags.REPO_BUTTON).performClick()
+        composeTestRule.onNodeWithTag(AboutTestTags.REPO_BUTTON).performScrollTo().performClick()
         composeTestRule.waitForIdle()
         assertTrue(opened)
     }
