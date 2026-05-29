@@ -72,6 +72,9 @@ class SearchMobService : Service() {
                     httpClient = HttpClientFactory.create(connectTimeoutMs = 2_000, readTimeoutMs = 2_000),
                 ),
             upstreamEnabled = { upstreamSuggestionsEnabled },
+            // In network mode the server is reachable by other devices, so do not serve the owner's
+            // local history as autocomplete to them.
+            localEnabled = { !networkAccessEnabled },
         )
     }
 

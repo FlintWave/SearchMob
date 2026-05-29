@@ -27,6 +27,12 @@ versioning (`YY.MM.VV`).
   foreground service. Bring-your-own keys now also take effect on the browser-facing `/search`, not
   only the in-app search.
 
+### Security
+- While **network mode** is on (the search server is reachable by other devices on the network), the
+  `/suggest` endpoint no longer serves your local search history as autocomplete, so your history is
+  not exposed to other users on your network. History recording, viewing, and export are unaffected.
+  (Browser/network searches were never recorded to begin with; only your in-app searches are.)
+
 ### Fixed
 - The OpenSpec specs for the implemented work were archived and the encrypted-storage wiring landed
   with a fix for a main-thread database access and a now-shared history store made thread-safe.
