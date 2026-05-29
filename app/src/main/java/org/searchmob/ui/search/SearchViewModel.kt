@@ -109,6 +109,7 @@ class SearchViewModel(
                                     results = result.results,
                                     didYouMean = result.didYouMean,
                                     showingResultsFor = result.showingResultsFor,
+                                    summary = result.summary,
                                 )
                             }
                         },

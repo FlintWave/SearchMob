@@ -12,6 +12,8 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import org.searchmob.engine.summary.WikiSummary
+import org.searchmob.server.SearchOutcome
 import org.searchmob.server.SearchResult
 import org.searchmob.ui.search.SearchResultsRepository
 import org.searchmob.ui.search.SearchUiState
@@ -46,6 +48,33 @@ class SearchViewModelTest {
             assertEquals(SearchUiState.Loading, viewModel.state.value)
             advanceUntilIdle()
             assertEquals(SearchUiState.Results(results), viewModel.state.value)
+        }
+
+    @Test
+    fun submit_withSummary_includesSummaryInResultsState() =
+        runTest(dispatcher) {
+            val box =
+                WikiSummary(
+                    title = "Mount Everest",
+                    description = "Earth's highest mountain",
+                    extract = "Mount Everest is Earth's highest mountain.",
+                    url = "https://en.wikipedia.org/wiki/Mount_Everest",
+                )
+            val repo =
+                object : SearchResultsRepository {
+                    override suspend fun search(query: String): List<SearchResult> =
+                        listOf(SearchResult("T", "https://e.com", "s", "ddg"))
+
+                    override suspend fun searchWithCorrection(query: String): SearchOutcome =
+                        SearchOutcome(results = search(query), summary = box)
+                }
+            val viewModel = vm(repo)
+            viewModel.onQueryChange("everest")
+            viewModel.submit()
+            advanceUntilIdle()
+            val state = viewModel.state.value
+            assertTrue(state is SearchUiState.Results)
+            assertEquals(box, (state as SearchUiState.Results).summary)
         }
 
     @Test
