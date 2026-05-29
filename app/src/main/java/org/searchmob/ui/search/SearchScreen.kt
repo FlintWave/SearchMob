@@ -47,6 +47,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.searchmob.R
 import org.searchmob.engine.rank.DomainRanker
 import org.searchmob.engine.rank.RankRule
+import org.searchmob.engine.summary.WikiSummary
 import org.searchmob.server.SearchResult
 
 /** Test tags so Compose UI tests can target each state distinctly. */
@@ -58,6 +59,7 @@ object SearchTestTags {
     const val ERROR = "search_error"
     const val RETRY = "search_retry"
     const val RESULTS = "search_results"
+    const val SUMMARY = "search_summary"
     const val DID_YOU_MEAN = "search_did_you_mean"
     const val RANK_MENU = "search_rank_menu"
 }
@@ -132,6 +134,7 @@ fun SearchScreen(
                         results = s.results,
                         didYouMean = s.didYouMean,
                         showingResultsFor = s.showingResultsFor,
+                        summary = s.summary,
                         onSearchCorrected = viewModel::searchCorrected,
                         onSetDomainRule = viewModel::setDomainRule,
                         onOpen = { url ->
@@ -200,6 +203,7 @@ private fun ResultsList(
     results: List<SearchResult>,
     didYouMean: String?,
     showingResultsFor: String?,
+    summary: WikiSummary?,
     onSearchCorrected: (String) -> Unit,
     onSetDomainRule: (String, RankRule) -> Unit,
     onOpen: (String) -> Unit,
@@ -208,6 +212,9 @@ private fun ResultsList(
         modifier = Modifier.fillMaxSize().testTag(SearchTestTags.RESULTS),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
+        if (summary != null) {
+            item { SummaryCard(summary = summary, onOpen = onOpen) }
+        }
         if (didYouMean != null || showingResultsFor != null) {
             item {
                 DidYouMeanBanner(
@@ -256,6 +263,38 @@ private fun DidYouMeanBanner(
                         .testTag(SearchTestTags.DID_YOU_MEAN)
                         .padding(vertical = 8.dp),
             )
+    }
+}
+
+/** A knowledge-panel-style Wikipedia summary card shown above the results; tapping opens the article. */
+@Composable
+private fun SummaryCard(
+    summary: WikiSummary,
+    onOpen: (String) -> Unit,
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth().testTag(SearchTestTags.SUMMARY),
+        onClick = { if (summary.url.isNotBlank()) onOpen(summary.url) },
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Text(text = summary.title, style = MaterialTheme.typography.titleMedium)
+            if (summary.description.isNotBlank()) {
+                Text(
+                    text = summary.description,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Text(text = summary.extract, style = MaterialTheme.typography.bodyMedium)
+            Text(
+                text = stringResource(R.string.search_summary_source),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
     }
 }
 

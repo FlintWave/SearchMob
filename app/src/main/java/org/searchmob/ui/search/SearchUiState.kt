@@ -1,5 +1,6 @@
 package org.searchmob.ui.search
 
+import org.searchmob.engine.summary.WikiSummary
 import org.searchmob.server.SearchResult
 
 /**
@@ -28,5 +29,6 @@ sealed interface SearchUiState {
         val results: List<SearchResult>,
         val didYouMean: String? = null,
         val showingResultsFor: String? = null,
+        val summary: WikiSummary? = null,
     ) : SearchUiState
 }
