@@ -28,4 +28,31 @@ class UrlNormalizerTest {
             UrlNormalizer.normalize("http://www.example.com/x/"),
         )
     }
+
+    @Test
+    fun stripTrackingRemovesTrackersButKeepsTheRestForDisplay() {
+        // Host case, www, trailing slash, fragment, and the surviving param order are all kept.
+        assertEquals(
+            "https://WWW.Example.com/Some/Path/?id=42&q=hi#frag",
+            UrlNormalizer.stripTracking(
+                "https://WWW.Example.com/Some/Path/?id=42&utm_source=n&q=hi&fbclid=a#frag",
+            ),
+        )
+    }
+
+    @Test
+    fun stripTrackingDropsQueryWhenOnlyTrackers() {
+        assertEquals(
+            "https://example.com/p",
+            UrlNormalizer.stripTracking("https://example.com/p?utm_campaign=x&gclid=y"),
+        )
+    }
+
+    @Test
+    fun stripTrackingLeavesCleanUrlsUntouched() {
+        assertEquals(
+            "https://example.com/p/?id=1",
+            UrlNormalizer.stripTracking("https://example.com/p/?id=1"),
+        )
+    }
 }

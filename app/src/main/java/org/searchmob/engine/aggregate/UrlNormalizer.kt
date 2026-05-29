@@ -3,13 +3,44 @@ package org.searchmob.engine.aggregate
 import java.net.URI
 
 /**
- * Normalizes a URL for dedup: lowercase scheme/host, drop a leading `www.`, strip a trailing slash,
- * and remove common tracking query parameters (`utm_*`, `fbclid`, `gclid`, ...). Remaining query
- * params are sorted so equivalent URLs collapse deterministically.
+ * URL helpers for the aggregator. [normalize] builds a lossy dedup key (lowercase scheme/host, drop
+ * a leading `www.`, strip a trailing slash, remove tracking params, sort the rest). [stripTracking]
+ * removes the same tracking params but otherwise keeps the URL faithful, for the link shown/clicked.
  */
 object UrlNormalizer {
     private val trackingPrefixes = listOf("utm_")
     private val trackingKeys = setOf("fbclid", "gclid", "gclsrc", "dclid", "msclkid", "mc_eid", "igshid", "ref")
+
+    private fun isTracking(param: String): Boolean {
+        val key = param.substringBefore("=").lowercase()
+        return trackingKeys.contains(key) || trackingPrefixes.any { key.startsWith(it) }
+    }
+
+    /**
+     * Returns [rawUrl] with known tracking params removed, preserving everything else for display:
+     * scheme/host case, path, trailing slash, fragment, and the order of the surviving params. This
+     * is the link the user actually clicks, so unlike [normalize] (a lossy dedup key) it is kept
+     * faithful apart from the trackers. Falls back to the trimmed input if it does not parse.
+     */
+    fun stripTracking(rawUrl: String): String {
+        val trimmed = rawUrl.trim()
+        return try {
+            val uri = URI(trimmed)
+            val query = uri.rawQuery ?: return trimmed
+            val kept =
+                query
+                    .split("&")
+                    .filter { it.isNotBlank() }
+                    .filterNot { isTracking(it) }
+            buildString {
+                append(trimmed.substringBefore("?"))
+                if (kept.isNotEmpty()) append("?").append(kept.joinToString("&"))
+                uri.rawFragment?.let { append("#").append(it) }
+            }
+        } catch (_: Exception) {
+            trimmed
+        }
+    }
 
     fun normalize(rawUrl: String): String {
         val trimmed = rawUrl.trim()
@@ -23,10 +54,7 @@ object UrlNormalizer {
                 uri.query
                     ?.split("&")
                     ?.filter { it.isNotBlank() }
-                    ?.filterNot { param ->
-                        val key = param.substringBefore("=").lowercase()
-                        trackingKeys.contains(key) || trackingPrefixes.any { key.startsWith(it) }
-                    }
+                    ?.filterNot { isTracking(it) }
                     ?.sorted()
                     ?.joinToString("&")
                     ?.takeIf { it.isNotEmpty() }

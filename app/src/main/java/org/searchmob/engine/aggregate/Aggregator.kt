@@ -91,7 +91,9 @@ class Aggregator(
                 buckets[key] =
                     MutableBucket(
                         title = item.title,
-                        url = item.url,
+                        // Surface a tracker-stripped URL so the clicked link drops utm_*/fbclid/etc;
+                        // `key` above is still the lossy normalized form used only for dedup.
+                        url = UrlNormalizer.stripTracking(item.url),
                         snippet = item.snippet,
                         engines = linkedSetOf(item.engineId),
                         score = contribution,
