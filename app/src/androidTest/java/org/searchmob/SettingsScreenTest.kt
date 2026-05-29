@@ -3,11 +3,14 @@ package org.searchmob
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.test.assertIsOff
+import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -49,12 +52,15 @@ class SettingsScreenTest {
         val store = InMemoryPreferencesStore()
         // First "process": flip history on via the screen.
         setSettings(deps(store))
-        composeTestRule.onNodeWithTag(SettingsTestTags.HISTORY_SWITCH).assertIsOff()
+        // The switch is below the fold in the test window, so scroll it into view before tapping.
+        composeTestRule.onNodeWithTag(SettingsTestTags.HISTORY_SWITCH).performScrollTo().assertIsOff()
         composeTestRule.onNodeWithTag(SettingsTestTags.HISTORY_SWITCH).performClick()
-        composeTestRule.waitForIdle()
+        // The switch reflects the persisted value via the prefs flow; waiting for it to read ON confirms
+        // the async write round-tripped through the store.
+        composeTestRule.onNodeWithTag(SettingsTestTags.HISTORY_SWITCH).assertIsOn()
 
-        // Simulate restart by rebuilding the repository over the SAME store.
-        val restored = runBlocking { deps(store).preferencesRepository.preferences.first() }
+        // Simulate restart by rebuilding the repository over the SAME store; the write has landed.
+        val restored = runBlocking { withTimeout(5_000) { deps(store).preferencesRepository.preferences.first() } }
         assertTrue(restored.historyEnabled)
     }
 

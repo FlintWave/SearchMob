@@ -157,6 +157,16 @@ class SearchMobService : Service() {
             stopAndCleanup()
             return START_NOT_STICKY
         }
+        // The service depends on SearchMobApplication for the shared encrypted stores; if it is ever
+        // started under a different Application (e.g. instrumented tests use a stock Application), bail
+        // out instead of crashing on the cast. We still satisfy the startForeground() contract first,
+        // since the start may have come via startForegroundService() (the system otherwise kills the
+        // process with ForegroundServiceDidNotStartInTime). This branch is never taken in production.
+        if (application !is SearchMobApplication) {
+            promoteToForeground()
+            stopSelf()
+            return START_NOT_STICKY
+        }
         // Covers both a normal start and a START_STICKY recreation with a null intent.
         promoteToForeground()
         val port = searchServer.start(networkAccessEnabled = networkAccessEnabled)
@@ -233,6 +243,12 @@ class SearchMobService : Service() {
     }
 
     override fun onDestroy() {
+        // Started under a non-production Application (instrumented tests): nothing was initialized, so
+        // touching the lazy server (which casts to SearchMobApplication) must be avoided.
+        if (application !is SearchMobApplication) {
+            super.onDestroy()
+            return
+        }
         // If the system tears us down, release the socket and reflect that for observers. A
         // START_STICKY recreation will transition back to running via onStartCommand.
         serviceScope.cancel()

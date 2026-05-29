@@ -3,6 +3,10 @@ package org.searchmob.data
 import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.core.DataStoreFactory
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import org.searchmob.data.crypto.KeystoreDekWrapper
 import org.searchmob.data.history.HistoryStore
 import org.searchmob.data.history.SqlCipherHistoryStore
@@ -31,6 +35,7 @@ class StorageProvider private constructor(
     val preferences: PreferencesStore,
     val engineConfig: EngineConfigPreferences,
     val dataStore: DataStore<Preferences>,
+    private val dataStoreScope: CoroutineScope,
 ) {
     /** The lock/eviction state machine; register against `ProcessLifecycleOwner.get().lifecycle`. */
     val lockController: StorageLockController by lazy {
@@ -39,6 +44,16 @@ class StorageProvider private constructor(
             history = history,
             modeProvider = { bootstrap.mode },
         )
+    }
+
+    /**
+     * Release the DataStore (cancel its scope) and the history handle. The production app keeps a
+     * single provider for the process lifetime and never calls this; it exists so tests can release the
+     * file before opening a fresh provider on it (DataStore forbids two instances on one file).
+     */
+    fun close() {
+        runCatching { history.closeHandle() }
+        dataStoreScope.cancel()
     }
 
     companion object {
@@ -58,9 +73,11 @@ class StorageProvider private constructor(
             // DataStore payload is encrypted with the DEK via the codec; the DEK is read lazily so the
             // serializer fails cleanly while locked rather than capturing a key.
             val codec = EncryptedPreferencesCodec(bootstrap.dekProvider())
+            val dataStoreScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
             val dataStore: DataStore<Preferences> =
                 DataStoreFactory.create(
                     serializer = EncryptedPreferencesSerializer(codec),
+                    scope = dataStoreScope,
                     produceFile = { File(appContext.filesDir, PREFS_FILE_NAME) },
                 )
             val preferences = EncryptedDataStorePreferences(dataStore)
@@ -79,6 +96,7 @@ class StorageProvider private constructor(
                 preferences = preferences,
                 engineConfig = engineConfig,
                 dataStore = dataStore,
+                dataStoreScope = dataStoreScope,
             )
         }
 

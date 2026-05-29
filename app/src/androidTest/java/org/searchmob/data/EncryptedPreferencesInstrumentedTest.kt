@@ -56,6 +56,9 @@ class EncryptedPreferencesInstrumentedTest {
             // The wrapped DEK metadata is persisted and is NOT the plaintext DEK.
             assertTrue(bootstrapFile().exists())
 
+            // Release the first DataStore (a reboot would); DataStore forbids two instances on one file.
+            provider.close()
+
             // Simulate reboot: brand-new provider over the same files re-unwraps via the Keystore key.
             val rebooted = StorageProvider.create(context)
             assertTrue(rebooted.bootstrap.bootstrap())
