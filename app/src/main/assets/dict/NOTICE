@@ -2,8 +2,13 @@ words.txt.gz is a generated correction dictionary (word<TAB>weight, gzip). It is
 tools/build-dictionary.py from these free-licensed sources:
 
 - English word frequencies: hermitdave/FrequencyWords, content/2018/en/en_50k.txt
-  MIT License, Copyright (c) 2016 Hermit Dave. Derived from the OpenSubtitles corpus.
+  The frequency-list CONTENT is licensed CC BY-SA 4.0 (the project's own code is MIT; the data,
+  derived from the OpenSubtitles corpus via OPUS, is CC BY-SA 4.0 per its README). Attribution:
+  Hermit Dave, hermitdave/FrequencyWords, derived from OpenSubtitles (opus.nlpl.eu).
   https://github.com/hermitdave/FrequencyWords
+  Because this word list derives from CC BY-SA 4.0 data, the generated words.txt.gz data asset is
+  distributed under CC BY-SA 4.0 (https://creativecommons.org/licenses/by-sa/4.0/), separately
+  from the application code's AGPL-3.0-or-later license.
 
 - First names: dominictarr/random-name, first-names.txt (public domain)
   https://github.com/dominictarr/random-name
