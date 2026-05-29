@@ -67,6 +67,7 @@ object SettingsTestTags {
     const val DYNAMIC_COLOR = "settings_dynamic_color"
     const val HISTORY_SWITCH = "settings_history_switch"
     const val SUGGESTIONS_UPSTREAM_SWITCH = "settings_suggestions_upstream_switch"
+    const val SUMMARY_SWITCH = "settings_summary_switch"
     const val UPDATE_CHECK_SWITCH = "settings_update_check_switch"
     const val NETWORK_SWITCH = "settings_network_switch"
     const val NETWORK_ADDRESS_COPY = "settings_network_address_copy"
@@ -221,6 +222,13 @@ fun SettingsScreen(
                 checked = prefs.upstreamSuggestionsEnabled,
                 tag = SettingsTestTags.SUGGESTIONS_UPSTREAM_SWITCH,
                 onCheckedChange = viewModel::setUpstreamSuggestionsEnabled,
+            )
+            ToggleRow(
+                label = str(R.string.settings_summary),
+                supporting = str(R.string.settings_summary_supporting),
+                checked = prefs.summaryEnabled,
+                tag = SettingsTestTags.SUMMARY_SWITCH,
+                onCheckedChange = viewModel::setSummaryEnabled,
             )
 
             HorizontalDivider()

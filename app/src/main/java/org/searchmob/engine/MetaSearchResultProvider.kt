@@ -1,5 +1,7 @@
 package org.searchmob.engine
 
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import okhttp3.OkHttpClient
 import org.searchmob.engine.aggregate.AggregatedResult
 import org.searchmob.engine.aggregate.Aggregator
@@ -8,6 +10,7 @@ import org.searchmob.engine.correct.SpellCorrector
 import org.searchmob.engine.http.HttpClientFactory
 import org.searchmob.engine.rank.DomainRanker
 import org.searchmob.engine.rank.RankingRules
+import org.searchmob.engine.summary.WikiSummary
 import org.searchmob.server.SearchOutcome
 import org.searchmob.server.SearchResult
 import org.searchmob.server.SearchResultProvider
@@ -28,6 +31,9 @@ class MetaSearchResultProvider(
     private val httpClient: OkHttpClient = HttpClientFactory.create(),
     private val corrector: SpellCorrector = NoopSpellCorrector,
     private val rankingRules: suspend () -> RankingRules = { RankingRules.EMPTY },
+    // Optional contextual Wikipedia summary, fetched concurrently with the metasearch. Returns null
+    // when disabled or not warranted; never fails the search.
+    private val summaryFetcher: suspend (String) -> WikiSummary? = { null },
 ) : SearchResultProvider {
     /** Convenience constructor for a fixed registry (tests and callers without dynamic config). */
     constructor(
@@ -36,39 +42,44 @@ class MetaSearchResultProvider(
         httpClient: OkHttpClient = HttpClientFactory.create(),
         corrector: SpellCorrector = NoopSpellCorrector,
         rankingRules: suspend () -> RankingRules = { RankingRules.EMPTY },
-    ) : this({ registry }, aggregator, httpClient, corrector, rankingRules)
+        summaryFetcher: suspend (String) -> WikiSummary? = { null },
+    ) : this({ registry }, aggregator, httpClient, corrector, rankingRules, summaryFetcher)
 
     override suspend fun search(query: String): List<SearchResult> = searchWithCorrection(query).results
 
-    override suspend fun searchWithCorrection(query: String): SearchOutcome {
-        if (query.isBlank()) return SearchOutcome(emptyList())
+    override suspend fun searchWithCorrection(query: String): SearchOutcome =
+        coroutineScope {
+            if (query.isBlank()) return@coroutineScope SearchOutcome(emptyList())
 
-        val rules = rankingRules()
-        val (results, upstreamRaw) = aggregateRanked(query, rules)
+            // Fetch the contextual summary concurrently with the metasearch so it adds no latency.
+            val summaryDeferred = async { runCatching { summaryFetcher(query) }.getOrNull() }
+            val rules = rankingRules()
+            val (results, upstreamRaw) = aggregateRanked(query, rules)
 
-        val upstreamCorrection = upstreamRaw?.takeIf { !it.equals(query, ignoreCase = true) }
-        val onDevice = corrector.suggest(query)
-        val suggestion =
-            upstreamCorrection ?: onDevice?.corrected?.takeIf { !it.equals(query, ignoreCase = true) }
+            val upstreamCorrection = upstreamRaw?.takeIf { !it.equals(query, ignoreCase = true) }
+            val onDevice = corrector.suggest(query)
+            val suggestion =
+                upstreamCorrection ?: onDevice?.corrected?.takeIf { !it.equals(query, ignoreCase = true) }
+            val summary = summaryDeferred.await()
 
-        if (results.isNotEmpty()) {
-            return SearchOutcome(results, didYouMean = suggestion)
+            if (results.isNotEmpty()) {
+                return@coroutineScope SearchOutcome(results, didYouMean = suggestion, summary = summary)
+            }
+
+            // The original query found nothing: auto-search a confident correction (an upstream
+            // correction, or a high-confidence on-device one) and report what we searched instead.
+            val autoCorrection =
+                upstreamCorrection ?: onDevice?.takeIf { it.confidence >= AUTO_SEARCH_CONFIDENCE }?.corrected
+            if (autoCorrection == null || autoCorrection.equals(query, ignoreCase = true)) {
+                return@coroutineScope SearchOutcome(results, didYouMean = suggestion, summary = summary)
+            }
+            val (retryResults, _) = aggregateRanked(autoCorrection, rules)
+            if (retryResults.isEmpty()) {
+                SearchOutcome(results, didYouMean = suggestion, summary = summary)
+            } else {
+                SearchOutcome(retryResults, showingResultsFor = autoCorrection, summary = summary)
+            }
         }
-
-        // The original query found nothing: auto-search a confident correction (an upstream correction,
-        // or a high-confidence on-device one) and report what we searched instead.
-        val autoCorrection =
-            upstreamCorrection ?: onDevice?.takeIf { it.confidence >= AUTO_SEARCH_CONFIDENCE }?.corrected
-        if (autoCorrection == null || autoCorrection.equals(query, ignoreCase = true)) {
-            return SearchOutcome(results, didYouMean = suggestion)
-        }
-        val (retryResults, _) = aggregateRanked(autoCorrection, rules)
-        return if (retryResults.isEmpty()) {
-            SearchOutcome(results, didYouMean = suggestion)
-        } else {
-            SearchOutcome(retryResults, showingResultsFor = autoCorrection)
-        }
-    }
 
     /** Aggregate [query], apply the personalization [rules] locally, and return (results, upstream correction). */
     private suspend fun aggregateRanked(
