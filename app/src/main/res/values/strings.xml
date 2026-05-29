@@ -118,6 +118,8 @@
     <string name="settings_section_suggestions">Suggestions</string>
     <string name="settings_suggestions_upstream">Live suggestions from the web</string>
     <string name="settings_suggestions_upstream_supporting">Off by default. When on, what you type is sent to DuckDuckGo\'s suggestion service through the privacy proxy as you type, to offer live autocomplete. Off keeps suggestions to your local history only.</string>
+    <string name="settings_summary">Wikipedia summary for some searches</string>
+    <string name="settings_summary_supporting">On by default. For entity-like queries, shows a short summary card above results from the related Wikipedia article. Adds at most one extra request to Wikipedia (already a search engine here) through the privacy proxy.</string>
 
     <!-- Updates (opt-out launch-time GitHub check) -->
     <string name="settings_section_updates">Updates</string>

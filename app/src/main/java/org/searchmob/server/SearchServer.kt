@@ -31,6 +31,7 @@ import kotlinx.html.div
 import kotlinx.html.form
 import kotlinx.html.head
 import kotlinx.html.hiddenInput
+import kotlinx.html.img
 import kotlinx.html.label
 import kotlinx.html.link
 import kotlinx.html.meta
@@ -51,6 +52,7 @@ import org.searchmob.data.prefs.RankingPreferences
 import org.searchmob.engine.rank.DomainRanker
 import org.searchmob.engine.rank.RankRule
 import org.searchmob.engine.rank.RankingRules
+import org.searchmob.engine.summary.WikiSummary
 import org.searchmob.server.suggest.NoSuggestionsProvider
 import org.searchmob.server.suggest.SuggestionsProvider
 import java.net.InetSocketAddress
@@ -243,6 +245,7 @@ private fun HTML.renderResultsPage(
             themeToggle()
         }
         div("results") {
+            if (query.isNotBlank()) outcome.summary?.let { summaryBox(it) }
             when {
                 query.isBlank() -> p("empty") { +"Enter a query to search." }
                 results.isEmpty() -> {
@@ -293,6 +296,30 @@ private fun FlowContent.didYouMeanLine(correction: String) {
     p("didyoumean") {
         +"Did you mean: "
         a(href = "/search?q=${URLEncoder.encode(correction, "UTF-8")}") { +correction }
+    }
+}
+
+/** A knowledge-panel-style Wikipedia summary card shown above the results. */
+private fun FlowContent.summaryBox(summary: WikiSummary) {
+    div("summary") {
+        if (summary.thumbnailUrl != null && isSafeHttpUrl(summary.thumbnailUrl)) {
+            img(src = summary.thumbnailUrl, alt = "") { attributes["loading"] = "lazy" }
+        }
+        div("sbody") {
+            p("stitle") {
+                if (summary.url.isNotBlank() && isSafeHttpUrl(summary.url)) {
+                    a(href = summary.url) {
+                        attributes["rel"] = "noopener noreferrer"
+                        +summary.title
+                    }
+                } else {
+                    +summary.title
+                }
+            }
+            if (summary.description.isNotBlank()) p("sdesc") { +summary.description }
+            p("sextract") { +summary.extract }
+            p("ssource meta") { +"From Wikipedia" }
+        }
     }
 }
 
@@ -516,6 +543,15 @@ private val PAGE_CSS =
     .engines{display:flex;flex-wrap:wrap;gap:6px}
     .chip{background:var(--chip-bg);color:var(--chip-fg);font-size:11px;padding:2px 9px;border-radius:10px}
     .empty{color:var(--muted);text-align:center;padding:48px 0}
+    .summary{display:flex;gap:14px;border:1px solid var(--border);border-radius:12px;background:var(--card);padding:14px 16px;margin:0 0 22px;box-shadow:var(--shadow)}
+    .summary .sbody{flex:1;min-width:0}
+    .summary .stitle{font-size:17px;font-weight:600;margin:0}
+    .summary .stitle a{color:var(--fg)}
+    .summary .sdesc{color:var(--muted);font-size:12px;margin:1px 0 6px}
+    .summary .sextract{font-size:14px;margin:0 0 6px;line-height:1.45}
+    .summary .ssource{font-size:12px}
+    .summary img{width:84px;height:84px;object-fit:cover;border-radius:8px;flex:none}
+    @media (max-width:560px){.summary img{display:none}}
     .scopebar{display:flex;align-items:center;gap:8px;margin:0 0 18px;font-size:13px;color:var(--muted)}
     .scopebar select{font-size:13px;padding:3px 6px;border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--fg)}
     .rank{display:flex;flex-wrap:wrap;gap:6px;margin-top:5px;align-items:center}

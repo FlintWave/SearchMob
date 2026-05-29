@@ -37,10 +37,12 @@ class PreferencesRepository(
                 )
             },
             store.getBoolean(PreferenceKeys.UPSTREAM_SUGGESTIONS_ENABLED, false),
+            store.getBoolean(PreferenceKeys.SUMMARY_ENABLED, true),
             store.getBoolean(PreferenceKeys.UPDATE_CHECK_ENABLED, true),
-        ) { base, upstreamSuggestions, updateCheck ->
+        ) { base, upstreamSuggestions, summary, updateCheck ->
             base.copy(
                 upstreamSuggestionsEnabled = upstreamSuggestions,
+                summaryEnabled = summary,
                 updateCheckEnabled = updateCheck,
             )
         }
@@ -73,6 +75,18 @@ class PreferencesRepository(
 
     suspend fun setUpstreamSuggestionsEnabled(enabled: Boolean) =
         store.setBoolean(PreferenceKeys.UPSTREAM_SUGGESTIONS_ENABLED, enabled)
+
+    /**
+     * Whether the contextual Wikipedia summary box is shown for entity-like queries. ON by default;
+     * adds at most one extra request to Wikipedia (already a search engine here) through the proxy.
+     */
+    val summaryEnabled: Flow<Boolean> =
+        store.getBoolean(PreferenceKeys.SUMMARY_ENABLED, true)
+
+    suspend fun setSummaryEnabled(enabled: Boolean) = store.setBoolean(PreferenceKeys.SUMMARY_ENABLED, enabled)
+
+    /** One-shot read for the server's summary fetcher. */
+    suspend fun summaryEnabled(): Boolean = summaryEnabled.first()
 
     /**
      * Whether the opt-out launch-time update check is enabled. ON by default: about once a day the app

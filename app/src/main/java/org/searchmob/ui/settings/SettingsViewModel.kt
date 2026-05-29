@@ -205,6 +205,11 @@ class SettingsViewModel(
         viewModelScope.launch { preferences.setUpstreamSuggestionsEnabled(enabled) }
     }
 
+    /** Toggle the contextual Wikipedia summary box. ON by default; persists immediately. */
+    fun setSummaryEnabled(enabled: Boolean) {
+        viewModelScope.launch { preferences.setSummaryEnabled(enabled) }
+    }
+
     /**
      * Toggle the opt-out launch-time update check. ON by default; the subtitle discloses the GitHub
      * call and that it routes through the privacy proxy. Persists immediately with no warning dialog.

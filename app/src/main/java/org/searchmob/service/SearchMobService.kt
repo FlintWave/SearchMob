@@ -35,6 +35,7 @@ import org.searchmob.engine.adapters.MojeekApiAdapter
 import org.searchmob.engine.adapters.MwmblAdapter
 import org.searchmob.engine.adapters.WikipediaAdapter
 import org.searchmob.engine.http.HttpClientFactory
+import org.searchmob.engine.summary.WikiSummaryProvider
 import org.searchmob.server.LocalServerState
 import org.searchmob.server.SearchServer
 import org.searchmob.server.WakeLockRequestGuard
@@ -120,6 +121,10 @@ class SearchMobService : Service() {
                     registryProvider = ::buildRegistry,
                     corrector = (application as SearchMobApplication).spellCorrector,
                     rankingRules = { (application as SearchMobApplication).rankingPreferences.load() },
+                    // Contextual Wikipedia summary, gated by the user preference; fail-soft.
+                    summaryFetcher = { query ->
+                        if (preferences.summaryEnabled()) wikiSummaryProvider.fetch(query) else null
+                    },
                 ),
             guard = WakeLockRequestGuard(AndroidWorkLock(applicationContext)),
             suggestionsProvider = suggestionsProvider,
@@ -127,6 +132,9 @@ class SearchMobService : Service() {
             rankingPreferences = (application as SearchMobApplication).rankingPreferences,
         )
     }
+
+    // Single contextual-summary provider (its own privacy HTTP client), reused across queries.
+    private val wikiSummaryProvider by lazy { WikiSummaryProvider(HttpClientFactory.create()) }
 
     // Reads the persisted network-mode preference so the bind host tracks the user's choice. Uses the
     // same DataStore the UI writes to, so a toggle in Settings is observed here.
