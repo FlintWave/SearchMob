@@ -14,8 +14,10 @@ class WebUiSummaryTest {
         override suspend fun search(query: String): List<SearchResult> =
             listOf(SearchResult(title = "A page", url = "https://news.example/x", snippet = "s", engine = "e"))
 
-        override suspend fun searchWithCorrection(query: String): SearchOutcome =
-            SearchOutcome(results = search(query), summary = summary)
+        override suspend fun searchWithCorrection(
+            query: String,
+            sortMode: org.searchmob.engine.sort.SortMode,
+        ): SearchOutcome = SearchOutcome(results = search(query), summary = summary)
     }
 
     private val box =

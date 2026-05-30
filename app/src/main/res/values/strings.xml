@@ -45,6 +45,9 @@
     <string name="search_retry">Retry</string>
     <string name="search_source_prefix">via</string>
     <string name="search_summary_source">From Wikipedia</string>
+    <string name="sort_fresh">Freshest + Relevant</string>
+    <string name="sort_date">Date</string>
+    <string name="sort_relevance">Relevance</string>
     <string name="search_did_you_mean">Did you mean:</string>
     <string name="search_showing_results_for">Showing results for</string>
     <string name="rank_menu">Ranking for this site</string>

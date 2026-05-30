@@ -38,11 +38,13 @@ class PreferencesRepository(
             },
             store.getBoolean(PreferenceKeys.UPSTREAM_SUGGESTIONS_ENABLED, false),
             store.getBoolean(PreferenceKeys.SUMMARY_ENABLED, true),
+            store.getString(PreferenceKeys.SORT_MODE, "fresh"),
             store.getBoolean(PreferenceKeys.UPDATE_CHECK_ENABLED, true),
-        ) { base, upstreamSuggestions, summary, updateCheck ->
+        ) { base, upstreamSuggestions, summary, sortMode, updateCheck ->
             base.copy(
                 upstreamSuggestionsEnabled = upstreamSuggestions,
                 summaryEnabled = summary,
+                sortMode = sortMode,
                 updateCheckEnabled = updateCheck,
             )
         }
@@ -87,6 +89,11 @@ class PreferencesRepository(
 
     /** One-shot read for the server's summary fetcher. */
     suspend fun summaryEnabled(): Boolean = summaryEnabled.first()
+
+    /** Result sort order ("fresh"/"date"/"relevance"). Default "fresh" (freshness+relevance blend). */
+    val sortMode: Flow<String> = store.getString(PreferenceKeys.SORT_MODE, "fresh")
+
+    suspend fun setSortMode(mode: String) = store.setString(PreferenceKeys.SORT_MODE, mode)
 
     /**
      * Whether the opt-out launch-time update check is enabled. ON by default: about once a day the app

@@ -7,6 +7,7 @@ import org.searchmob.engine.correct.NoopSpellCorrector
 import org.searchmob.engine.correct.SpellCorrector
 import org.searchmob.engine.http.HttpClientFactory
 import org.searchmob.engine.rank.RankingRules
+import org.searchmob.engine.sort.SortMode
 import org.searchmob.server.SearchOutcome
 import org.searchmob.server.SearchResult
 
@@ -21,8 +22,11 @@ import org.searchmob.server.SearchResult
 fun interface SearchResultsRepository {
     suspend fun search(query: String): List<SearchResult>
 
-    /** Search and also report any spelling correction. Defaults to results with no correction. */
-    suspend fun searchWithCorrection(query: String): SearchOutcome = SearchOutcome(search(query))
+    /** Search and also report any spelling correction, ordering results per [sortMode]. */
+    suspend fun searchWithCorrection(
+        query: String,
+        sortMode: SortMode = SortMode.FRESH_RELEVANT,
+    ): SearchOutcome = SearchOutcome(search(query))
 }
 
 /**
@@ -47,5 +51,8 @@ class InProcessSearchResultsRepository(
 
     override suspend fun search(query: String): List<SearchResult> = provider().search(query)
 
-    override suspend fun searchWithCorrection(query: String): SearchOutcome = provider().searchWithCorrection(query)
+    override suspend fun searchWithCorrection(
+        query: String,
+        sortMode: SortMode,
+    ): SearchOutcome = provider().searchWithCorrection(query, sortMode)
 }

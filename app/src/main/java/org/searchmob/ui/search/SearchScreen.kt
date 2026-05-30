@@ -24,6 +24,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -47,6 +48,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.searchmob.R
 import org.searchmob.engine.rank.DomainRanker
 import org.searchmob.engine.rank.RankRule
+import org.searchmob.engine.sort.SortMode
 import org.searchmob.engine.summary.WikiSummary
 import org.searchmob.server.SearchResult
 
@@ -60,6 +62,7 @@ object SearchTestTags {
     const val RETRY = "search_retry"
     const val RESULTS = "search_results"
     const val SUMMARY = "search_summary"
+    const val SORT = "search_sort"
     const val DID_YOU_MEAN = "search_did_you_mean"
     const val RANK_MENU = "search_rank_menu"
 }
@@ -73,6 +76,7 @@ fun SearchScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val query by viewModel.query.collectAsStateWithLifecycle()
+    val sortMode by viewModel.sortMode.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
     Scaffold(
@@ -119,6 +123,10 @@ fun SearchScreen(
                     }
                 },
             )
+
+            if (state is SearchUiState.Results) {
+                SortChips(current = sortMode, onSelect = viewModel::setSortMode)
+            }
 
             when (val s = state) {
                 SearchUiState.Idle ->
@@ -263,6 +271,30 @@ private fun DidYouMeanBanner(
                         .testTag(SearchTestTags.DID_YOU_MEAN)
                         .padding(vertical = 8.dp),
             )
+    }
+}
+
+/** Sort selector chips (Freshest + Relevant / Date / Relevance) shown above the results. */
+@Composable
+private fun SortChips(
+    current: SortMode,
+    onSelect: (SortMode) -> Unit,
+) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier.fillMaxWidth().testTag(SearchTestTags.SORT),
+    ) {
+        listOf(
+            SortMode.FRESH_RELEVANT to R.string.sort_fresh,
+            SortMode.DATE to R.string.sort_date,
+            SortMode.RELEVANCE to R.string.sort_relevance,
+        ).forEach { (mode, labelRes) ->
+            FilterChip(
+                selected = current == mode,
+                onClick = { onSelect(mode) },
+                label = { Text(stringResource(labelRes)) },
+            )
+        }
     }
 }
 

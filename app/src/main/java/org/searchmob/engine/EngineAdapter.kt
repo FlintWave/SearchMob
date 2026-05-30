@@ -19,6 +19,10 @@ data class EngineResultItem(
     val snippet: String,
     val engineId: String,
     val position: Int,
+    // Best-known publication time (epoch millis), or null when unknown (the common case for general
+    // web results). Drives freshness sorting; an adapter may set a structured date, else the
+    // aggregator parses it from the snippet/title.
+    val publishedMillis: Long? = null,
 )
 
 /** Shared resources handed to an adapter for a single search. */

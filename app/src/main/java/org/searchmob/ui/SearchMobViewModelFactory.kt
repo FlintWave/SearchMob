@@ -37,6 +37,7 @@ class SearchMobViewModelFactory(
                     repository = deps.searchRepository,
                     onRecordQuery = { settingsViewModel.recordQuery(it) },
                     rankingPreferences = deps.rankingPreferences,
+                    preferences = deps.preferencesRepository,
                 ) as T
             else -> error("Unknown ViewModel class: ${modelClass.name}")
         }
