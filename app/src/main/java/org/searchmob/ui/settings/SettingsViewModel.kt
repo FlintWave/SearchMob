@@ -210,6 +210,11 @@ class SettingsViewModel(
         viewModelScope.launch { preferences.setSummaryEnabled(enabled) }
     }
 
+    /** Set the AI-slop filter mode ("downrank"/"hide"/"off"). Default "downrank"; persists immediately. */
+    fun setAiSlopMode(mode: String) {
+        viewModelScope.launch { preferences.setAiSlopMode(mode) }
+    }
+
     /**
      * Toggle the opt-out launch-time update check. ON by default; the subtitle discloses the GitHub
      * call and that it routes through the privacy proxy. Persists immediately with no warning dialog.

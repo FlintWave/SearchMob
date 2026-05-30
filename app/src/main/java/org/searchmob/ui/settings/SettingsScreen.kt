@@ -19,6 +19,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -69,6 +70,7 @@ object SettingsTestTags {
     const val SUGGESTIONS_UPSTREAM_SWITCH = "settings_suggestions_upstream_switch"
     const val SUMMARY_SWITCH = "settings_summary_switch"
     const val UPDATE_CHECK_SWITCH = "settings_update_check_switch"
+    const val AI_SLOP_CHIPS = "settings_ai_slop_chips"
     const val NETWORK_SWITCH = "settings_network_switch"
     const val NETWORK_ADDRESS_COPY = "settings_network_address_copy"
     const val BROWSER_SETUP = "settings_browser_setup"
@@ -210,7 +212,7 @@ fun SettingsScreen(
             HorizontalDivider()
 
             // --- Result ranking (personalization) ---
-            ResultRankingSection(rules = ranking, viewModel = viewModel)
+            ResultRankingSection(rules = ranking, aiSlopMode = prefs.aiSlopMode, viewModel = viewModel)
 
             HorizontalDivider()
 
@@ -481,6 +483,7 @@ private fun ZeroKnowledgeRow() {
 @Composable
 private fun ResultRankingSection(
     rules: RankingRules,
+    aiSlopMode: String,
     viewModel: SettingsViewModel,
 ) {
     var showAddLens by remember { mutableStateOf(false) }
@@ -490,6 +493,27 @@ private fun ResultRankingSection(
 
     SectionTitle(str(R.string.settings_section_ranking))
     Text(str(R.string.settings_ranking_supporting), style = MaterialTheme.typography.bodySmall)
+
+    // AI-slop / low-quality domain filter (on-device blocklist). Tri-state: downrank (default) / hide /
+    // off. Shown first because it affects every result regardless of the per-domain rules below.
+    Text(str(R.string.settings_ai_slop), style = MaterialTheme.typography.labelLarge)
+    Text(str(R.string.settings_ai_slop_supporting), style = MaterialTheme.typography.bodySmall)
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier.fillMaxWidth().testTag(SettingsTestTags.AI_SLOP_CHIPS),
+    ) {
+        listOf(
+            "downrank" to R.string.settings_ai_slop_downrank,
+            "hide" to R.string.settings_ai_slop_hide,
+            "off" to R.string.settings_ai_slop_off,
+        ).forEach { (mode, labelRes) ->
+            FilterChip(
+                selected = aiSlopMode == mode,
+                onClick = { viewModel.setAiSlopMode(mode) },
+                label = { Text(str(labelRes)) },
+            )
+        }
+    }
 
     // Active lens (None plus each saved lens, with delete).
     Text(str(R.string.settings_lens_active), style = MaterialTheme.typography.labelLarge)

@@ -59,6 +59,7 @@ class MainActivity : ComponentActivity() {
             engineConfig = app.storage.engineConfig,
             spellCorrector = app.spellCorrector,
             rankingPreferences = app.rankingPreferences,
+            slopDomains = { app.aiSlopBlocklistLoader.current() },
         )
     }
 

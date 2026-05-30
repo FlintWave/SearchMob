@@ -20,6 +20,8 @@ data class UserPreferences(
     // Result sort order: "fresh" (freshness+relevance blend, default), "date", or "relevance".
     val sortMode: String = "fresh",
     val updateCheckEnabled: Boolean = true,
+    // AI-slop / low-quality domain filter: "downrank" (on by default), "hide", or "off".
+    val aiSlopMode: String = "downrank",
 ) {
     fun isEngineEnabled(engineId: String): Boolean = engineEnabled[engineId] ?: true
 }
@@ -36,6 +38,7 @@ object PreferenceKeys {
     const val SUMMARY_ENABLED = "summary_enabled"
     const val SORT_MODE = "sort_mode"
     const val UPDATE_CHECK_ENABLED = "update_check_enabled"
+    const val AI_SLOP_MODE = "ai_slop_mode"
 
     // Stored as a string because the store has no Long type; parsed back to a Long timestamp.
     const val LAST_UPDATE_CHECK_MS = "last_update_check_ms"

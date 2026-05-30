@@ -89,4 +89,51 @@ class DomainRankerTest {
             )
         assertEquals(listOf("https://x.com"), apply(items, rules).map { it.url })
     }
+
+    // --- AI-slop blocklist branch ---
+
+    private val slop = setOf("slopfarm.example")
+
+    private fun applySlop(
+        items: List<R>,
+        rules: RankingRules = RankingRules.EMPTY,
+        mode: String,
+    ) = DomainRanker.apply(
+        items,
+        rules,
+        hostOf = { DomainRanker.host(it.url) },
+        textOf = { it.text },
+        slopDomains = slop,
+        slopMode = mode,
+    )
+
+    @Test
+    fun slopDownrankSinksListedDomain() {
+        val items = listOf(R("https://clean.test"), R("https://slopfarm.example"), R("https://other.test"))
+        val out = applySlop(items, mode = "downrank").map { DomainRanker.host(it.url) }
+        assertEquals(listOf("clean.test", "other.test", "slopfarm.example"), out)
+    }
+
+    @Test
+    fun slopHideDropsListedDomain() {
+        val items = listOf(R("https://clean.test"), R("https://slopfarm.example"), R("https://other.test"))
+        val out = applySlop(items, mode = "hide").map { DomainRanker.host(it.url) }
+        assertEquals(listOf("clean.test", "other.test"), out)
+    }
+
+    @Test
+    fun slopOffLeavesOrderUnchanged() {
+        val items = listOf(R("https://clean.test"), R("https://slopfarm.example"), R("https://other.test"))
+        val out = applySlop(items, mode = "off")
+        assertEquals(items, out)
+    }
+
+    @Test
+    fun userRuleOverridesSlopBlocklist() {
+        val items = listOf(R("https://clean.test"), R("https://slopfarm.example"))
+        // User RAISES a domain the blocklist would hide: the user rule wins and it floats to the top.
+        val rules = RankingRules(domainRules = mapOf("slopfarm.example" to RankRule.RAISE))
+        val out = applySlop(items, rules = rules, mode = "hide").map { DomainRanker.host(it.url) }
+        assertEquals(listOf("slopfarm.example", "clean.test"), out)
+    }
 }
