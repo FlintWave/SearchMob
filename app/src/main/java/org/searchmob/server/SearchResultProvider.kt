@@ -1,5 +1,6 @@
 package org.searchmob.server
 
+import org.searchmob.engine.sort.SortMode
 import org.searchmob.engine.summary.WikiSummary
 
 /**
@@ -23,8 +24,14 @@ data class SearchOutcome(
 interface SearchResultProvider {
     suspend fun search(query: String): List<SearchResult>
 
-    /** Search and also report any spelling correction. Defaults to results with no correction. */
-    suspend fun searchWithCorrection(query: String): SearchOutcome = SearchOutcome(search(query))
+    /**
+     * Search and also report any spelling correction, ordering results per [sortMode]. Defaults to
+     * results with no correction (and ignores the sort, which only the real provider implements).
+     */
+    suspend fun searchWithCorrection(
+        query: String,
+        sortMode: SortMode = SortMode.FRESH_RELEVANT,
+    ): SearchOutcome = SearchOutcome(search(query))
 }
 
 /** Deterministic placeholder provider used until the metasearch engine lands. */

@@ -12,6 +12,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import org.searchmob.engine.sort.SortMode
 import org.searchmob.engine.summary.WikiSummary
 import org.searchmob.server.SearchOutcome
 import org.searchmob.server.SearchResult
@@ -65,8 +66,10 @@ class SearchViewModelTest {
                     override suspend fun search(query: String): List<SearchResult> =
                         listOf(SearchResult("T", "https://e.com", "s", "ddg"))
 
-                    override suspend fun searchWithCorrection(query: String): SearchOutcome =
-                        SearchOutcome(results = search(query), summary = box)
+                    override suspend fun searchWithCorrection(
+                        query: String,
+                        sortMode: org.searchmob.engine.sort.SortMode,
+                    ): SearchOutcome = SearchOutcome(results = search(query), summary = box)
                 }
             val viewModel = vm(repo)
             viewModel.onQueryChange("everest")
@@ -75,6 +78,35 @@ class SearchViewModelTest {
             val state = viewModel.state.value
             assertTrue(state is SearchUiState.Results)
             assertEquals(box, (state as SearchUiState.Results).summary)
+        }
+
+    @Test
+    fun setSortMode_reDispatchesWithNewMode() =
+        runTest(dispatcher) {
+            var lastSort: SortMode? = null
+            val repo =
+                object : SearchResultsRepository {
+                    override suspend fun search(query: String): List<SearchResult> =
+                        listOf(SearchResult("T", "https://e", "s", "ddg"))
+
+                    override suspend fun searchWithCorrection(
+                        query: String,
+                        sortMode: SortMode,
+                    ): SearchOutcome {
+                        lastSort = sortMode
+                        return SearchOutcome(results = search(query))
+                    }
+                }
+            val viewModel = vm(repo)
+            viewModel.onQueryChange("everest")
+            viewModel.submit()
+            advanceUntilIdle()
+            assertEquals(SortMode.FRESH_RELEVANT, lastSort) // default
+
+            viewModel.setSortMode(SortMode.DATE)
+            advanceUntilIdle()
+            assertEquals(SortMode.DATE, lastSort) // re-dispatched with the new mode
+            assertEquals(SortMode.DATE, viewModel.sortMode.value)
         }
 
     @Test

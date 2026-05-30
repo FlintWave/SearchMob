@@ -8,11 +8,14 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.searchmob.data.prefs.RankingPreferences
 import org.searchmob.engine.rank.DomainRanker
 import org.searchmob.engine.rank.RankRule
+import org.searchmob.engine.sort.SortMode
+import org.searchmob.ui.prefs.PreferencesRepository
 
 /**
  * Drives the search surface state machine:
@@ -30,6 +33,7 @@ class SearchViewModel(
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
     private val onRecordQuery: (String) -> Unit = {},
     private val rankingPreferences: RankingPreferences? = null,
+    private val preferences: PreferencesRepository? = null,
 ) : ViewModel() {
     private val mutableState = MutableStateFlow<SearchUiState>(SearchUiState.Idle)
     val state: StateFlow<SearchUiState> = mutableState.asStateFlow()
@@ -37,8 +41,27 @@ class SearchViewModel(
     private val mutableQuery = MutableStateFlow("")
     val query: StateFlow<String> = mutableQuery.asStateFlow()
 
+    private val mutableSortMode = MutableStateFlow(SortMode.FRESH_RELEVANT)
+    val sortMode: StateFlow<SortMode> = mutableSortMode.asStateFlow()
+
     private var lastDispatched: String = ""
     private var inFlight: Job? = null
+
+    init {
+        // Adopt the persisted sort order once on construction (default stays FRESH_RELEVANT).
+        preferences?.let {
+                p ->
+            viewModelScope.launch { mutableSortMode.value = SortMode.fromValue(p.sortMode.first()) }
+        }
+    }
+
+    /** Change the result sort order: persist it and re-run the last query so the order updates. */
+    fun setSortMode(mode: SortMode) {
+        if (mode == mutableSortMode.value) return
+        mutableSortMode.value = mode
+        preferences?.let { p -> viewModelScope.launch { p.setSortMode(mode.value) } }
+        if (lastDispatched.isNotBlank()) dispatch(lastDispatched)
+    }
 
     fun onQueryChange(text: String) {
         mutableQuery.value = text
@@ -93,7 +116,9 @@ class SearchViewModel(
             viewModelScope.launch {
                 val outcome =
                     runCatching {
-                        withContext(ioDispatcher) { repository.searchWithCorrection(terms) }
+                        withContext(ioDispatcher) {
+                            repository.searchWithCorrection(terms, mutableSortMode.value)
+                        }
                     }
                 mutableState.value =
                     outcome.fold(

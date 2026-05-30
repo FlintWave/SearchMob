@@ -52,6 +52,7 @@ import org.searchmob.data.prefs.RankingPreferences
 import org.searchmob.engine.rank.DomainRanker
 import org.searchmob.engine.rank.RankRule
 import org.searchmob.engine.rank.RankingRules
+import org.searchmob.engine.sort.SortMode
 import org.searchmob.engine.summary.WikiSummary
 import org.searchmob.server.suggest.NoSuggestionsProvider
 import org.searchmob.server.suggest.SuggestionsProvider
@@ -104,29 +105,31 @@ fun Application.searchModule(
         }
         get("/search") {
             val query = call.request.queryParameters["q"].orEmpty().take(MAX_QUERY_LENGTH)
+            val sortMode = SortMode.fromValue(call.request.queryParameters["sort"])
             val outcome =
                 if (query.isBlank()) {
                     SearchOutcome(
                         emptyList(),
                     )
                 } else {
-                    guard.aroundRequest { provider.searchWithCorrection(query) }
+                    guard.aroundRequest { provider.searchWithCorrection(query, sortMode) }
                 }
             val rules = rankingPreferences?.load() ?: RankingRules.EMPTY
             // Only the loopback owner gets the editing controls; a network visitor sees a read-only
             // page, because the mutation routes below are loopback-only.
             val editable = rankingPreferences != null && isOwnerRequest(call)
-            call.respondHtml { renderResultsPage(query, outcome, rules, editable) }
+            call.respondHtml { renderResultsPage(query, outcome, rules, editable, sortMode.value) }
         }
         get("/api/search") {
             val query = call.request.queryParameters["q"].orEmpty().take(MAX_QUERY_LENGTH)
+            val sortMode = SortMode.fromValue(call.request.queryParameters["sort"])
             val outcome =
                 if (query.isBlank()) {
                     SearchOutcome(
                         emptyList(),
                     )
                 } else {
-                    guard.aroundRequest { provider.searchWithCorrection(query) }
+                    guard.aroundRequest { provider.searchWithCorrection(query, sortMode) }
                 }
             call.respond(
                 SearchResponse(
@@ -226,6 +229,7 @@ private fun HTML.renderResultsPage(
     outcome: SearchOutcome,
     rules: RankingRules = RankingRules.EMPTY,
     editable: Boolean = false,
+    sortMode: String = "fresh",
 ) {
     val results = outcome.results
     head { pageHead(if (query.isBlank()) "SearchMob" else "$query · SearchMob") }
@@ -259,6 +263,7 @@ private fun HTML.renderResultsPage(
                         p("meta") { +"Results for “$query”" }
                     }
                     outcome.didYouMean?.let { didYouMeanLine(it) }
+                    sortBar(query, sortMode)
                     if (editable) scopeBar(rules)
                     results.forEach { result ->
                         div("result") {
@@ -320,6 +325,33 @@ private fun FlowContent.summaryBox(summary: WikiSummary) {
             p("sextract") { +summary.extract }
             p("ssource meta") { +"From Wikipedia" }
         }
+    }
+}
+
+/** Result sort selector. GET so the choice is bookmarkable; carries the query in a hidden field. */
+private fun FlowContent.sortBar(
+    query: String,
+    sortMode: String,
+) {
+    form(action = "/search", method = FormMethod.get, classes = "scopebar") {
+        hiddenInput(name = "q") { value = query }
+        label { +"Sort:" }
+        select {
+            attributes["name"] = "sort"
+            attributes["onchange"] = "this.form.submit()"
+            listOf(
+                "fresh" to "Freshest + Relevant",
+                "date" to "Date",
+                "relevance" to "Relevance",
+            ).forEach { (value, lbl) ->
+                option {
+                    attributes["value"] = value
+                    if (value == sortMode) attributes["selected"] = "selected"
+                    +lbl
+                }
+            }
+        }
+        button(type = ButtonType.submit) { +"Apply" }
     }
 }
 

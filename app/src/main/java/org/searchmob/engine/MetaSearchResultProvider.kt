@@ -10,6 +10,8 @@ import org.searchmob.engine.correct.SpellCorrector
 import org.searchmob.engine.http.HttpClientFactory
 import org.searchmob.engine.rank.DomainRanker
 import org.searchmob.engine.rank.RankingRules
+import org.searchmob.engine.sort.ResultSorter
+import org.searchmob.engine.sort.SortMode
 import org.searchmob.engine.summary.WikiSummary
 import org.searchmob.server.SearchOutcome
 import org.searchmob.server.SearchResult
@@ -47,14 +49,17 @@ class MetaSearchResultProvider(
 
     override suspend fun search(query: String): List<SearchResult> = searchWithCorrection(query).results
 
-    override suspend fun searchWithCorrection(query: String): SearchOutcome =
+    override suspend fun searchWithCorrection(
+        query: String,
+        sortMode: SortMode,
+    ): SearchOutcome =
         coroutineScope {
             if (query.isBlank()) return@coroutineScope SearchOutcome(emptyList())
 
             // Fetch the contextual summary concurrently with the metasearch so it adds no latency.
             val summaryDeferred = async { runCatching { summaryFetcher(query) }.getOrNull() }
             val rules = rankingRules()
-            val (results, upstreamRaw) = aggregateRanked(query, rules)
+            val (results, upstreamRaw) = aggregateRanked(query, rules, sortMode)
 
             val upstreamCorrection = upstreamRaw?.takeIf { !it.equals(query, ignoreCase = true) }
             val onDevice = corrector.suggest(query)
@@ -73,7 +78,7 @@ class MetaSearchResultProvider(
             if (autoCorrection == null || autoCorrection.equals(query, ignoreCase = true)) {
                 return@coroutineScope SearchOutcome(results, didYouMean = suggestion, summary = summary)
             }
-            val (retryResults, _) = aggregateRanked(autoCorrection, rules)
+            val (retryResults, _) = aggregateRanked(autoCorrection, rules, sortMode)
             if (retryResults.isEmpty()) {
                 SearchOutcome(results, didYouMean = suggestion, summary = summary)
             } else {
@@ -81,15 +86,26 @@ class MetaSearchResultProvider(
             }
         }
 
-    /** Aggregate [query], apply the personalization [rules] locally, and return (results, upstream correction). */
+    /** Aggregate [query], sort, apply the personalization [rules] locally; return (results, correction). */
     private suspend fun aggregateRanked(
         query: String,
         rules: RankingRules,
+        sortMode: SortMode,
     ): Pair<List<SearchResult>, String?> {
         val aggregated = aggregator.aggregate(SearchQuery(query), registryProvider().activeEngines(httpClient))
+        // Sort first (relevance/date/freshness blend), then bucket by rules so PIN/RAISE preserve
+        // the chosen order within each bucket.
+        val sorted =
+            ResultSorter.sort(
+                aggregated.results,
+                sortMode,
+                query,
+                System.currentTimeMillis(),
+                publishedOf = { it.publishedMillis },
+            )
         val ranked =
             DomainRanker.apply(
-                items = aggregated.results,
+                items = sorted,
                 rules = rules,
                 hostOf = { DomainRanker.host(it.url) },
                 textOf = { "${it.title} ${it.snippet}" },
@@ -103,6 +119,7 @@ class MetaSearchResultProvider(
             url = result.url,
             snippet = result.snippet,
             engine = result.engines.joinToString(","),
+            publishedMillis = result.publishedMillis,
         )
 
     private companion object {

@@ -9,6 +9,8 @@ data class SearchResult(
     val url: String,
     val snippet: String = "",
     val engine: String = "",
+    /** Best-known publication time in epoch millis, or null when unknown. Drives freshness sorting. */
+    val publishedMillis: Long? = null,
 )
 
 /** JSON envelope returned by the search API. */
