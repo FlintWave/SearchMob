@@ -98,6 +98,20 @@ class PreferencesRepositoryTest {
         }
 
     @Test
+    fun aiSlopMode_defaultsDownrankAndRoundTrips() =
+        runTest {
+            val r = repo()
+            assertEquals("downrank", r.preferences.first().aiSlopMode)
+            assertEquals("downrank", r.aiSlopMode.first())
+            assertEquals("downrank", r.aiSlopMode())
+            r.setAiSlopMode("hide")
+            assertEquals("hide", r.preferences.first().aiSlopMode)
+            assertEquals("hide", r.aiSlopMode())
+            r.setAiSlopMode("off")
+            assertEquals("off", r.aiSlopMode.first())
+        }
+
+    @Test
     fun lastUpdateCheckMs_defaultsZeroAndRoundTrips() =
         runTest {
             val r = repo()

@@ -1,0 +1,17 @@
+AI-slop / low-quality domain blocklist (ai-slop-domains.txt.gz)
+==============================================================
+
+A merged snapshot of community-maintained AI-content-farm / low-quality domain lists,
+parsed to bare domains. Applied entirely on-device to downrank or hide listed domains;
+no query leaves the device for filtering.
+
+Sources (both CC0-1.0, public domain -> compatible with AGPL-3.0 redistribution):
+
+- laylavish/uBlockOrigin-HUGE-AI-Blocklist
+  https://raw.githubusercontent.com/laylavish/uBlockOrigin-HUGE-AI-Blocklist/main/noai_hosts.txt
+  License: CC0-1.0 (public domain)
+- agsimmons/ai-content-blocklist
+  https://raw.githubusercontent.com/agsimmons/ai-content-blocklist/refs/heads/main/uBlacklist.txt
+  License: CC0-1.0 (public domain)
+
+Regenerate with:  python tools/build_slop_list.py

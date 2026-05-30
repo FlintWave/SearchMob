@@ -40,6 +40,8 @@ class InProcessSearchResultsRepository(
     private val httpClient: OkHttpClient = HttpClientFactory.create(),
     private val corrector: SpellCorrector = NoopSpellCorrector,
     private val rankingRules: suspend () -> RankingRules = { RankingRules.EMPTY },
+    private val slopDomains: suspend () -> Set<String> = { emptySet() },
+    private val aiSlopMode: suspend () -> String = { "off" },
 ) : SearchResultsRepository {
     private fun provider() =
         MetaSearchResultProvider(
@@ -47,6 +49,8 @@ class InProcessSearchResultsRepository(
             httpClient = httpClient,
             corrector = corrector,
             rankingRules = rankingRules,
+            slopDomains = slopDomains,
+            aiSlopMode = aiSlopMode,
         )
 
     override suspend fun search(query: String): List<SearchResult> = provider().search(query)

@@ -11,6 +11,7 @@ import org.searchmob.data.prefs.RankingPreferences
 import org.searchmob.engine.correct.AssetDictionaryLoader
 import org.searchmob.engine.correct.OnDeviceSpellCorrector
 import org.searchmob.engine.correct.SpellCorrector
+import org.searchmob.engine.rank.AiSlopBlocklistLoader
 
 /**
  * Process-wide owner of the encrypted storage layer and the spell corrector. Both the UI
@@ -50,6 +51,13 @@ class SearchMobApplication : Application() {
     /** User result-ranking rules, persisted in the encrypted store; shared by the UI and the service. */
     val rankingPreferences: RankingPreferences by lazy { RankingPreferences(storage.preferences) }
 
+    /**
+     * Bundled AI-slop / low-quality domain blocklist, loaded once off the main thread and shared by the
+     * UI and the service. `current()` returns an empty set until the load finishes, so a search before
+     * then simply applies no slop filter.
+     */
+    val aiSlopBlocklistLoader: AiSlopBlocklistLoader by lazy { AiSlopBlocklistLoader(context = this) }
+
     override fun onCreate() {
         super.onCreate()
         // Synchronous on purpose: the unlocked DEK must be available before any encrypted read/write.
@@ -58,5 +66,7 @@ class SearchMobApplication : Application() {
         ProcessLifecycleOwner.get().lifecycle.addObserver(storage.lockController)
         // Build the correction dictionary off the main thread; until it finishes, suggest() returns null.
         appScope.launch { runCatching { dictionaryLoader.load() } }
+        // Load the AI-slop blocklist off the main thread; until it finishes, the filter is a no-op.
+        appScope.launch { runCatching { aiSlopBlocklistLoader.load() } }
     }
 }

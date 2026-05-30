@@ -39,13 +39,20 @@ class PreferencesRepository(
             store.getBoolean(PreferenceKeys.UPSTREAM_SUGGESTIONS_ENABLED, false),
             store.getBoolean(PreferenceKeys.SUMMARY_ENABLED, true),
             store.getString(PreferenceKeys.SORT_MODE, "fresh"),
-            store.getBoolean(PreferenceKeys.UPDATE_CHECK_ENABLED, true),
-        ) { base, upstreamSuggestions, summary, sortMode, updateCheck ->
+            // The typed combine tops out at five flows, so the update-check flag and the AI-slop mode
+            // share one sub-flow here; destructured below into their respective fields.
+            combine(
+                store.getBoolean(PreferenceKeys.UPDATE_CHECK_ENABLED, true),
+                store.getString(PreferenceKeys.AI_SLOP_MODE, "downrank"),
+            ) { updateCheck, aiSlop -> updateCheck to aiSlop },
+        ) { base, upstreamSuggestions, summary, sortMode, updateAndSlop ->
+            val (updateCheck, aiSlop) = updateAndSlop
             base.copy(
                 upstreamSuggestionsEnabled = upstreamSuggestions,
                 summaryEnabled = summary,
                 sortMode = sortMode,
                 updateCheckEnabled = updateCheck,
+                aiSlopMode = aiSlop,
             )
         }
 
@@ -94,6 +101,18 @@ class PreferencesRepository(
     val sortMode: Flow<String> = store.getString(PreferenceKeys.SORT_MODE, "fresh")
 
     suspend fun setSortMode(mode: String) = store.setString(PreferenceKeys.SORT_MODE, mode)
+
+    /**
+     * AI-slop / low-quality domain filter mode ("downrank"/"hide"/"off"). Default "downrank": the
+     * filter is on out of the box but only sinks listed domains rather than hiding them, so a result
+     * the user might want is never silently dropped. Applied entirely on-device in the ranking pass.
+     */
+    val aiSlopMode: Flow<String> = store.getString(PreferenceKeys.AI_SLOP_MODE, "downrank")
+
+    suspend fun setAiSlopMode(mode: String) = store.setString(PreferenceKeys.AI_SLOP_MODE, mode)
+
+    /** One-shot read for the server / engine slop-filter pass. */
+    suspend fun aiSlopMode(): String = aiSlopMode.first()
 
     /**
      * Whether the opt-out launch-time update check is enabled. ON by default: about once a day the app

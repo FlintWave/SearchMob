@@ -14,6 +14,9 @@ import java.net.URI
  * matching goggles, discard (block) wins, then boost (raise), then downrank (lower).
  */
 object DomainRanker {
+    /** Slop-filter modes that actually filter ("off" is the inert third value). */
+    private val SLOP_ACTIVE_MODES = setOf("downrank", "hide")
+
     fun host(url: String): String? =
         runCatching { URI(url.trim()).host?.lowercase()?.removePrefix("www.") }
             .getOrNull()
@@ -24,8 +27,11 @@ object DomainRanker {
         rules: RankingRules,
         hostOf: (T) -> String?,
         textOf: (T) -> String = { "" },
+        slopDomains: Set<String> = emptySet(),
+        slopMode: String = "off",
     ): List<T> {
-        if (rules == RankingRules.EMPTY) return items
+        val slopActive = slopMode in SLOP_ACTIVE_MODES && slopDomains.isNotEmpty()
+        if (rules == RankingRules.EMPTY && !slopActive) return items
         val lens = rules.active
         val pinned = ArrayList<T>()
         val raised = ArrayList<T>()
@@ -34,7 +40,7 @@ object DomainRanker {
         for (item in items) {
             val host = hostOf(item)
             if (lens != null && !passesLens(lens, host, textOf(item))) continue
-            when (effectiveRule(host, rules)) {
+            when (effectiveRule(host, rules, slopDomains, slopMode)) {
                 RankRule.BLOCK -> Unit // dropped
                 RankRule.PIN -> pinned.add(item)
                 RankRule.RAISE -> raised.add(item)
@@ -67,16 +73,23 @@ object DomainRanker {
     private fun effectiveRule(
         host: String?,
         rules: RankingRules,
+        slopDomains: Set<String>,
+        slopMode: String,
     ): RankRule {
         if (host == null) return RankRule.NORMAL
         rules.domainRules.entries.firstOrNull { domainMatch(it.key, host) }?.let { return it.value }
         val actions = rules.goggles.filter { Goggles.matches(it.site, host) }.map { it.action }.toSet()
-        return when {
-            RankRule.BLOCK in actions -> RankRule.BLOCK
-            RankRule.RAISE in actions -> RankRule.RAISE
-            RankRule.LOWER in actions -> RankRule.LOWER
-            else -> RankRule.NORMAL
+        when {
+            RankRule.BLOCK in actions -> return RankRule.BLOCK
+            RankRule.RAISE in actions -> return RankRule.RAISE
+            RankRule.LOWER in actions -> return RankRule.LOWER
         }
+        // AI-slop blocklist last, so an explicit user rule or goggle above always wins (and a user can
+        // rescue a false positive by setting that domain to NORMAL/RAISE).
+        if (slopMode in SLOP_ACTIVE_MODES && AiSlopBlocklist.matches(host, slopDomains)) {
+            return if (slopMode == "hide") RankRule.BLOCK else RankRule.LOWER
+        }
+        return RankRule.NORMAL
     }
 
     /** A rule key matches a host exactly or as a parent domain (so "example.com" covers subdomains). */

@@ -99,6 +99,11 @@
     <!-- Search suggestions (opt-in upstream autocomplete) -->
     <string name="settings_section_ranking">Result ranking</string>
     <string name="settings_ranking_supporting">Raise, lower, pin, or block sites and focus searches with scopes. All rules stay on your device.</string>
+    <string name="settings_ai_slop">AI-generated and low-quality sites</string>
+    <string name="settings_ai_slop_supporting">Filters results from a bundled list of AI content farms and low-quality sites. Matching happens on your device. Your own rules above always win.</string>
+    <string name="settings_ai_slop_downrank">Downrank</string>
+    <string name="settings_ai_slop_hide">Hide</string>
+    <string name="settings_ai_slop_off">Off</string>
     <string name="settings_lens_active">Active scope</string>
     <string name="settings_lens_none">None</string>
     <string name="settings_lens_add">Add scope</string>

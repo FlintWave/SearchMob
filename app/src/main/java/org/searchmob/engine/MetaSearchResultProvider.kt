@@ -36,6 +36,10 @@ class MetaSearchResultProvider(
     // Optional contextual Wikipedia summary, fetched concurrently with the metasearch. Returns null
     // when disabled or not warranted; never fails the search.
     private val summaryFetcher: suspend (String) -> WikiSummary? = { null },
+    // On-device AI-slop blocklist (bare domains) and the user's filter mode ("off"/"downrank"/"hide").
+    // Both default inert so callers without the filter behave exactly as before.
+    private val slopDomains: suspend () -> Set<String> = { emptySet() },
+    private val aiSlopMode: suspend () -> String = { "off" },
 ) : SearchResultProvider {
     /** Convenience constructor for a fixed registry (tests and callers without dynamic config). */
     constructor(
@@ -45,7 +49,18 @@ class MetaSearchResultProvider(
         corrector: SpellCorrector = NoopSpellCorrector,
         rankingRules: suspend () -> RankingRules = { RankingRules.EMPTY },
         summaryFetcher: suspend (String) -> WikiSummary? = { null },
-    ) : this({ registry }, aggregator, httpClient, corrector, rankingRules, summaryFetcher)
+        slopDomains: suspend () -> Set<String> = { emptySet() },
+        aiSlopMode: suspend () -> String = { "off" },
+    ) : this(
+        { registry },
+        aggregator,
+        httpClient,
+        corrector,
+        rankingRules,
+        summaryFetcher,
+        slopDomains,
+        aiSlopMode,
+    )
 
     override suspend fun search(query: String): List<SearchResult> = searchWithCorrection(query).results
 
@@ -59,7 +74,9 @@ class MetaSearchResultProvider(
             // Fetch the contextual summary concurrently with the metasearch so it adds no latency.
             val summaryDeferred = async { runCatching { summaryFetcher(query) }.getOrNull() }
             val rules = rankingRules()
-            val (results, upstreamRaw) = aggregateRanked(query, rules, sortMode)
+            val slopMode = aiSlopMode()
+            val slop = if (slopMode == "off") emptySet() else slopDomains()
+            val (results, upstreamRaw) = aggregateRanked(query, rules, sortMode, slop, slopMode)
 
             val upstreamCorrection = upstreamRaw?.takeIf { !it.equals(query, ignoreCase = true) }
             val onDevice = corrector.suggest(query)
@@ -78,7 +95,7 @@ class MetaSearchResultProvider(
             if (autoCorrection == null || autoCorrection.equals(query, ignoreCase = true)) {
                 return@coroutineScope SearchOutcome(results, didYouMean = suggestion, summary = summary)
             }
-            val (retryResults, _) = aggregateRanked(autoCorrection, rules, sortMode)
+            val (retryResults, _) = aggregateRanked(autoCorrection, rules, sortMode, slop, slopMode)
             if (retryResults.isEmpty()) {
                 SearchOutcome(results, didYouMean = suggestion, summary = summary)
             } else {
@@ -91,6 +108,8 @@ class MetaSearchResultProvider(
         query: String,
         rules: RankingRules,
         sortMode: SortMode,
+        slopDomains: Set<String>,
+        slopMode: String,
     ): Pair<List<SearchResult>, String?> {
         val aggregated = aggregator.aggregate(SearchQuery(query), registryProvider().activeEngines(httpClient))
         // Sort first (relevance/date/freshness blend), then bucket by rules so PIN/RAISE preserve
@@ -109,6 +128,8 @@ class MetaSearchResultProvider(
                 rules = rules,
                 hostOf = { DomainRanker.host(it.url) },
                 textOf = { "${it.title} ${it.snippet}" },
+                slopDomains = slopDomains,
+                slopMode = slopMode,
             )
         return ranked.map(::toSearchResult) to aggregated.correction
     }

@@ -125,6 +125,9 @@ class SearchMobService : Service() {
                     summaryFetcher = { query ->
                         if (preferences.summaryEnabled()) wikiSummaryProvider.fetch(query) else null
                     },
+                    // On-device AI-slop filter: the cached blocklist plus the user's mode preference.
+                    slopDomains = { (application as SearchMobApplication).aiSlopBlocklistLoader.current() },
+                    aiSlopMode = { preferences.aiSlopMode() },
                 ),
             guard = WakeLockRequestGuard(AndroidWorkLock(applicationContext)),
             suggestionsProvider = suggestionsProvider,

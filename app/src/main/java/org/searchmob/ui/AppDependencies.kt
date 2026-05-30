@@ -44,6 +44,8 @@ class AppDependencies(
     val engineConfig: EngineConfigPreferences? = null,
     val spellCorrector: SpellCorrector = NoopSpellCorrector,
     val rankingPreferences: RankingPreferences? = null,
+    // Cached AI-slop blocklist domains, supplied by the process-wide loader; empty in tests.
+    private val slopDomains: () -> Set<String> = { emptySet() },
     private val adapters: List<EngineAdapter> = defaultAdapters(),
 ) {
     val preferencesRepository: PreferencesRepository =
@@ -90,6 +92,8 @@ class AppDependencies(
             registryProvider = ::buildRegistry,
             corrector = spellCorrector,
             rankingRules = { rankingPreferences?.load() ?: RankingRules.EMPTY },
+            slopDomains = { slopDomains() },
+            aiSlopMode = { preferencesRepository.aiSlopMode() },
         )
 
     /** Build a fresh registry from the current toggle + key state. */
