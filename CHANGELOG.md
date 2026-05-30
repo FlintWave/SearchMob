@@ -4,6 +4,25 @@ All notable changes to SearchMob are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses Ubuntu-style date
 versioning (`YY.MM.VV`).
 
+## [26.05.04] - 2026-05-29
+
+### Added
+- **Contextual Wikipedia summary box.** For entity-like queries, a short knowledge-panel card from
+  the related Wikipedia article now appears above the results, both in the app and on the served
+  page (title, description, lead extract, link). Fail-soft and confidence-gated; adds at most one
+  extra request to Wikipedia (already a search engine here) through the privacy proxy. Toggle in
+  Settings.
+- **Personalization controls in the browser.** The served results page now offers the same
+  scope/ranking tools as the app: per-result Block / Lower / Raise / Pin by domain and a scope
+  selector. Edits persist to the encrypted store and apply on the next search. The editing routes
+  are loopback-only (a device on the network can search but cannot change the owner's rules) and are
+  same-origin guarded against CSRF.
+
+### Fixed
+- **Result links are stripped of tracking parameters before you tap them.** The tracker list
+  (`utm_*`, `fbclid`, `gclid`, ...) was only applied to de-duplication; the surfaced link now drops
+  trackers too, in the app and on the served page.
+
 ## [26.05.03] - 2026-05-28
 
 ### Added
