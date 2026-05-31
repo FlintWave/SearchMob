@@ -44,6 +44,9 @@ class InProcessSearchResultsRepository(
     private val rankingRules: suspend () -> RankingRules = { RankingRules.EMPTY },
     private val slopDomains: suspend () -> Set<String> = { emptySet() },
     private val aiSlopMode: suspend () -> String = { "off" },
+    // Contextual Wikipedia summary for the in-app results, gated by the user preference upstream.
+    // Defaults to none so callers/tests without it behave exactly as before.
+    private val summaryFetcher: suspend (String) -> org.searchmob.engine.summary.WikiSummary? = { null },
 ) : SearchResultsRepository {
     private fun provider() =
         MetaSearchResultProvider(
@@ -51,6 +54,7 @@ class InProcessSearchResultsRepository(
             httpClient = httpClient,
             corrector = corrector,
             rankingRules = rankingRules,
+            summaryFetcher = summaryFetcher,
             slopDomains = slopDomains,
             aiSlopMode = aiSlopMode,
         )
