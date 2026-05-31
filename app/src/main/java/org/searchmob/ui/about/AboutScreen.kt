@@ -35,11 +35,15 @@ object AboutTestTags {
     const val SCREEN = "about_screen"
     const val VERSION = "about_version"
     const val REPO_BUTTON = "about_repo_button"
+    const val DESKTOP_BUTTON = "about_desktop_button"
     const val BUG_BUTTON = "about_bug_button"
 }
 
 /** Public GitHub repository for the project; opened via an external [Intent.ACTION_VIEW]. */
 const val REPO_URL = "https://github.com/FlintWave/SearchMob"
+
+/** The sibling desktop app (Linux/macOS/Windows), for users who want SearchMob on a computer too. */
+const val DESKTOP_URL = "https://github.com/FlintWave/SearchMob-Desktop"
 
 /** Issue-report entry point: the new-issue chooser surfaces the bug-report template. */
 const val BUG_URL = "https://github.com/FlintWave/SearchMob/issues/new/choose"
@@ -58,6 +62,7 @@ fun AboutScreen(
         version = AppVersion.of(context),
         onBack = onBack,
         onOpenRepo = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(REPO_URL))) },
+        onOpenDesktop = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(DESKTOP_URL))) },
         onReportBug = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(BUG_URL))) },
         modifier = modifier,
     )
@@ -73,6 +78,7 @@ fun AboutScreenContent(
     version: String,
     onBack: () -> Unit,
     onOpenRepo: () -> Unit,
+    onOpenDesktop: () -> Unit = {},
     onReportBug: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
@@ -147,7 +153,12 @@ fun AboutScreenContent(
             }
 
             // 6. Footer: version, license, repo link.
-            Footer(version = version, onOpenRepo = onOpenRepo, onReportBug = onReportBug)
+            Footer(
+                version = version,
+                onOpenRepo = onOpenRepo,
+                onOpenDesktop = onOpenDesktop,
+                onReportBug = onReportBug,
+            )
         }
     }
 }
@@ -204,6 +215,7 @@ private fun CaveatCard(content: @Composable () -> Unit) {
 private fun Footer(
     version: String,
     onOpenRepo: () -> Unit,
+    onOpenDesktop: () -> Unit,
     onReportBug: () -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -238,6 +250,12 @@ private fun Footer(
             modifier = Modifier.testTag(AboutTestTags.REPO_BUTTON),
         ) {
             Text(str(R.string.about_repo_button))
+        }
+        OutlinedButton(
+            onClick = onOpenDesktop,
+            modifier = Modifier.testTag(AboutTestTags.DESKTOP_BUTTON),
+        ) {
+            Text(str(R.string.about_desktop_button))
         }
         OutlinedButton(
             onClick = onReportBug,
