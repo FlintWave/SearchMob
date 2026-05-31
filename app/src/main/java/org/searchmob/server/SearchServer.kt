@@ -146,6 +146,19 @@ fun Application.searchModule(
         }
     }
 
+    // Resolve the sort: an explicit `?sort=` wins; otherwise the plain Web view honors the user's
+    // saved default sort (mirroring the desktop `search_html`), and a non-default vertical keeps its
+    // own sensible default. Without a prefs store wired, fall back to the vertical default.
+    suspend fun resolveSort(
+        sortParam: String?,
+        vertical: Vertical,
+    ): SortMode =
+        when {
+            sortParam != null -> SortMode.fromValue(sortParam)
+            vertical == Vertical.WEB && userPreferences != null -> SortMode.fromValue(userPreferences.sortMode.first())
+            else -> Verticals.defaultSort(vertical)
+        }
+
     // The owner (loopback) can reach the Settings page only when both backing stores are wired.
     fun settingsAvailable(call: ApplicationCall): Boolean =
         rankingPreferences != null && userPreferences != null && isOwnerRequest(call)
@@ -164,7 +177,7 @@ fun Application.searchModule(
             val vertical = Vertical.fromValue(call.request.queryParameters["vertical"])
             // An explicit `?sort=` wins; absent it, the vertical picks the sensible default sort.
             val sortParam = call.request.queryParameters["sort"]
-            val sortMode = if (sortParam != null) SortMode.fromValue(sortParam) else Verticals.defaultSort(vertical)
+            val sortMode = resolveSort(sortParam, vertical)
             val outcome =
                 if (query.isBlank()) {
                     SearchOutcome(
@@ -186,7 +199,7 @@ fun Application.searchModule(
             val query = call.request.queryParameters["q"].orEmpty().take(MAX_QUERY_LENGTH)
             val vertical = Vertical.fromValue(call.request.queryParameters["vertical"])
             val sortParam = call.request.queryParameters["sort"]
-            val sortMode = if (sortParam != null) SortMode.fromValue(sortParam) else Verticals.defaultSort(vertical)
+            val sortMode = resolveSort(sortParam, vertical)
             val outcome =
                 if (query.isBlank()) {
                     SearchOutcome(

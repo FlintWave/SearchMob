@@ -175,6 +175,31 @@ class SearchRoutesTest {
         }
 
     @Test
+    fun searchHonorsTheSavedDefaultSortOnTheWebVertical() =
+        testApplication {
+            val prefs = org.searchmob.ui.prefs.PreferencesRepository(org.searchmob.ui.prefs.InMemoryPreferencesStore())
+            kotlinx.coroutines.runBlocking { prefs.setSortMode("date") }
+            var seenSort: org.searchmob.engine.sort.SortMode? = null
+            val recorder =
+                object : SearchResultProvider {
+                    override suspend fun search(query: String): List<SearchResult> = emptyList()
+
+                    override suspend fun searchWithCorrection(
+                        query: String,
+                        sortMode: org.searchmob.engine.sort.SortMode,
+                        vertical: org.searchmob.engine.vertical.Vertical,
+                    ): SearchOutcome {
+                        seenSort = sortMode
+                        return SearchOutcome(emptyList())
+                    }
+                }
+            application { searchModule(recorder, userPreferences = prefs) { DEFAULT_PORT } }
+            // No explicit ?sort on the Web vertical: the saved default (date) is used, not the fresh fallback.
+            client.get("/search?q=hi")
+            assertEquals(org.searchmob.engine.sort.SortMode.DATE, seenSort)
+        }
+
+    @Test
     fun searchPassesVerticalAndDefaultSortToTheProvider() =
         testApplication {
             var seenVertical: org.searchmob.engine.vertical.Vertical? = null

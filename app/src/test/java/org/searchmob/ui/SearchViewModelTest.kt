@@ -122,6 +122,30 @@ class SearchViewModelTest {
         }
 
     @Test
+    fun submit_emptyResultsWithCorrection_keepsTheDidYouMean() =
+        runTest(dispatcher) {
+            val repo =
+                object : SearchResultsRepository {
+                    override suspend fun search(query: String): List<SearchResult> = emptyList()
+
+                    override suspend fun searchWithCorrection(
+                        query: String,
+                        sortMode: SortMode,
+                        vertical: org.searchmob.engine.vertical.Vertical,
+                    ): SearchOutcome = SearchOutcome(results = emptyList(), didYouMean = "kotlin")
+                }
+            val viewModel = vm(repo)
+            viewModel.onQueryChange("kotln")
+            viewModel.submit()
+            advanceUntilIdle()
+            // No results, but the correction is surfaced via a Results state (not dropped to Empty).
+            val state = viewModel.state.value
+            assertTrue(state is SearchUiState.Results)
+            assertEquals("kotlin", (state as SearchUiState.Results).didYouMean)
+            assertTrue(state.results.isEmpty())
+        }
+
+    @Test
     fun submit_failure_goesError() =
         runTest(dispatcher) {
             val viewModel = vm({ throw RuntimeException("boom") })

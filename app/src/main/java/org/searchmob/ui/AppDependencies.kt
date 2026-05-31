@@ -87,6 +87,13 @@ class AppDependencies(
     /** Latest per-engine enabled snapshot, updated by the settings layer; used to build the registry. */
     val engineEnabled: MutableStateFlow<Map<String, Boolean>> = MutableStateFlow(emptyMap())
 
+    // Single contextual-summary provider (its own privacy HTTP client), reused across in-app searches.
+    private val wikiSummaryProvider by lazy {
+        org.searchmob.engine.summary.WikiSummaryProvider(
+            org.searchmob.engine.http.HttpClientFactory.create(),
+        )
+    }
+
     val searchRepository: SearchResultsRepository =
         InProcessSearchResultsRepository(
             registryProvider = ::buildRegistry,
@@ -94,6 +101,11 @@ class AppDependencies(
             rankingRules = { rankingPreferences?.load() ?: RankingRules.EMPTY },
             slopDomains = { slopDomains() },
             aiSlopMode = { preferencesRepository.aiSlopMode() },
+            // Show the Wikipedia summary card in the in-app results too (was server-only); gated by
+            // the same preference the served page uses.
+            summaryFetcher = { query ->
+                if (preferencesRepository.summaryEnabled()) wikiSummaryProvider.fetch(query) else null
+            },
         )
 
     /** Build a fresh registry from the current toggle + key state. */
