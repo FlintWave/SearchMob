@@ -30,14 +30,27 @@ class AiSlopBlocklistLoader(
         val domains =
             runCatching {
                 val out = HashSet<String>()
+                var decompressed = 0L
                 context.assets.open(assetPath).use { raw ->
-                    GZIPInputStream(raw).bufferedReader().forEachLine { line ->
-                        val domain = line.trim().lowercase()
-                        if (domain.isNotEmpty() && !domain.startsWith("#")) out.add(domain)
+                    GZIPInputStream(raw).bufferedReader().use { reader ->
+                        while (true) {
+                            val line = reader.readLine() ?: break
+                            // Bound the decompressed size so a corrupt/oversized asset cannot exhaust
+                            // memory; the real list is well under this. Mirrors the desktop's cap.
+                            decompressed += line.length + 1
+                            if (decompressed > MAX_DECOMPRESSED_BYTES) break
+                            val domain = line.trim().lowercase()
+                            if (domain.isNotEmpty() && !domain.startsWith("#")) out.add(domain)
+                        }
                     }
                 }
                 out as Set<String>
             }.getOrDefault(emptySet())
         return domains.also { cached = it }
+    }
+
+    private companion object {
+        /** Upper bound on the decompressed blocklist; the real list is ~1k short lines (well under). */
+        const val MAX_DECOMPRESSED_BYTES = 8L * 1024 * 1024
     }
 }
