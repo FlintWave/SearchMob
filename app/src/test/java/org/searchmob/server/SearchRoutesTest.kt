@@ -145,6 +145,22 @@ class SearchRoutesTest {
         }
 
     @Test
+    fun servedPagesCarryAccessibilityMarkup() =
+        testApplication {
+            application { searchModule(StubSearchResultProvider()) { DEFAULT_PORT } }
+            val home = client.get("/").bodyAsText()
+            assertTrue(home.contains("<html lang=\"en\">"))
+            assertTrue(home.contains("aria-label=\"Search\""))
+            val results = client.get("/search?q=hi&vertical=news").bodyAsText()
+            assertTrue(results.contains("<html lang=\"en\">"))
+            // Active vertical marked for assistive tech under a labeled nav (not color-only).
+            assertTrue(results.contains("aria-label=\"Search categories\""))
+            assertTrue(results.contains("aria-current=\"page\""))
+            // Sort label associated with its select.
+            assertTrue(results.contains("for=\"sm-sort\"") && results.contains("id=\"sm-sort\""))
+        }
+
+    @Test
     fun searchRendersTheVerticalBarWithTheActiveTab() =
         testApplication {
             application { searchModule(StubSearchResultProvider()) { DEFAULT_PORT } }

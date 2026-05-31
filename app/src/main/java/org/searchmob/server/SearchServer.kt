@@ -45,6 +45,7 @@ import kotlinx.html.label
 import kotlinx.html.li
 import kotlinx.html.link
 import kotlinx.html.meta
+import kotlinx.html.nav
 import kotlinx.html.option
 import kotlinx.html.p
 import kotlinx.html.script
@@ -455,6 +456,7 @@ private fun HTML.renderResultsPage(
     vertical: String = "web",
     settingsLink: Boolean = false,
 ) {
+    attributes["lang"] = "en"
     val results = outcome.results
     head { pageHead(if (query.isBlank()) "SearchMob" else "$query · SearchMob") }
     body {
@@ -465,6 +467,7 @@ private fun HTML.renderResultsPage(
                 textInput(name = "q") {
                     value = query
                     placeholder = "Search the web"
+                    attributes["aria-label"] = "Search"
                     attributes["autocomplete"] = "off"
                     attributes["spellcheck"] = "false"
                 }
@@ -568,8 +571,12 @@ private fun FlowContent.sortBar(
 ) {
     form(action = "/search", method = FormMethod.get, classes = "scopebar") {
         hiddenInput(name = "q") { value = query }
-        label { +"Sort:" }
+        label {
+            attributes["for"] = "sm-sort"
+            +"Sort:"
+        }
         select {
+            attributes["id"] = "sm-sort"
             attributes["name"] = "sort"
             attributes["onchange"] = "this.form.submit()"
             listOf(
@@ -597,15 +604,21 @@ private fun FlowContent.verticalBar(
     vertical: String,
 ) {
     val encoded = URLEncoder.encode(query, "UTF-8")
-    div("verticalbar") {
+    nav("verticalbar") {
+        attributes["aria-label"] = "Search categories"
         listOf(
             "web" to "Web",
             "news" to "News",
             "forums" to "Forums",
             "academic" to "Academic",
         ).forEach { (value, lbl) ->
-            val classes = if (value == vertical) "chip active" else "chip"
-            a(href = "/search?q=$encoded&vertical=$value", classes = classes) { +lbl }
+            val isActive = value == vertical
+            val classes = if (isActive) "chip active" else "chip"
+            a(href = "/search?q=$encoded&vertical=$value", classes = classes) {
+                // aria-current marks the active category for assistive tech (not by color alone).
+                if (isActive) attributes["aria-current"] = "page"
+                +lbl
+            }
         }
     }
 }
@@ -614,8 +627,12 @@ private fun FlowContent.verticalBar(
 private fun FlowContent.scopeBar(rules: RankingRules) {
     if (rules.lenses.isEmpty()) return
     form(action = "/scope", method = FormMethod.post, classes = "scopebar") {
-        label { +"Scope:" }
+        label {
+            attributes["for"] = "sm-scope"
+            +"Scope:"
+        }
         select {
+            attributes["id"] = "sm-scope"
             attributes["name"] = "lens"
             attributes["onchange"] = "this.form.submit()"
             option {
@@ -673,6 +690,7 @@ private fun HTML.renderHomePage(
     rules: RankingRules? = null,
     editable: Boolean = false,
 ) {
+    attributes["lang"] = "en"
     head { pageHead("SearchMob") }
     body {
         attributes["data-page"] = "home"
@@ -687,6 +705,7 @@ private fun HTML.renderHomePage(
             form(action = "/search", method = FormMethod.get, classes = "searchbox") {
                 textInput(name = "q") {
                     placeholder = "Search the web"
+                    attributes["aria-label"] = "Search"
                     attributes["autocomplete"] = "off"
                     attributes["autofocus"] = "autofocus"
                 }
@@ -743,6 +762,7 @@ private fun HTML.renderSettingsPage(
     historyClearable: Boolean,
     saved: Boolean,
 ) {
+    attributes["lang"] = "en"
     head { pageHead("Settings · SearchMob") }
     body {
         attributes["data-page"] = "settings"
@@ -1148,8 +1168,10 @@ private val PAGE_CSS =
     @media (max-width:560px){.summary img{display:none}}
     .verticalbar{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 16px}
     .verticalbar .chip{font-size:13px;padding:5px 14px;border:1px solid var(--border);border-radius:16px;color:var(--fg);background:var(--card)}
-    .verticalbar .chip.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+    .verticalbar .chip.active{background:#c7d0ff;color:#0a1a5c;border-color:#c7d0ff;font-weight:600}
     .verticalbar .chip:hover{text-decoration:none;border-color:var(--accent)}
+    a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+    @media(prefers-reduced-motion:reduce){.topbar{backdrop-filter:none}*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
     .scopebar{display:flex;align-items:center;gap:8px;margin:0 0 18px;font-size:13px;color:var(--muted)}
     .scopebar select{font-size:13px;padding:3px 6px;border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--fg)}
     .rank{display:flex;flex-wrap:wrap;gap:6px;margin-top:5px;align-items:center}

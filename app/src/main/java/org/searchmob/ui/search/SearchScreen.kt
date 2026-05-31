@@ -43,6 +43,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -281,7 +284,11 @@ private fun DidYouMeanBanner(
                     Modifier
                         .fillMaxWidth()
                         .testTag(SearchTestTags.DID_YOU_MEAN)
-                        .clickable { onSearchCorrected(didYouMean) }
+                        // Give TalkBack a button role + a verb ("double-tap to search for X").
+                        .clickable(
+                            role = Role.Button,
+                            onClickLabel = "Search for $didYouMean",
+                        ) { onSearchCorrected(didYouMean) }
                         .padding(vertical = 8.dp),
             )
         showingResultsFor != null ->
@@ -379,7 +386,16 @@ private fun SummaryCard(
     onOpen: (String) -> Unit,
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth().testTag(SearchTestTags.SUMMARY),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .testTag(SearchTestTags.SUMMARY)
+                // Merge the child texts into one summary announcement instead of disjointed items.
+                .semantics(mergeDescendants = true) {
+                    contentDescription =
+                        "${summary.title}. ${summary.description}. ${summary.extract}. " +
+                        "From Wikipedia. Double-tap to open the article."
+                },
         onClick = { if (summary.url.isNotBlank()) onOpen(summary.url) },
     ) {
         Column(
