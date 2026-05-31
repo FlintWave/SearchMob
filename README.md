@@ -11,8 +11,9 @@ telemetry of any kind**. It aggregates results from several search engines, acts
 so those engines see no cookies/identifier from you, and keeps anything it stores encrypted at rest
 (with an optional zero-knowledge mode).
 
-> **Status:** latest release **`26.05.03`**. Functional and verified on Android 15. Ongoing work and
-> design live in [`ROADMAP.md`](ROADMAP.md) and [`openspec/`](openspec/).
+> **Status:** released and verified on Android 15. Grab the current version from the
+> [Releases](https://github.com/FlintWave/SearchMob/releases/latest) page. Ongoing work and design
+> live in [`ROADMAP.md`](ROADMAP.md) and [`openspec/`](openspec/).
 
 ## What it does
 
@@ -24,8 +25,15 @@ so those engines see no cookies/identifier from you, and keeps anything it store
   from the engines' own correction when offered, otherwise from a fully on-device corrector (phonetic +
   edit-distance over a bundled dictionary, enriched by your own history). No new outbound calls.
 - **Your ranking, your bubble.** Raise, lower, pin, or block any site; scope searches with named
-  lenses; or import a subset of [Brave Goggles](https://search.brave.com/help/goggles). All rules stay
-  on-device (encrypted) and are applied locally to the results, and exportable as JSON.
+  lenses (the ready-to-use **sample scopes are installed by default** and selectable before you even
+  search); or import a subset of [Brave Goggles](https://search.brave.com/help/goggles). All rules
+  stay on-device (encrypted), are applied locally to the results, and are exportable as JSON.
+- **Search verticals.** Category tabs for **Web**, **News**, **Forums**, and **Academic**: each is a
+  scoped search over the same engines (a `site:` filter, no new third-party API) with a sensible
+  default sort. In the app and on the served page (`?vertical=`).
+- **Settings in your browser.** The served results page has its own owner-only (loopback) Settings
+  page mirroring the app: default sort, the AI-slop filter, the Wikipedia summary, suggestions, full
+  domain-rule and scope management, Goggles import, and search-history view/clear.
 - **No data ever leaves for us.** No analytics, no crash/diagnostic reporting, no accounts, no ad IDs,
   no device identifiers. The only outbound traffic is the searches you run, plus an optional once-a-day
   update check to GitHub (on by default, routed through the privacy proxy) that you can turn off in
