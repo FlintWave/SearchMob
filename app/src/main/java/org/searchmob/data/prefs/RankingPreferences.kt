@@ -58,6 +58,16 @@ class RankingPreferences(private val store: PreferencesStore) {
         save(load().copy(goggles = goggles))
     }
 
+    /** Append parsed goggle rules to the existing set (the served importer adds rather than replaces). */
+    suspend fun addGoggles(goggles: List<GoggleRule>) {
+        val current = load()
+        save(current.copy(goggles = current.goggles + goggles))
+    }
+
+    suspend fun clearGoggles() {
+        save(load().copy(goggles = emptyList()))
+    }
+
     suspend fun exportJson(): String = json.encodeToString(load())
 
     /** Replace all rules from an exported JSON document. Returns true on success, false if unparseable. */

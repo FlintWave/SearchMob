@@ -133,6 +133,9 @@ class SearchMobService : Service() {
             suggestionsProvider = suggestionsProvider,
             // Lets the served page's personalization controls read and persist rules (loopback-only).
             rankingPreferences = (application as SearchMobApplication).rankingPreferences,
+            // Powers the served Settings page (preference toggles + history view/clear), loopback-only.
+            userPreferences = preferences,
+            historyStore = (application as SearchMobApplication).storage.history,
         )
     }
 
