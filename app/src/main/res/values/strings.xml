@@ -48,6 +48,7 @@
     <string name="sort_fresh">Freshest + Relevant</string>
     <string name="sort_date">Date</string>
     <string name="sort_relevance">Relevance</string>
+    <string name="scope_all">All</string>
     <string name="vertical_web">Web</string>
     <string name="vertical_news">News</string>
     <string name="vertical_forums">Forums</string>
@@ -111,7 +112,6 @@
     <string name="settings_lens_active">Active scope</string>
     <string name="settings_lens_none">None</string>
     <string name="settings_lens_add">Add scope</string>
-    <string name="settings_lens_add_samples">Add sample scopes</string>
     <string name="settings_lens_delete">Delete scope</string>
     <string name="settings_lens_name">Scope name</string>
     <string name="settings_lens_include_domains">Include domains (comma-separated)</string>

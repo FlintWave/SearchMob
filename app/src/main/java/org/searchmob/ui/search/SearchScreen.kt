@@ -67,6 +67,7 @@ object SearchTestTags {
     const val SUMMARY = "search_summary"
     const val SORT = "search_sort"
     const val VERTICAL = "search_vertical"
+    const val SCOPE = "search_scope"
     const val DID_YOU_MEAN = "search_did_you_mean"
     const val RANK_MENU = "search_rank_menu"
 }
@@ -82,6 +83,8 @@ fun SearchScreen(
     val query by viewModel.query.collectAsStateWithLifecycle()
     val sortMode by viewModel.sortMode.collectAsStateWithLifecycle()
     val vertical by viewModel.vertical.collectAsStateWithLifecycle()
+    val lenses by viewModel.lenses.collectAsStateWithLifecycle()
+    val activeLens by viewModel.activeLens.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
     Scaffold(
@@ -129,6 +132,11 @@ fun SearchScreen(
                 },
             )
 
+            // The scope selector shows whenever scopes exist (the sample scopes are seeded by
+            // default), so it is usable before a search; the vertical/sort controls follow results.
+            if (lenses.isNotEmpty()) {
+                ScopeChips(lenses = lenses, active = activeLens, onSelect = viewModel::setActiveScope)
+            }
             if (state is SearchUiState.Results) {
                 VerticalTabs(current = vertical, onSelect = viewModel::setVertical)
                 SortChips(current = sortMode, onSelect = viewModel::setSortMode)
@@ -299,6 +307,32 @@ private fun SortChips(
                 selected = current == mode,
                 onClick = { onSelect(mode) },
                 label = { Text(stringResource(labelRes)) },
+            )
+        }
+    }
+}
+
+/** Scope (lens) selector. "All" clears the active scope; each chip narrows results to that scope. */
+@Composable
+private fun ScopeChips(
+    lenses: List<String>,
+    active: String?,
+    onSelect: (String?) -> Unit,
+) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).testTag(SearchTestTags.SCOPE),
+    ) {
+        FilterChip(
+            selected = active == null,
+            onClick = { onSelect(null) },
+            label = { Text(stringResource(R.string.scope_all)) },
+        )
+        lenses.forEach { name ->
+            FilterChip(
+                selected = active == name,
+                onClick = { onSelect(name) },
+                label = { Text(name) },
             )
         }
     }

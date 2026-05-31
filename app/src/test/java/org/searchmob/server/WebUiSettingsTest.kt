@@ -162,12 +162,12 @@ class WebUiSettingsTest {
         try {
             assertEquals(200, waitForHealthz(port))
             postForm(port, "/settings/lens", "name=Research&include_domains=Arxiv.org,%20.edu")
-            val lens = runBlocking { ranking.load() }.lenses.single()
-            assertEquals("Research", lens.name)
+            // Added alongside the seeded sample scopes (a fresh profile has them by default).
+            val lens = runBlocking { ranking.load() }.lenses.single { it.name == "Research" }
             assertEquals(listOf("arxiv.org", ".edu"), lens.includeDomains)
 
             postForm(port, "/settings/lens/delete", "name=Research")
-            assertTrue(runBlocking { ranking.load() }.lenses.isEmpty())
+            assertFalse(runBlocking { ranking.load() }.lenses.any { it.name == "Research" })
         } finally {
             server.stop()
         }

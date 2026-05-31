@@ -50,6 +50,14 @@ class SearchViewModel(
     private val mutableVertical = MutableStateFlow(Vertical.WEB)
     val vertical: StateFlow<Vertical> = mutableVertical.asStateFlow()
 
+    // The available scopes (lenses) and the active one, for the scope selector. The sample scopes are
+    // present by default (seeded by the ranking store), so the selector is useful before any search.
+    private val mutableLenses = MutableStateFlow<List<String>>(emptyList())
+    val lenses: StateFlow<List<String>> = mutableLenses.asStateFlow()
+
+    private val mutableActiveLens = MutableStateFlow<String?>(null)
+    val activeLens: StateFlow<String?> = mutableActiveLens.asStateFlow()
+
     private var lastDispatched: String = ""
     private var inFlight: Job? = null
 
@@ -58,6 +66,28 @@ class SearchViewModel(
         preferences?.let {
                 p ->
             viewModelScope.launch { mutableSortMode.value = SortMode.fromValue(p.sortMode.first()) }
+        }
+        // Load the available scopes + the active one so the selector is populated before any search.
+        refreshScopes()
+    }
+
+    private fun refreshScopes() {
+        val prefs = rankingPreferences ?: return
+        viewModelScope.launch {
+            val rules = prefs.load()
+            mutableLenses.value = rules.lenses.map { it.name }
+            mutableActiveLens.value = rules.activeLens
+        }
+    }
+
+    /** Set the active scope (lens) and re-run the last query so the results reflect it. */
+    fun setActiveScope(name: String?) {
+        val prefs = rankingPreferences ?: return
+        if (name == mutableActiveLens.value) return
+        viewModelScope.launch {
+            prefs.setActiveLens(name)
+            mutableActiveLens.value = name
+            if (lastDispatched.isNotBlank()) dispatch(lastDispatched)
         }
     }
 

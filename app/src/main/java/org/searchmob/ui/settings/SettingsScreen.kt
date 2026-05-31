@@ -533,9 +533,6 @@ private fun ResultRankingSection(
         }
     }
     OutlinedButton(onClick = { showAddLens = true }) { Text(str(R.string.settings_lens_add)) }
-    OutlinedButton(onClick = { viewModel.addSampleLenses() }) {
-        Text(str(R.string.settings_lens_add_samples))
-    }
 
     // Per-domain rules (created from the inline result menu; managed/cleared here).
     if (rules.domainRules.isEmpty()) {
