@@ -166,8 +166,18 @@ class SearchViewModel(
                 mutableState.value =
                     outcome.fold(
                         onSuccess = { result ->
-                            if (result.results.isEmpty()) {
+                            if (result.results.isEmpty() && result.didYouMean == null) {
                                 SearchUiState.Empty
+                            } else if (result.results.isEmpty()) {
+                                // No results, but the corrector has a suggestion: keep it visible
+                                // (a Results state with an empty list) instead of dropping it to the
+                                // bare Empty state, mirroring the desktop "No results / did you mean".
+                                SearchUiState.Results(
+                                    results = emptyList(),
+                                    didYouMean = result.didYouMean,
+                                    showingResultsFor = result.showingResultsFor,
+                                    summary = result.summary,
+                                )
                             } else {
                                 // Record the query actually answered (the correction when we auto-searched
                                 // it), so a typo never pollutes history. The recorder gates on the history

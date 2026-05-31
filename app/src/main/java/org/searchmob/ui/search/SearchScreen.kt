@@ -246,6 +246,15 @@ private fun ResultsList(
                 )
             }
         }
+        if (results.isEmpty()) {
+            item {
+                Text(
+                    text = stringResource(R.string.search_empty),
+                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
+        }
         items(results) { result ->
             ResultCard(result = result, onOpen = onOpen, onSetDomainRule = onSetDomainRule)
         }
