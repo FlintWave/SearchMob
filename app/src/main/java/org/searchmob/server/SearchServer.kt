@@ -19,6 +19,7 @@ import io.ktor.server.response.respondText
 import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import io.ktor.server.routing.routing
+import kotlinx.coroutines.flow.first
 import kotlinx.html.ButtonType
 import kotlinx.html.FlowContent
 import kotlinx.html.FormMethod
@@ -27,29 +28,42 @@ import kotlinx.html.HTML
 import kotlinx.html.a
 import kotlinx.html.body
 import kotlinx.html.button
+import kotlinx.html.checkBoxInput
 import kotlinx.html.div
+import kotlinx.html.fileInput
 import kotlinx.html.form
+import kotlinx.html.h1
+import kotlinx.html.h2
+import kotlinx.html.h3
 import kotlinx.html.head
 import kotlinx.html.hiddenInput
 import kotlinx.html.img
 import kotlinx.html.label
+import kotlinx.html.li
 import kotlinx.html.link
 import kotlinx.html.meta
 import kotlinx.html.option
 import kotlinx.html.p
 import kotlinx.html.script
+import kotlinx.html.section
 import kotlinx.html.select
 import kotlinx.html.span
 import kotlinx.html.style
 import kotlinx.html.submitInput
+import kotlinx.html.textArea
 import kotlinx.html.textInput
 import kotlinx.html.title
+import kotlinx.html.ul
 import kotlinx.html.unsafe
 import kotlinx.serialization.json.add
 import kotlinx.serialization.json.addJsonArray
 import kotlinx.serialization.json.buildJsonArray
+import org.searchmob.data.history.HistoryEntry
+import org.searchmob.data.history.HistoryStore
 import org.searchmob.data.prefs.RankingPreferences
 import org.searchmob.engine.rank.DomainRanker
+import org.searchmob.engine.rank.Goggles
+import org.searchmob.engine.rank.Lens
 import org.searchmob.engine.rank.RankRule
 import org.searchmob.engine.rank.RankingRules
 import org.searchmob.engine.sort.SortMode
@@ -58,6 +72,7 @@ import org.searchmob.engine.vertical.Vertical
 import org.searchmob.engine.vertical.Verticals
 import org.searchmob.server.suggest.NoSuggestionsProvider
 import org.searchmob.server.suggest.SuggestionsProvider
+import org.searchmob.ui.prefs.PreferencesRepository
 import java.net.InetSocketAddress
 import java.net.ServerSocket
 import java.net.URI
@@ -95,12 +110,19 @@ fun Application.searchModule(
     guard: RequestWakeGuard = NoopRequestWakeGuard,
     suggestionsProvider: SuggestionsProvider = NoSuggestionsProvider,
     rankingPreferences: RankingPreferences? = null,
+    userPreferences: PreferencesRepository? = null,
+    historyStore: HistoryStore? = null,
     boundPort: () -> Int,
 ) {
     install(ContentNegotiation) { json() }
+
+    // The owner (loopback) can reach the Settings page only when both backing stores are wired.
+    fun settingsAvailable(call: ApplicationCall): Boolean =
+        rankingPreferences != null && userPreferences != null && isOwnerRequest(call)
     routing {
         get("/") {
-            call.respondHtml { renderHomePage() }
+            val link = settingsAvailable(call)
+            call.respondHtml { renderHomePage(link) }
         }
         get("/healthz") {
             call.respondText("ok")
@@ -123,7 +145,10 @@ fun Application.searchModule(
             // Only the loopback owner gets the editing controls; a network visitor sees a read-only
             // page, because the mutation routes below are loopback-only.
             val editable = rankingPreferences != null && isOwnerRequest(call)
-            call.respondHtml { renderResultsPage(query, outcome, rules, editable, sortMode.value, vertical.value) }
+            val link = settingsAvailable(call)
+            call.respondHtml {
+                renderResultsPage(query, outcome, rules, editable, sortMode.value, vertical.value, link)
+            }
         }
         get("/api/search") {
             val query = call.request.queryParameters["q"].orEmpty().take(MAX_QUERY_LENGTH)
@@ -185,8 +210,102 @@ fun Application.searchModule(
             rankingPreferences!!.setActiveLens(lens.ifEmpty { null })
             redirectBack(call)
         }
+
+        // Settings page + preference / personalization writes. Owner-only (loopback): the page 404s
+        // and the writes 403 for a network visitor, and 503 when the backing store is not wired.
+        get("/settings") {
+            if (rankingPreferences == null || userPreferences == null || !isOwnerRequest(call)) {
+                call.respondText("Not found", status = HttpStatusCode.NotFound)
+                return@get
+            }
+            val rules = rankingPreferences.load()
+            val prefs =
+                SettingsView(
+                    sortMode = userPreferences.sortMode.first(),
+                    aiSlopMode = userPreferences.aiSlopMode(),
+                    summaryEnabled = userPreferences.summaryEnabled(),
+                    upstreamSuggestionsEnabled = userPreferences.upstreamSuggestionsEnabled.first(),
+                )
+            val history = historyStore?.list(System.currentTimeMillis())?.take(HISTORY_VIEW_LIMIT)
+            val saved = call.request.queryParameters["saved"] == "1"
+            call.respondHtml { renderSettingsPage(prefs, rules, history, historyStore != null, saved) }
+        }
+        post("/settings/prefs") {
+            if (!guardPrefs(call, userPreferences)) return@post
+            val params = call.receiveParameters()
+            params["sort_mode"]?.trim()?.takeIf { it in VALID_SORTS }?.let { userPreferences!!.setSortMode(it) }
+            params["ai_slop_mode"]?.trim()?.takeIf { it in VALID_SLOP }?.let { userPreferences!!.setAiSlopMode(it) }
+            userPreferences!!.setSummaryEnabled(params["summary_enabled"].isFormOn())
+            userPreferences.setUpstreamSuggestionsEnabled(params["upstream_suggestions_enabled"].isFormOn())
+            call.respondRedirect("/settings?saved=1", permanent = false)
+        }
+        post("/settings/lens") {
+            if (!guardMutation(call, rankingPreferences)) return@post
+            val params = call.receiveParameters()
+            val name = params["name"].orEmpty().trim()
+            if (name.isNotEmpty()) {
+                rankingPreferences!!.upsertLens(
+                    Lens(
+                        name = name,
+                        includeDomains = csvList(params["include_domains"]),
+                        excludeDomains = csvList(params["exclude_domains"]),
+                        includeKeywords = csvList(params["include_keywords"]),
+                        excludeKeywords = csvList(params["exclude_keywords"]),
+                    ),
+                )
+            }
+            call.respondRedirect("/settings?saved=1", permanent = false)
+        }
+        post("/settings/lens/delete") {
+            if (!guardMutation(call, rankingPreferences)) return@post
+            val name = call.receiveParameters()["name"].orEmpty().trim()
+            if (name.isNotEmpty()) rankingPreferences!!.removeLens(name)
+            call.respondRedirect("/settings?saved=1", permanent = false)
+        }
+        post("/settings/goggles") {
+            if (!guardMutation(call, rankingPreferences)) return@post
+            val text = call.receiveParameters()["goggles"].orEmpty().take(MAX_GOGGLE_CHARS)
+            val parsed = Goggles.parse(text)
+            if (parsed.isNotEmpty()) rankingPreferences!!.addGoggles(parsed)
+            call.respondRedirect("/settings?saved=1", permanent = false)
+        }
+        post("/settings/goggles/clear") {
+            if (!guardMutation(call, rankingPreferences)) return@post
+            rankingPreferences!!.clearGoggles()
+            call.respondRedirect("/settings?saved=1", permanent = false)
+        }
+        post("/settings/history/clear") {
+            if (!guardPrefs(call, userPreferences)) return@post
+            historyStore?.clear()
+            call.respondRedirect("/settings?saved=1", permanent = false)
+        }
     }
 }
+
+/** The live preference values the served Settings page renders. */
+private data class SettingsView(
+    val sortMode: String,
+    val aiSlopMode: String,
+    val summaryEnabled: Boolean,
+    val upstreamSuggestionsEnabled: Boolean,
+)
+
+private val VALID_SORTS = setOf("fresh", "date", "relevance")
+private val VALID_SLOP = setOf("off", "downrank", "hide")
+private const val HISTORY_VIEW_LIMIT = 50
+private const val MAX_GOGGLE_CHARS = 512 * 1024
+
+/** A form checkbox is present (any value) when checked, absent when not; HTML omits unchecked boxes. */
+private fun String?.isFormOn(): Boolean = this != null
+
+/** Split a comma/newline-separated form field into clean, lowercased, de-duplicated entries. */
+private fun csvList(raw: String?): List<String> =
+    raw.orEmpty()
+        .replace("\n", ",")
+        .split(",")
+        .map { it.trim().lowercase() }
+        .filter { it.isNotEmpty() }
+        .distinct()
 
 /** Loopback names only: the served editing routes are for the machine's own browser, never the LAN. */
 internal fun isLoopbackHost(host: String): Boolean {
@@ -222,6 +341,22 @@ private suspend fun guardMutation(
     return true
 }
 
+/** Like [guardMutation] but for the Settings preference / history routes (backed by [userPreferences]). */
+private suspend fun guardPrefs(
+    call: ApplicationCall,
+    userPreferences: PreferencesRepository?,
+): Boolean {
+    if (userPreferences == null) {
+        call.respondText("Settings are read-only here.", status = HttpStatusCode.ServiceUnavailable)
+        return false
+    }
+    if (!isOwnerRequest(call) || !sameOrigin(call)) {
+        call.respondText("Forbidden", status = HttpStatusCode.Forbidden)
+        return false
+    }
+    return true
+}
+
 /** Return to the page the POST came from when it is one of our own origins; else home. */
 private suspend fun redirectBack(call: ApplicationCall) {
     val target =
@@ -238,6 +373,7 @@ private fun HTML.renderResultsPage(
     editable: Boolean = false,
     sortMode: String = "fresh",
     vertical: String = "web",
+    settingsLink: Boolean = false,
 ) {
     val results = outcome.results
     head { pageHead(if (query.isBlank()) "SearchMob" else "$query · SearchMob") }
@@ -254,6 +390,7 @@ private fun HTML.renderResultsPage(
                 }
                 submitInput { value = "Search" }
             }
+            settingsLink(settingsLink)
             themeToggle()
         }
         div("results") {
@@ -446,12 +583,13 @@ private fun FlowContent.rankControls(
 }
 
 /** Home page: a centered search box plus the OpenSearch link so a browser can add SearchMob. */
-private fun HTML.renderHomePage() {
+private fun HTML.renderHomePage(settingsLink: Boolean = false) {
     head { pageHead("SearchMob") }
     body {
         attributes["data-page"] = "home"
         div("topbar") {
             span("logo") { +"SearchMob" }
+            settingsLink(settingsLink)
             themeToggle()
         }
         div("home") {
@@ -467,6 +605,306 @@ private fun HTML.renderHomePage() {
             }
         }
         script { unsafe { +THEME_TOGGLE_JS } }
+    }
+}
+
+/** A Settings-page link for the loopback owner (the route itself is owner-only). */
+private fun FlowContent.settingsLink(show: Boolean) {
+    if (show) a(href = "/settings", classes = "settings-link") { +"Settings" }
+}
+
+private fun FlowContent.selectField(
+    name: String,
+    options: List<Pair<String, String>>,
+    current: String,
+) {
+    select {
+        attributes["name"] = name
+        options.forEach { (value, lbl) ->
+            option {
+                attributes["value"] = value
+                if (value == current) attributes["selected"] = "selected"
+                +lbl
+            }
+        }
+    }
+}
+
+private fun FlowContent.checkRow(
+    name: String,
+    lbl: String,
+    checked: Boolean,
+) {
+    label("checkrow") {
+        checkBoxInput(name = name) {
+            value = "on"
+            if (checked) attributes["checked"] = "checked"
+        }
+        +" $lbl"
+    }
+}
+
+/** The browser Settings page: live preference toggles plus rule / scope / goggle / history management. */
+private fun HTML.renderSettingsPage(
+    prefs: SettingsView,
+    rules: RankingRules,
+    history: List<HistoryEntry>?,
+    historyClearable: Boolean,
+    saved: Boolean,
+) {
+    head { pageHead("Settings · SearchMob") }
+    body {
+        attributes["data-page"] = "settings"
+        div("topbar") {
+            a(href = "/", classes = "logo") { +"SearchMob" }
+            span("spacer") {}
+            themeToggle()
+        }
+        div("settings") {
+            h1 { +"Settings" }
+            if (saved) p("saved") { +"Saved." }
+
+            form(action = "/settings/prefs", method = FormMethod.post) {
+                section("card") {
+                    h2 { +"Search & ranking" }
+                    div("field") {
+                        label { +"Default sort" }
+                        selectField(
+                            "sort_mode",
+                            listOf(
+                                "fresh" to "Freshest + Relevant",
+                                "date" to "Date (newest first)",
+                                "relevance" to "Relevance",
+                            ),
+                            prefs.sortMode,
+                        )
+                    }
+                    div("field") {
+                        label { +"AI-slop / low-quality filter" }
+                        selectField(
+                            "ai_slop_mode",
+                            listOf("downrank" to "Downrank (default)", "hide" to "Hide", "off" to "Off"),
+                            prefs.aiSlopMode,
+                        )
+                        p("hint") { +"Applied on-device after your own domain rules, which always win." }
+                    }
+                }
+                section("card") {
+                    h2 { +"Suggestions" }
+                    checkRow("summary_enabled", "Show the Wikipedia summary card", prefs.summaryEnabled)
+                    checkRow(
+                        "upstream_suggestions_enabled",
+                        "Use upstream autocomplete suggestions",
+                        prefs.upstreamSuggestionsEnabled,
+                    )
+                    p("hint") {
+                        +"Upstream autocomplete sends what you type to a suggestions service; your "
+                        +"on-device history suggestions are always private."
+                    }
+                }
+                div("actions") { button(type = ButtonType.submit) { +"Save" } }
+            }
+
+            domainRulesCard(rules)
+            scopesCard(rules)
+            gogglesCard(rules)
+            if (history != null) historyCard(history, historyClearable)
+        }
+        script { unsafe { +THEME_TOGGLE_JS } }
+        script { unsafe { +GOGGLE_FILE_JS } }
+    }
+}
+
+private fun FlowContent.domainRulesCard(rules: RankingRules) {
+    section("card") {
+        h2 { +"Domain rules" }
+        if (rules.domainRules.isNotEmpty()) {
+            ul("rulelist") {
+                rules.domainRules.toSortedMap().forEach { (domain, rule) ->
+                    li {
+                        span("dom") { +domain }
+                        form(action = "/rules/domain", method = FormMethod.post, classes = "rank") {
+                            hiddenInput(name = "domain") { value = domain }
+                            listOf(
+                                RankRule.BLOCK to "Block",
+                                RankRule.LOWER to "Lower",
+                                RankRule.RAISE to "Raise",
+                                RankRule.PIN to "Pin",
+                            ).forEach { (r, lbl) ->
+                                button(type = ButtonType.submit, classes = if (r == rule) "on" else "") {
+                                    attributes["name"] = "action"
+                                    attributes["value"] = r.name
+                                    +lbl
+                                }
+                            }
+                            button(type = ButtonType.submit) {
+                                attributes["name"] = "action"
+                                attributes["value"] = "NORMAL"
+                                +"Reset"
+                            }
+                        }
+                    }
+                }
+            }
+        } else {
+            p(
+                "hint",
+            ) { +"No domain rules yet. Add one below, or use the Block / Lower / Raise / Pin buttons on any result." }
+        }
+        form(action = "/rules/domain", method = FormMethod.post, classes = "addrule") {
+            textInput(name = "domain") {
+                placeholder = "example.com"
+                attributes["autocomplete"] = "off"
+                attributes["required"] = "required"
+            }
+            selectField(
+                "action",
+                listOf("RAISE" to "Raise", "LOWER" to "Lower", "BLOCK" to "Block", "PIN" to "Pin"),
+                "RAISE",
+            )
+            button(type = ButtonType.submit) { +"Add rule" }
+        }
+    }
+}
+
+private fun FlowContent.lensForm(lens: Lens?) {
+    form(action = "/settings/lens", method = FormMethod.post, classes = "lensform") {
+        textInput(name = "name", classes = "lname") {
+            value = lens?.name ?: ""
+            placeholder = "Scope name"
+            attributes["autocomplete"] = "off"
+            attributes["required"] = "required"
+        }
+        listOf(
+            "include_domains" to ("Only these domains" to (lens?.includeDomains ?: emptyList())),
+            "exclude_domains" to ("Exclude these domains" to (lens?.excludeDomains ?: emptyList())),
+            "include_keywords" to ("Require these keywords" to (lens?.includeKeywords ?: emptyList())),
+            "exclude_keywords" to ("Exclude these keywords" to (lens?.excludeKeywords ?: emptyList())),
+        ).forEach { (fieldName, labelAndValues) ->
+            val (lbl, values) = labelAndValues
+            label("lf") {
+                +lbl
+                textInput(name = fieldName) {
+                    value = values.joinToString(", ")
+                    placeholder = "comma separated"
+                    attributes["autocomplete"] = "off"
+                }
+            }
+        }
+        button(type = ButtonType.submit) { +"Save scope" }
+    }
+}
+
+private fun FlowContent.scopesCard(rules: RankingRules) {
+    section("card") {
+        h2 { +"Scopes (lenses)" }
+        p("hint") {
+            +"A scope filters results to the domains and keywords you choose. "
+            +"Set the active scope here, or per-search from the results page."
+        }
+        if (rules.lenses.isNotEmpty()) {
+            form(action = "/scope", method = FormMethod.post, classes = "scopebar") {
+                label { +"Active scope" }
+                select {
+                    attributes["name"] = "lens"
+                    attributes["onchange"] = "this.form.submit()"
+                    option {
+                        attributes["value"] = ""
+                        +"No scope"
+                    }
+                    rules.lenses.forEach { lens ->
+                        option {
+                            attributes["value"] = lens.name
+                            if (lens.name == rules.activeLens) attributes["selected"] = "selected"
+                            +lens.name
+                        }
+                    }
+                }
+                button(type = ButtonType.submit) { +"Apply" }
+            }
+            rules.lenses.forEach { lens ->
+                div("lensitem") {
+                    lensForm(lens)
+                    form(action = "/settings/lens/delete", method = FormMethod.post, classes = "lensdel") {
+                        hiddenInput(name = "name") { value = lens.name }
+                        button(type = ButtonType.submit) { +"Delete" }
+                    }
+                }
+            }
+        }
+        h3("sub") { +"Create a scope" }
+        lensForm(null)
+    }
+}
+
+private fun FlowContent.gogglesCard(rules: RankingRules) {
+    section("card") {
+        h2 { +"Goggles" }
+        p("hint") {
+            +"Brave-style goggle rules, applied on-device. Example: "
+            span("code") { +"\$discard,site=example.com" }
+            +" or "
+            span("code") { +"\$boost,site=dev.to" }
+            +"."
+        }
+        if (rules.goggles.isNotEmpty()) {
+            ul("gogglelist") {
+                rules.goggles.forEach { g ->
+                    li {
+                        span("site") { +g.site }
+                        span("act") { +goggleActionLabel(g.action) }
+                    }
+                }
+            }
+            form(action = "/settings/goggles/clear", method = FormMethod.post, classes = "goggleclear") {
+                button(type = ButtonType.submit) { +"Clear all ${rules.goggles.size} rules" }
+            }
+        } else {
+            p("hint") { +"No goggle rules imported yet." }
+        }
+        form(action = "/settings/goggles", method = FormMethod.post, classes = "goggleimport") {
+            textArea {
+                attributes["id"] = "sm-goggle-text"
+                attributes["name"] = "goggles"
+                attributes["rows"] = "4"
+                attributes["placeholder"] = "Paste goggle rules, one per line"
+            }
+            div("grow") {
+                fileInput {
+                    attributes["accept"] = ".goggle,.txt,text/plain"
+                    attributes["onchange"] = "smLoadGoggle(this)"
+                }
+                button(type = ButtonType.submit) { +"Import (append)" }
+            }
+        }
+    }
+}
+
+private fun goggleActionLabel(action: RankRule): String =
+    when (action) {
+        RankRule.BLOCK -> "discard"
+        RankRule.RAISE -> "boost"
+        RankRule.LOWER -> "downrank"
+        RankRule.PIN -> "pin"
+        RankRule.NORMAL -> "normal"
+    }
+
+private fun FlowContent.historyCard(
+    history: List<HistoryEntry>,
+    clearable: Boolean,
+) {
+    section("card") {
+        h2 { +"Search history" }
+        if (history.isNotEmpty()) {
+            ul("histlist") { history.forEach { li { +it.query } } }
+            if (clearable) {
+                form(action = "/settings/history/clear", method = FormMethod.post, classes = "histclear") {
+                    button(type = ButtonType.submit) { +"Clear search history" }
+                }
+            }
+        } else {
+            p("hint") { +"No search history (history is off, or nothing recorded yet)." }
+        }
     }
 }
 
@@ -628,6 +1066,48 @@ private val PAGE_CSS =
     .rank button{font-size:11px;padding:2px 9px;border:1px solid var(--border);border-radius:10px;background:var(--card);color:var(--muted);cursor:pointer}
     .rank button:hover{border-color:var(--accent);color:var(--fg)}
     .rank button.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+    .settings-link{margin-left:auto;border:1px solid var(--border);color:var(--fg);border-radius:20px;padding:6px 14px;font-size:13px;text-decoration:none;white-space:nowrap}
+    .settings-link:hover{border-color:var(--accent);color:var(--accent)}
+    .settings-link+.theme-toggle{margin-left:0}
+    .topbar .spacer{margin-left:auto}
+    .settings{max-width:680px;margin:0 auto;padding:24px 18px 60px}
+    .settings h1{font-size:24px;margin:8px 0 18px}
+    .settings .saved{color:#fff;background:var(--accent);display:inline-block;border-radius:6px;padding:4px 12px;font-size:13px;margin:0 0 16px}
+    .settings .card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin:0 0 16px}
+    .settings .card h2{font-size:15px;margin:0 0 14px;color:var(--accent)}
+    .settings .card h3.sub{font-size:13px;margin:16px 0 8px;color:var(--muted)}
+    .settings .field{margin:0 0 14px}
+    .settings .field>label{display:block;font-size:13px;margin:0 0 6px;font-weight:600}
+    .settings select{width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--fg);font-size:14px}
+    .settings .checkrow{display:flex;align-items:center;gap:9px;font-size:14px;margin:0 0 10px;cursor:pointer}
+    .settings .hint{font-size:12px;color:var(--muted);margin:6px 0 0}
+    .settings .hint .code{background:var(--chip-bg);color:var(--chip-fg);padding:1px 5px;border-radius:5px;font-size:12px}
+    .settings .actions{margin-top:6px}
+    .settings .actions button{background:var(--accent);color:#fff;border:0;border-radius:22px;padding:10px 26px;font-size:15px;font-weight:600;cursor:pointer}
+    .settings .rulelist,.settings .gogglelist,.settings .histlist{list-style:none;margin:0 0 14px;padding:0;font-size:13px}
+    .settings .rulelist li{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 0;border-bottom:1px solid var(--border)}
+    .settings .rulelist .dom{font-weight:600;word-break:break-all}
+    .settings .rulelist .rank{margin-left:auto}
+    .settings .addrule{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+    .settings .addrule input[type=text]{flex:1;min-width:140px;padding:8px 11px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--fg);font-size:14px}
+    .settings .addrule select{width:auto;min-width:110px}
+    .settings .addrule button,.settings .lensform button,.settings .lensdel button,.settings .goggleimport button,.settings .goggleclear button,.settings .histclear button{background:var(--accent);color:#fff;border:0;border-radius:18px;padding:8px 18px;font-size:13px;font-weight:600;cursor:pointer}
+    .settings .lensitem{display:flex;gap:10px;align-items:flex-start;padding:10px 0;border-bottom:1px solid var(--border)}
+    .settings .lensform{flex:1;display:flex;flex-direction:column;gap:8px}
+    .settings .lensform .lname{font-weight:600}
+    .settings .lensform input[type=text]{width:100%;padding:8px 11px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--fg);font-size:14px}
+    .settings .lensform .lf{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--muted)}
+    .settings .lensform button{align-self:flex-start}
+    .settings .lensdel button,.settings .goggleclear button,.settings .histclear button{background:transparent;color:var(--muted);border:1px solid var(--border)}
+    .settings .lensdel button:hover,.settings .goggleclear button:hover,.settings .histclear button:hover{border-color:#d33;color:#d33}
+    .settings .gogglelist li{display:flex;gap:8px;align-items:center;padding:5px 0;border-bottom:1px solid var(--border)}
+    .settings .gogglelist .site{font-weight:600;word-break:break-all}
+    .settings .gogglelist .act{margin-left:auto;font-size:11px;color:var(--muted)}
+    .settings .histlist li{padding:4px 0;border-bottom:1px solid var(--border);word-break:break-word}
+    .settings .goggleimport{display:flex;flex-direction:column;gap:8px}
+    .settings textarea{width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--fg);font-size:13px;font-family:ui-monospace,monospace;resize:vertical}
+    .settings .goggleimport .grow{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+    .settings .goggleclear,.settings .histclear{margin:0 0 8px}
     @media (max-width:560px){.topbar .logo{display:none}}
     """.trimIndent()
 
@@ -650,6 +1130,15 @@ private val THEME_TOGGLE_JS =
         try{localStorage.setItem('sm-theme',n);}catch(e){}label();};
       label();
     })();
+    """.trimIndent()
+
+// Reads a chosen .goggle file into the textarea so "upload" works without a multipart parser: the
+// file never leaves the browser; its text just fills the field the normal urlencoded POST sends.
+private val GOGGLE_FILE_JS =
+    """
+    function smLoadGoggle(input){var f=input.files&&input.files[0];if(!f)return;
+      var r=new FileReader();r.onload=function(e){
+        document.getElementById('sm-goggle-text').value=e.target.result;};r.readAsText(f);}
     """.trimIndent()
 
 /** Returns true if [port] can be bound on loopback right now. */
@@ -684,6 +1173,8 @@ class SearchServer(
     private val guard: RequestWakeGuard = NoopRequestWakeGuard,
     private val suggestionsProvider: SuggestionsProvider = NoSuggestionsProvider,
     private val rankingPreferences: RankingPreferences? = null,
+    private val userPreferences: PreferencesRepository? = null,
+    private val historyStore: HistoryStore? = null,
 ) {
     @Volatile
     private var server: EmbeddedServer<*, *>? = null
@@ -713,7 +1204,14 @@ class SearchServer(
         val port = if (isLoopbackPortFree(preferredPort)) preferredPort else freeLoopbackPort()
         val engine =
             embeddedServer(CIO, host = host, port = port) {
-                searchModule(provider, guard, suggestionsProvider, rankingPreferences) { port }
+                searchModule(
+                    provider,
+                    guard,
+                    suggestionsProvider,
+                    rankingPreferences,
+                    userPreferences,
+                    historyStore,
+                ) { port }
             }
         engine.start(wait = false)
         server = engine
