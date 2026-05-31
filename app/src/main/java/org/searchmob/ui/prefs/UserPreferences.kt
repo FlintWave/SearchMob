@@ -34,6 +34,7 @@ object PreferenceKeys {
     const val HISTORY_ENABLED = "history_enabled"
     const val ONBOARDING_COMPLETED = "onboarding_completed"
     const val NETWORK_ACCESS_ENABLED = "network_access_enabled"
+    const val NETWORK_ACCESS_TOKEN = "network_access_token"
     const val UPSTREAM_SUGGESTIONS_ENABLED = "upstream_suggestions_enabled"
     const val SUMMARY_ENABLED = "summary_enabled"
     const val SORT_MODE = "sort_mode"

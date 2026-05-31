@@ -70,6 +70,22 @@ class PreferencesRepositoryTest {
         }
 
     @Test
+    fun networkAccessToken_mintedOnEnable_stableAndUrlSafe() =
+        runTest {
+            val r = repo()
+            assertEquals("", r.networkAccessToken())
+            r.setNetworkAccessEnabled(true)
+            val token = r.networkAccessToken()
+            assertTrue("token should be minted on enable", token.isNotEmpty())
+            // URL-safe base64 (no +/=), and stable across reads (not re-minted).
+            assertFalse(token.contains('+') || token.contains('/') || token.contains('='))
+            assertEquals(token, r.ensureNetworkAccessToken())
+            // Disabling does not clear the token (so re-enabling keeps the same engine config valid).
+            r.setNetworkAccessEnabled(false)
+            assertEquals(token, r.networkAccessToken())
+        }
+
+    @Test
     fun upstreamSuggestions_defaultsOffAndRoundTrips() =
         runTest {
             val r = repo()

@@ -70,8 +70,28 @@ class PreferencesRepository(
     val networkAccessEnabled: Flow<Boolean> =
         store.getBoolean(PreferenceKeys.NETWORK_ACCESS_ENABLED, false)
 
-    suspend fun setNetworkAccessEnabled(enabled: Boolean) =
+    suspend fun setNetworkAccessEnabled(enabled: Boolean) {
+        // Mint a per-install access token the first time network mode is enabled, so off-loopback
+        // clients must present it (loopback is always exempt). Mirrors the desktop behavior.
+        if (enabled) ensureNetworkAccessToken()
         store.setBoolean(PreferenceKeys.NETWORK_ACCESS_ENABLED, enabled)
+    }
+
+    /** The network-mode access token ("" until network mode has been enabled at least once). */
+    val networkAccessToken: Flow<String> =
+        store.getString(PreferenceKeys.NETWORK_ACCESS_TOKEN, "")
+
+    suspend fun networkAccessToken(): String = networkAccessToken.first()
+
+    /** Return the access token, minting and persisting a fresh 24-byte URL-safe one if none exists. */
+    suspend fun ensureNetworkAccessToken(): String {
+        val existing = networkAccessToken.first()
+        if (existing.isNotEmpty()) return existing
+        val bytes = ByteArray(24).also { java.security.SecureRandom().nextBytes(it) }
+        val token = java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(bytes)
+        store.setString(PreferenceKeys.NETWORK_ACCESS_TOKEN, token)
+        return token
+    }
 
     /**
      * Whether the opt-in upstream (web) suggestions source is enabled. OFF by default: with it off,
