@@ -259,5 +259,6 @@
     <string name="about_attribution">Search icons created by Freepik - Flaticon.</string>
     <string name="about_trademarks">SearchMob is not affiliated with, endorsed by, or sponsored by DuckDuckGo, Mojeek, Marginalia, Mwmbl, Wikipedia, Brave, Kagi, Google, or Tailscale. All product names, logos, and brands are the property of their respective owners and are used only to identify the services SearchMob interoperates with.</string>
     <string name="about_repo_button">View source on GitHub</string>
+    <string name="about_desktop_button">SearchMob for desktop</string>
     <string name="about_bug_button">Report a bug</string>
 </resources>
