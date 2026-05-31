@@ -2,6 +2,7 @@ package org.searchmob.server
 
 import org.searchmob.engine.sort.SortMode
 import org.searchmob.engine.summary.WikiSummary
+import org.searchmob.engine.vertical.Vertical
 
 /**
  * Results plus an optional spelling correction. [didYouMean] is a suggestion to offer while still
@@ -25,12 +26,14 @@ interface SearchResultProvider {
     suspend fun search(query: String): List<SearchResult>
 
     /**
-     * Search and also report any spelling correction, ordering results per [sortMode]. Defaults to
-     * results with no correction (and ignores the sort, which only the real provider implements).
+     * Search and also report any spelling correction, ordering results per [sortMode] and scoping to
+     * [vertical] (a `site:` filter over the same engines). Defaults to results with no correction
+     * (and ignores the sort/vertical, which only the real provider implements).
      */
     suspend fun searchWithCorrection(
         query: String,
         sortMode: SortMode = SortMode.FRESH_RELEVANT,
+        vertical: Vertical = Vertical.WEB,
     ): SearchOutcome = SearchOutcome(search(query))
 }
 

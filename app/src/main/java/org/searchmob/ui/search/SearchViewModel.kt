@@ -15,6 +15,7 @@ import org.searchmob.data.prefs.RankingPreferences
 import org.searchmob.engine.rank.DomainRanker
 import org.searchmob.engine.rank.RankRule
 import org.searchmob.engine.sort.SortMode
+import org.searchmob.engine.vertical.Vertical
 import org.searchmob.ui.prefs.PreferencesRepository
 
 /**
@@ -44,6 +45,11 @@ class SearchViewModel(
     private val mutableSortMode = MutableStateFlow(SortMode.FRESH_RELEVANT)
     val sortMode: StateFlow<SortMode> = mutableSortMode.asStateFlow()
 
+    // The active search vertical (Web / News / Forums / Academic). Per-session, defaulting to Web;
+    // not persisted, matching the desktop app.
+    private val mutableVertical = MutableStateFlow(Vertical.WEB)
+    val vertical: StateFlow<Vertical> = mutableVertical.asStateFlow()
+
     private var lastDispatched: String = ""
     private var inFlight: Job? = null
 
@@ -60,6 +66,13 @@ class SearchViewModel(
         if (mode == mutableSortMode.value) return
         mutableSortMode.value = mode
         preferences?.let { p -> viewModelScope.launch { p.setSortMode(mode.value) } }
+        if (lastDispatched.isNotBlank()) dispatch(lastDispatched)
+    }
+
+    /** Switch the search vertical and re-run the last query scoped to it. */
+    fun setVertical(vertical: Vertical) {
+        if (vertical == mutableVertical.value) return
+        mutableVertical.value = vertical
         if (lastDispatched.isNotBlank()) dispatch(lastDispatched)
     }
 
@@ -117,7 +130,7 @@ class SearchViewModel(
                 val outcome =
                     runCatching {
                         withContext(ioDispatcher) {
-                            repository.searchWithCorrection(terms, mutableSortMode.value)
+                            repository.searchWithCorrection(terms, mutableSortMode.value, mutableVertical.value)
                         }
                     }
                 mutableState.value =

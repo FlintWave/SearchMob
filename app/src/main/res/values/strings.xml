@@ -48,6 +48,10 @@
     <string name="sort_fresh">Freshest + Relevant</string>
     <string name="sort_date">Date</string>
     <string name="sort_relevance">Relevance</string>
+    <string name="vertical_web">Web</string>
+    <string name="vertical_news">News</string>
+    <string name="vertical_forums">Forums</string>
+    <string name="vertical_academic">Academic</string>
     <string name="search_did_you_mean">Did you mean:</string>
     <string name="search_showing_results_for">Showing results for</string>
     <string name="rank_menu">Ranking for this site</string>

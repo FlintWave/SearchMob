@@ -54,6 +54,8 @@ import org.searchmob.engine.rank.RankRule
 import org.searchmob.engine.rank.RankingRules
 import org.searchmob.engine.sort.SortMode
 import org.searchmob.engine.summary.WikiSummary
+import org.searchmob.engine.vertical.Vertical
+import org.searchmob.engine.vertical.Verticals
 import org.searchmob.server.suggest.NoSuggestionsProvider
 import org.searchmob.server.suggest.SuggestionsProvider
 import java.net.InetSocketAddress
@@ -105,31 +107,36 @@ fun Application.searchModule(
         }
         get("/search") {
             val query = call.request.queryParameters["q"].orEmpty().take(MAX_QUERY_LENGTH)
-            val sortMode = SortMode.fromValue(call.request.queryParameters["sort"])
+            val vertical = Vertical.fromValue(call.request.queryParameters["vertical"])
+            // An explicit `?sort=` wins; absent it, the vertical picks the sensible default sort.
+            val sortParam = call.request.queryParameters["sort"]
+            val sortMode = if (sortParam != null) SortMode.fromValue(sortParam) else Verticals.defaultSort(vertical)
             val outcome =
                 if (query.isBlank()) {
                     SearchOutcome(
                         emptyList(),
                     )
                 } else {
-                    guard.aroundRequest { provider.searchWithCorrection(query, sortMode) }
+                    guard.aroundRequest { provider.searchWithCorrection(query, sortMode, vertical) }
                 }
             val rules = rankingPreferences?.load() ?: RankingRules.EMPTY
             // Only the loopback owner gets the editing controls; a network visitor sees a read-only
             // page, because the mutation routes below are loopback-only.
             val editable = rankingPreferences != null && isOwnerRequest(call)
-            call.respondHtml { renderResultsPage(query, outcome, rules, editable, sortMode.value) }
+            call.respondHtml { renderResultsPage(query, outcome, rules, editable, sortMode.value, vertical.value) }
         }
         get("/api/search") {
             val query = call.request.queryParameters["q"].orEmpty().take(MAX_QUERY_LENGTH)
-            val sortMode = SortMode.fromValue(call.request.queryParameters["sort"])
+            val vertical = Vertical.fromValue(call.request.queryParameters["vertical"])
+            val sortParam = call.request.queryParameters["sort"]
+            val sortMode = if (sortParam != null) SortMode.fromValue(sortParam) else Verticals.defaultSort(vertical)
             val outcome =
                 if (query.isBlank()) {
                     SearchOutcome(
                         emptyList(),
                     )
                 } else {
-                    guard.aroundRequest { provider.searchWithCorrection(query, sortMode) }
+                    guard.aroundRequest { provider.searchWithCorrection(query, sortMode, vertical) }
                 }
             call.respond(
                 SearchResponse(
@@ -230,6 +237,7 @@ private fun HTML.renderResultsPage(
     rules: RankingRules = RankingRules.EMPTY,
     editable: Boolean = false,
     sortMode: String = "fresh",
+    vertical: String = "web",
 ) {
     val results = outcome.results
     head { pageHead(if (query.isBlank()) "SearchMob" else "$query · SearchMob") }
@@ -249,6 +257,9 @@ private fun HTML.renderResultsPage(
             themeToggle()
         }
         div("results") {
+            // Category tabs render whenever there is a query, so the user can switch verticals even
+            // from a vertical that returned nothing.
+            if (query.isNotBlank()) verticalBar(query, vertical)
             if (query.isNotBlank()) outcome.summary?.let { summaryBox(it) }
             when {
                 query.isBlank() -> p("empty") { +"Enter a query to search." }
@@ -352,6 +363,28 @@ private fun FlowContent.sortBar(
             }
         }
         button(type = ButtonType.submit) { +"Apply" }
+    }
+}
+
+/**
+ * Category tabs (Web / News / Forums / Academic) as GET links carrying the current query. Each link
+ * re-runs the search scoped to that vertical; the active one is marked so CSS can style it.
+ */
+private fun FlowContent.verticalBar(
+    query: String,
+    vertical: String,
+) {
+    val encoded = URLEncoder.encode(query, "UTF-8")
+    div("verticalbar") {
+        listOf(
+            "web" to "Web",
+            "news" to "News",
+            "forums" to "Forums",
+            "academic" to "Academic",
+        ).forEach { (value, lbl) ->
+            val classes = if (value == vertical) "chip active" else "chip"
+            a(href = "/search?q=$encoded&vertical=$value", classes = classes) { +lbl }
+        }
     }
 }
 
@@ -584,6 +617,10 @@ private val PAGE_CSS =
     .summary .ssource{font-size:12px}
     .summary img{width:84px;height:84px;object-fit:cover;border-radius:8px;flex:none}
     @media (max-width:560px){.summary img{display:none}}
+    .verticalbar{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 16px}
+    .verticalbar .chip{font-size:13px;padding:5px 14px;border:1px solid var(--border);border-radius:16px;color:var(--fg);background:var(--card)}
+    .verticalbar .chip.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+    .verticalbar .chip:hover{text-decoration:none;border-color:var(--accent)}
     .scopebar{display:flex;align-items:center;gap:8px;margin:0 0 18px;font-size:13px;color:var(--muted)}
     .scopebar select{font-size:13px;padding:3px 6px;border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--fg)}
     .rank{display:flex;flex-wrap:wrap;gap:6px;margin-top:5px;align-items:center}

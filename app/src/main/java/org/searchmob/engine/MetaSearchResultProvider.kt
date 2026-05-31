@@ -13,6 +13,8 @@ import org.searchmob.engine.rank.RankingRules
 import org.searchmob.engine.sort.ResultSorter
 import org.searchmob.engine.sort.SortMode
 import org.searchmob.engine.summary.WikiSummary
+import org.searchmob.engine.vertical.Vertical
+import org.searchmob.engine.vertical.Verticals
 import org.searchmob.server.SearchOutcome
 import org.searchmob.server.SearchResult
 import org.searchmob.server.SearchResultProvider
@@ -67,6 +69,7 @@ class MetaSearchResultProvider(
     override suspend fun searchWithCorrection(
         query: String,
         sortMode: SortMode,
+        vertical: Vertical,
     ): SearchOutcome =
         coroutineScope {
             if (query.isBlank()) return@coroutineScope SearchOutcome(emptyList())
@@ -76,7 +79,7 @@ class MetaSearchResultProvider(
             val rules = rankingRules()
             val slopMode = aiSlopMode()
             val slop = if (slopMode == "off") emptySet() else slopDomains()
-            val (results, upstreamRaw) = aggregateRanked(query, rules, sortMode, slop, slopMode)
+            val (results, upstreamRaw) = aggregateRanked(query, vertical, rules, sortMode, slop, slopMode)
 
             val upstreamCorrection = upstreamRaw?.takeIf { !it.equals(query, ignoreCase = true) }
             val onDevice = corrector.suggest(query)
@@ -95,7 +98,7 @@ class MetaSearchResultProvider(
             if (autoCorrection == null || autoCorrection.equals(query, ignoreCase = true)) {
                 return@coroutineScope SearchOutcome(results, didYouMean = suggestion, summary = summary)
             }
-            val (retryResults, _) = aggregateRanked(autoCorrection, rules, sortMode, slop, slopMode)
+            val (retryResults, _) = aggregateRanked(autoCorrection, vertical, rules, sortMode, slop, slopMode)
             if (retryResults.isEmpty()) {
                 SearchOutcome(results, didYouMean = suggestion, summary = summary)
             } else {
@@ -106,12 +109,16 @@ class MetaSearchResultProvider(
     /** Aggregate [query], sort, apply the personalization [rules] locally; return (results, correction). */
     private suspend fun aggregateRanked(
         query: String,
+        vertical: Vertical,
         rules: RankingRules,
         sortMode: SortMode,
         slopDomains: Set<String>,
         slopMode: String,
     ): Pair<List<SearchResult>, String?> {
-        val aggregated = aggregator.aggregate(SearchQuery(query), registryProvider().activeEngines(httpClient))
+        // Scope the query for the chosen vertical (a `site:` OR group the engines understand). The
+        // original query still drives sort/summary/correction so freshness keywords are detected.
+        val scoped = Verticals.transformQuery(query, vertical)
+        val aggregated = aggregator.aggregate(SearchQuery(scoped), registryProvider().activeEngines(httpClient))
         // Sort first (relevance/date/freshness blend), then bucket by rules so PIN/RAISE preserve
         // the chosen order within each bucket.
         val sorted =
