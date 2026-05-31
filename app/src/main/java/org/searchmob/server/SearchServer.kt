@@ -5,6 +5,8 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.Application
 import io.ktor.server.application.ApplicationCall
+import io.ktor.server.application.ApplicationCallPipeline
+import io.ktor.server.application.call
 import io.ktor.server.application.install
 import io.ktor.server.cio.CIO
 import io.ktor.server.engine.EmbeddedServer
@@ -12,6 +14,7 @@ import io.ktor.server.engine.embeddedServer
 import io.ktor.server.html.respondHtml
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.server.plugins.origin
+import io.ktor.server.request.path
 import io.ktor.server.request.receiveParameters
 import io.ktor.server.response.respond
 import io.ktor.server.response.respondRedirect
@@ -112,9 +115,35 @@ fun Application.searchModule(
     rankingPreferences: RankingPreferences? = null,
     userPreferences: PreferencesRepository? = null,
     historyStore: HistoryStore? = null,
+    // Network-mode access control (mirrors the desktop `_SecurityHeadersMiddleware`). When the server
+    // is bound to all interfaces, a non-loopback client hitting a query route must present this token,
+    // and its Host header must be loopback / an IP literal / one of `allowedHosts` (DNS-rebind guard).
+    // Loopback clients are always exempt. Empty token + empty allowedHosts = loopback-only behavior.
+    accessToken: String? = null,
+    allowedHosts: Set<String> = emptySet(),
     boundPort: () -> Int,
 ) {
     install(ContentNegotiation) { json() }
+
+    // Run before routing on every request: conservative security headers always, plus the Host
+    // allowlist and the token gate for non-loopback clients.
+    intercept(ApplicationCallPipeline.Plugins) {
+        call.response.headers.append("Referrer-Policy", "no-referrer", safeOnly = false)
+        call.response.headers.append("X-Content-Type-Options", "nosniff", safeOnly = false)
+        call.response.headers.append("X-Frame-Options", "DENY", safeOnly = false)
+        if (!isLoopbackHost(call.request.origin.remoteHost)) {
+            val host = hostnameOnly(call.request.headers["Host"].orEmpty())
+            if (host.isNotEmpty() && !hostHeaderAllowed(host, allowedHosts)) {
+                call.respondText("Bad Request: host not allowed", status = HttpStatusCode.BadRequest)
+                return@intercept finish()
+            }
+            val tokenOk = !accessToken.isNullOrEmpty() && call.request.queryParameters["token"] == accessToken
+            if (call.request.path() in GATED_PATHS && !tokenOk) {
+                call.respondText("Forbidden", status = HttpStatusCode.Forbidden)
+                return@intercept finish()
+            }
+        }
+    }
 
     // The owner (loopback) can reach the Settings page only when both backing stores are wired.
     fun settingsAvailable(call: ApplicationCall): Boolean =
@@ -315,6 +344,42 @@ internal fun isLoopbackHost(host: String): Boolean {
     return h == "localhost" || h == "::1" || h.startsWith("127.")
 }
 
+/** Query routes gated by the access token for non-loopback clients in network mode. */
+private val GATED_PATHS = setOf("/search", "/api/search", "/suggest")
+
+/** Strip an optional `:port` and IPv6 brackets from a Host header value; returns a bare lowercase host. */
+internal fun hostnameOnly(hostHeader: String): String {
+    val value = hostHeader.trim().lowercase()
+    if (value.isEmpty()) return ""
+    if (value.startsWith("[")) {
+        val end = value.indexOf(']')
+        return if (end != -1) value.substring(1, end) else value.substring(1)
+    }
+    return if (value.count { it == ':' } == 1) value.substringBefore(":") else value
+}
+
+/** True when `name` looks like an IPv4 or IPv6 literal (not a DNS name). */
+internal fun isIpLiteral(name: String): Boolean {
+    if (name.contains(":")) return name.all { it.isDigit() || it in "abcdefABCDEF:." }
+    val parts = name.split(".")
+    return parts.size == 4 && parts.all { it.toIntOrNull() in 0..255 }
+}
+
+/**
+ * DNS-rebind defense: accept a Host header that is loopback, an IP literal, or one of `allowedHosts`
+ * (the device's own hostname(s)); reject a foreign DNS name. An empty Host is accepted (HTTP/1.0).
+ * Mirrors the desktop `host_header_allowed` for the wildcard-bind (network-mode) case.
+ */
+internal fun hostHeaderAllowed(
+    name: String,
+    allowedHosts: Set<String>,
+): Boolean {
+    if (name.isEmpty()) return true
+    if (isLoopbackHost(name)) return true
+    if (name in allowedHosts) return true
+    return isIpLiteral(name)
+}
+
 private fun isOwnerRequest(call: ApplicationCall): Boolean = isLoopbackHost(call.request.origin.remoteHost)
 
 /** CSRF guard: a present `Origin` must be one of our own (loopback) origins; absent is same-origin. */
@@ -422,7 +487,12 @@ private fun HTML.renderResultsPage(
                             // would survive HTML escaping in href and could execute in the loopback origin,
                             // so render its title as plain text instead.
                             if (isSafeHttpUrl(result.url)) {
-                                a(href = result.url, classes = "title") { +result.title }
+                                // rel=noreferrer backs up the Referrer-Policy header so the query (in
+                                // the loopback URL) never leaks; noopener severs window.opener.
+                                a(href = result.url, classes = "title") {
+                                    attributes["rel"] = "noopener noreferrer"
+                                    +result.title
+                                }
                             } else {
                                 span("title") { +result.title }
                             }
@@ -1183,6 +1253,8 @@ class SearchServer(
     private val rankingPreferences: RankingPreferences? = null,
     private val userPreferences: PreferencesRepository? = null,
     private val historyStore: HistoryStore? = null,
+    // Lazily resolved each (re)start so a token minted after the server started still takes effect.
+    private val accessToken: () -> String? = { null },
 ) {
     @Volatile
     private var server: EmbeddedServer<*, *>? = null
@@ -1210,6 +1282,8 @@ class SearchServer(
         server?.let { return boundPort }
         val host = bindHost(networkAccessEnabled)
         val port = if (isLoopbackPortFree(preferredPort)) preferredPort else freeLoopbackPort()
+        // Token gate only matters when bound off-loopback; loopback clients are always exempt.
+        val token = if (networkAccessEnabled) accessToken() else null
         val engine =
             embeddedServer(CIO, host = host, port = port) {
                 searchModule(
@@ -1219,6 +1293,7 @@ class SearchServer(
                     rankingPreferences,
                     userPreferences,
                     historyStore,
+                    token,
                 ) { port }
             }
         engine.start(wait = false)

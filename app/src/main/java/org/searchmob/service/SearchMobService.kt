@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.runBlocking
 import org.searchmob.R
 import org.searchmob.SearchMobApplication
 import org.searchmob.data.history.HistoryStore
@@ -136,6 +137,8 @@ class SearchMobService : Service() {
             // Powers the served Settings page (preference toggles + history view/clear), loopback-only.
             userPreferences = preferences,
             historyStore = (application as SearchMobApplication).storage.history,
+            // In network mode, off-loopback clients must present this token; loopback is exempt.
+            accessToken = { runBlocking { preferences.networkAccessToken().ifEmpty { null } } },
         )
     }
 
