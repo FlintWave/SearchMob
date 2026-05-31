@@ -69,6 +69,7 @@ class SearchViewModelTest {
                     override suspend fun searchWithCorrection(
                         query: String,
                         sortMode: org.searchmob.engine.sort.SortMode,
+                        vertical: org.searchmob.engine.vertical.Vertical,
                     ): SearchOutcome = SearchOutcome(results = search(query), summary = box)
                 }
             val viewModel = vm(repo)
@@ -92,6 +93,7 @@ class SearchViewModelTest {
                     override suspend fun searchWithCorrection(
                         query: String,
                         sortMode: SortMode,
+                        vertical: org.searchmob.engine.vertical.Vertical,
                     ): SearchOutcome {
                         lastSort = sortMode
                         return SearchOutcome(results = search(query))

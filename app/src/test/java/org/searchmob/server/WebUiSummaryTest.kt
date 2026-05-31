@@ -17,6 +17,7 @@ class WebUiSummaryTest {
         override suspend fun searchWithCorrection(
             query: String,
             sortMode: org.searchmob.engine.sort.SortMode,
+            vertical: org.searchmob.engine.vertical.Vertical,
         ): SearchOutcome = SearchOutcome(results = search(query), summary = summary)
     }
 

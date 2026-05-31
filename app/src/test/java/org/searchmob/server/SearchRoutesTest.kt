@@ -143,4 +143,44 @@ class SearchRoutesTest {
             client.get("/api/search?q=$longQuery")
             assertEquals(MAX_QUERY_LENGTH, seen.length)
         }
+
+    @Test
+    fun searchRendersTheVerticalBarWithTheActiveTab() =
+        testApplication {
+            application { searchModule(StubSearchResultProvider()) { DEFAULT_PORT } }
+            val body = client.get("/search?q=privacy&vertical=news").bodyAsText()
+            assertTrue(body.contains("verticalbar"))
+            assertTrue(body.contains(">Web</a>"))
+            assertTrue(body.contains(">News</a>"))
+            assertTrue(body.contains(">Forums</a>"))
+            assertTrue(body.contains(">Academic</a>"))
+            // The requested vertical is marked active.
+            assertTrue(body.contains("vertical=news\" class=\"chip active\""))
+        }
+
+    @Test
+    fun searchPassesVerticalAndDefaultSortToTheProvider() =
+        testApplication {
+            var seenVertical: org.searchmob.engine.vertical.Vertical? = null
+            var seenSort: org.searchmob.engine.sort.SortMode? = null
+            val recorder =
+                object : SearchResultProvider {
+                    override suspend fun search(query: String): List<SearchResult> = emptyList()
+
+                    override suspend fun searchWithCorrection(
+                        query: String,
+                        sortMode: org.searchmob.engine.sort.SortMode,
+                        vertical: org.searchmob.engine.vertical.Vertical,
+                    ): SearchOutcome {
+                        seenVertical = vertical
+                        seenSort = sortMode
+                        return SearchOutcome(emptyList())
+                    }
+                }
+            application { searchModule(recorder) { DEFAULT_PORT } }
+            // Academic with no explicit ?sort gets the vertical's default (relevance).
+            client.get("/search?q=transformers&vertical=academic")
+            assertEquals(org.searchmob.engine.vertical.Vertical.ACADEMIC, seenVertical)
+            assertEquals(org.searchmob.engine.sort.SortMode.RELEVANCE, seenSort)
+        }
 }

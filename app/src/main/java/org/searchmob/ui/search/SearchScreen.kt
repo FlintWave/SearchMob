@@ -3,6 +3,7 @@ package org.searchmob.ui.search
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,6 +15,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
@@ -50,6 +52,7 @@ import org.searchmob.engine.rank.DomainRanker
 import org.searchmob.engine.rank.RankRule
 import org.searchmob.engine.sort.SortMode
 import org.searchmob.engine.summary.WikiSummary
+import org.searchmob.engine.vertical.Vertical
 import org.searchmob.server.SearchResult
 
 /** Test tags so Compose UI tests can target each state distinctly. */
@@ -63,6 +66,7 @@ object SearchTestTags {
     const val RESULTS = "search_results"
     const val SUMMARY = "search_summary"
     const val SORT = "search_sort"
+    const val VERTICAL = "search_vertical"
     const val DID_YOU_MEAN = "search_did_you_mean"
     const val RANK_MENU = "search_rank_menu"
 }
@@ -77,6 +81,7 @@ fun SearchScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val query by viewModel.query.collectAsStateWithLifecycle()
     val sortMode by viewModel.sortMode.collectAsStateWithLifecycle()
+    val vertical by viewModel.vertical.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
     Scaffold(
@@ -125,6 +130,7 @@ fun SearchScreen(
             )
 
             if (state is SearchUiState.Results) {
+                VerticalTabs(current = vertical, onSelect = viewModel::setVertical)
                 SortChips(current = sortMode, onSelect = viewModel::setSortMode)
             }
 
@@ -292,6 +298,31 @@ private fun SortChips(
             FilterChip(
                 selected = current == mode,
                 onClick = { onSelect(mode) },
+                label = { Text(stringResource(labelRes)) },
+            )
+        }
+    }
+}
+
+/** Category tabs (Web / News / Forums / Academic). Each scopes the same query over the same engines. */
+@Composable
+private fun VerticalTabs(
+    current: Vertical,
+    onSelect: (Vertical) -> Unit,
+) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).testTag(SearchTestTags.VERTICAL),
+    ) {
+        listOf(
+            Vertical.WEB to R.string.vertical_web,
+            Vertical.NEWS to R.string.vertical_news,
+            Vertical.FORUMS to R.string.vertical_forums,
+            Vertical.ACADEMIC to R.string.vertical_academic,
+        ).forEach { (value, labelRes) ->
+            FilterChip(
+                selected = current == value,
+                onClick = { onSelect(value) },
                 label = { Text(stringResource(labelRes)) },
             )
         }
