@@ -9,7 +9,14 @@ import java.net.URI
  */
 object UrlNormalizer {
     private val trackingPrefixes = listOf("utm_")
-    private val trackingKeys = setOf("fbclid", "gclid", "gclsrc", "dclid", "msclkid", "mc_eid", "igshid", "ref")
+
+    // Kept in sync with the desktop app's normalize.py so both strip the same trackers.
+    private val trackingKeys =
+        setOf(
+            "fbclid", "gclid", "gclsrc", "dclid", "msclkid",
+            "mc_cid", "mc_eid", "_hsenc", "_hsmi", "igshid",
+            "ref", "ref_src", "yclid",
+        )
 
     private fun isTracking(param: String): Boolean {
         val key = param.substringBefore("=").lowercase()

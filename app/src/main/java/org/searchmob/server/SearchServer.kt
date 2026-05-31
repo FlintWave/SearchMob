@@ -122,7 +122,9 @@ fun Application.searchModule(
     routing {
         get("/") {
             val link = settingsAvailable(call)
-            call.respondHtml { renderHomePage(link) }
+            val owner = rankingPreferences != null && isOwnerRequest(call)
+            val rules = if (owner) rankingPreferences.load() else null
+            call.respondHtml { renderHomePage(link, rules, owner) }
         }
         get("/healthz") {
             call.respondText("ok")
@@ -583,7 +585,11 @@ private fun FlowContent.rankControls(
 }
 
 /** Home page: a centered search box plus the OpenSearch link so a browser can add SearchMob. */
-private fun HTML.renderHomePage(settingsLink: Boolean = false) {
+private fun HTML.renderHomePage(
+    settingsLink: Boolean = false,
+    rules: RankingRules? = null,
+    editable: Boolean = false,
+) {
     head { pageHead("SearchMob") }
     body {
         attributes["data-page"] = "home"
@@ -603,6 +609,8 @@ private fun HTML.renderHomePage(settingsLink: Boolean = false) {
                 }
                 submitInput { value = "Search" }
             }
+            // A scope can be chosen before searching (the selector renders only when a lens exists).
+            if (editable && rules != null) scopeBar(rules)
         }
         script { unsafe { +THEME_TOGGLE_JS } }
     }

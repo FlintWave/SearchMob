@@ -49,6 +49,15 @@ class UrlNormalizerTest {
     }
 
     @Test
+    fun stripsTheFullTrackerSetSharedWithDesktop() {
+        // The union of both apps' tracker keys (gclsrc/msclkid/mc_cid/_hsenc/_hsmi/ref_src/yclid added).
+        val url =
+            "https://example.com/p?keep=1&gclsrc=aw&msclkid=m&mc_cid=c&mc_eid=e" +
+                "&_hsenc=h&_hsmi=i&igshid=g&ref=r&ref_src=s&yclid=y&dclid=d"
+        assertEquals("https://example.com/p?keep=1", UrlNormalizer.stripTracking(url))
+    }
+
+    @Test
     fun stripTrackingLeavesCleanUrlsUntouched() {
         assertEquals(
             "https://example.com/p/?id=1",
