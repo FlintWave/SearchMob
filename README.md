@@ -15,6 +15,12 @@ so those engines see no cookies/identifier from you, and keeps anything it store
 > [Releases](https://github.com/FlintWave/SearchMob/releases/latest) page. Ongoing work and design
 > live in [`ROADMAP.md`](ROADMAP.md) and [`openspec/`](openspec/).
 
+> **On a computer too?** There is a companion desktop app,
+> [**SearchMob Desktop**](https://github.com/FlintWave/SearchMob-Desktop), for Windows, macOS, and
+> Linux: the same engines, the same privacy proxy, and the same store-nothing defaults, plus
+> desktop-only extras (a local-AI answer box and an MCP server for AI agents). Run **both** to keep
+> every search on every device private, with no third-party search account anywhere.
+
 ## What it does
 
 - **Private metasearch on your device.** Queries are fanned out in parallel to **DuckDuckGo, Mojeek,
@@ -60,6 +66,9 @@ SearchMob is distributed via **GitHub Releases** (and F-Droid is planned), not G
 2. Install it (you may need to allow installing from your browser/files app).
 3. Follow the first-run wizard to grant the notification + battery-optimization permissions and to set
    SearchMob as your browser's search engine.
+
+On your computer, install [SearchMob Desktop](https://github.com/FlintWave/SearchMob-Desktop) too, so
+your phone and desktop both search privately.
 
 ## Architecture (summary)
 
