@@ -143,6 +143,10 @@ class SearchMobService : Service() {
             suggestionsProvider = suggestionsProvider,
             // Lets the served page's personalization controls read and persist rules (loopback-only).
             rankingPreferences = (application as SearchMobApplication).rankingPreferences,
+            // Lets owner clicks on the served page train the learned model (loopback-only), gated by
+            // the owner's personalization toggle.
+            personalizationPreferences = (application as SearchMobApplication).personalizationPreferences,
+            personalizationEnabled = { preferences.personalizationEnabled() },
             // Powers the served Settings page (preference toggles + history view/clear), loopback-only.
             userPreferences = preferences,
             historyStore = (application as SearchMobApplication).storage.history,

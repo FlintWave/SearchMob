@@ -64,10 +64,12 @@ import kotlinx.serialization.json.addJsonArray
 import kotlinx.serialization.json.buildJsonArray
 import org.searchmob.data.history.HistoryEntry
 import org.searchmob.data.history.HistoryStore
+import org.searchmob.data.prefs.PersonalizationPreferences
 import org.searchmob.data.prefs.RankingPreferences
 import org.searchmob.engine.rank.DomainRanker
 import org.searchmob.engine.rank.Goggles
 import org.searchmob.engine.rank.Lens
+import org.searchmob.engine.rank.Personalizer
 import org.searchmob.engine.rank.RankRule
 import org.searchmob.engine.rank.RankingRules
 import org.searchmob.engine.sort.SortMode
@@ -81,6 +83,8 @@ import java.net.InetSocketAddress
 import java.net.ServerSocket
 import java.net.URI
 import java.net.URLEncoder
+import java.security.SecureRandom
+import java.util.Base64
 
 const val LOOPBACK_HOST = "127.0.0.1"
 
@@ -104,6 +108,15 @@ const val MAX_SUGGESTIONS = 8
 /** Content type for OpenSearch Suggestions JSON, as the spec and browsers expect. */
 const val SUGGESTIONS_CONTENT_TYPE_SUBTYPE = "x-suggestions+json"
 
+/** Cap on remembered owner renders for click-tracking; small since only recent pages need links. */
+const val RENDER_CACHE_MAX = 64
+
+/** One owner-rendered result page: the query and the displayed (url, host) order. Never persisted. */
+data class RenderedResults(
+    val query: String,
+    val items: List<Pair<String, String?>>,
+)
+
 /**
  * Configures the SearchMob HTTP routes on an [Application]. Shared by the real [SearchServer] and by
  * `testApplication` tests so the HTTP contract is exercised identically. No request/access logging is
@@ -116,6 +129,11 @@ fun Application.searchModule(
     rankingPreferences: RankingPreferences? = null,
     userPreferences: PreferencesRepository? = null,
     historyStore: HistoryStore? = null,
+    // Lets owner clicks on the served results page train the learned model (loopback-only). When
+    // null, or when `personalizationEnabled` is false, the served page renders plain result links
+    // and the `/click` learning route records nothing.
+    personalizationPreferences: PersonalizationPreferences? = null,
+    personalizationEnabled: suspend () -> Boolean = { false },
     // Network-mode access control (mirrors the desktop `_SecurityHeadersMiddleware`). When the server
     // is bound to all interfaces, a non-loopback client hitting a query route must present this token,
     // and its Host header must be loopback / an IP literal / one of `allowedHosts` (DNS-rebind guard).
@@ -162,6 +180,29 @@ fun Application.searchModule(
     // The owner (loopback) can reach the Settings page only when both backing stores are wired.
     fun settingsAvailable(call: ApplicationCall): Boolean =
         rankingPreferences != null && userPreferences != null && isOwnerRequest(call)
+
+    // Per-server, in-memory map of recent owner renders (render id -> the displayed (url, host)
+    // order). Used only to resolve an owner click on the served page back to its result and its
+    // skipped-above neighbors for `/click`, so the redirect target is server state and never a
+    // caller-supplied URL. Bounded and never persisted. Mirrors the desktop `_render_cache`.
+    val renderCache =
+        object : LinkedHashMap<String, RenderedResults>() {
+            override fun removeEldestEntry(eldest: Map.Entry<String, RenderedResults>): Boolean =
+                size > RENDER_CACHE_MAX
+        }
+    val renderRng = SecureRandom()
+
+    fun registerRender(
+        query: String,
+        results: List<SearchResult>,
+    ): String {
+        val bytes = ByteArray(9).also { renderRng.nextBytes(it) }
+        val rid = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes)
+        val items = results.map { it.url to DomainRanker.host(it.url) }
+        synchronized(renderCache) { renderCache[rid] = RenderedResults(query, items) }
+        return rid
+    }
+
     routing {
         get("/") {
             val link = settingsAvailable(call)
@@ -193,8 +234,27 @@ fun Application.searchModule(
             // page, because the mutation routes below are loopback-only.
             val editable = rankingPreferences != null && isOwnerRequest(call)
             val link = settingsAvailable(call)
+            // Route the owner's result links through `/click` so a click can train the model, but
+            // only when personalization is on; everyone else (and a disabled owner) gets plain links.
+            val linkBuilder: ((Int, String) -> String)? =
+                if (isOwnerRequest(call) && outcome.results.isNotEmpty() && personalizationEnabled()) {
+                    val rid = registerRender(query, outcome.results)
+                    val builder: (Int, String) -> String = { pos, _ -> "/click?rid=$rid&pos=$pos" }
+                    builder
+                } else {
+                    null
+                }
             call.respondHtml {
-                renderResultsPage(query, outcome, rules, editable, sortMode.value, vertical.value, link)
+                renderResultsPage(
+                    query,
+                    outcome,
+                    rules,
+                    editable,
+                    sortMode.value,
+                    vertical.value,
+                    link,
+                    linkBuilder,
+                )
             }
         }
         get("/api/search") {
@@ -219,6 +279,43 @@ fun Application.searchModule(
                     showingResultsFor = outcome.showingResultsFor,
                 ),
             )
+        }
+        // Owner-only click redirector that learns from a click on the served results page. It
+        // resolves the destination from server-side render state (never a caller-supplied URL), so
+        // it cannot be an open redirect, and it trains only the loopback owner's model. Mirrors the
+        // desktop `/click` route.
+        get("/click") {
+            if (!isOwnerRequest(call)) {
+                call.respondText("not found", status = HttpStatusCode.NotFound)
+                return@get
+            }
+            val rid = call.request.queryParameters["rid"].orEmpty()
+            val render = synchronized(renderCache) { renderCache[rid] }
+            val pos = call.request.queryParameters["pos"]?.toIntOrNull()
+            if (render == null || pos == null || pos < 0 || pos >= render.items.size) {
+                call.respondRedirect("/", permanent = false)
+                return@get
+            }
+            val destUrl = render.items[pos].first
+            if (!isSafeHttpUrl(destUrl)) {
+                call.respondRedirect("/", permanent = false)
+                return@get
+            }
+            if (personalizationPreferences != null && personalizationEnabled()) {
+                runCatching {
+                    val model = personalizationPreferences.load()
+                    val hosts = render.items.map { it.second }
+                    Personalizer.updateFromClick(
+                        model,
+                        hosts,
+                        pos,
+                        Personalizer.queryTerms(render.query),
+                        System.currentTimeMillis(),
+                    )
+                    personalizationPreferences.save(model)
+                }
+            }
+            call.respondRedirect(destUrl, permanent = false)
         }
         get("/suggest") {
             val query = call.request.queryParameters["q"].orEmpty().take(MAX_QUERY_LENGTH)
@@ -458,6 +555,9 @@ private fun HTML.renderResultsPage(
     sortMode: String = "fresh",
     vertical: String = "web",
     settingsLink: Boolean = false,
+    // When set (owner + personalization on), maps a result's (position, url) to the `/click` link
+    // that trains the model; null means plain destination links (network visitors, disabled owner).
+    linkBuilder: ((Int, String) -> String)? = null,
 ) {
     attributes["lang"] = "en"
     val results = outcome.results
@@ -499,7 +599,7 @@ private fun HTML.renderResultsPage(
                     outcome.didYouMean?.let { didYouMeanLine(it) }
                     sortBar(query, sortMode)
                     if (editable) scopeBar(rules)
-                    results.forEach { result ->
+                    results.forEachIndexed { index, result ->
                         div("result") {
                             div("url") { +displayUrl(result.url) }
                             // Only emit a clickable link for http(s) URLs. A javascript:/data:/file: URL
@@ -507,8 +607,10 @@ private fun HTML.renderResultsPage(
                             // so render its title as plain text instead.
                             if (isSafeHttpUrl(result.url)) {
                                 // rel=noreferrer backs up the Referrer-Policy header so the query (in
-                                // the loopback URL) never leaks; noopener severs window.opener.
-                                a(href = result.url, classes = "title") {
+                                // the loopback URL) never leaks; noopener severs window.opener. The href
+                                // is the `/click` redirector for the owner (so a click trains the model),
+                                // or the plain destination otherwise.
+                                a(href = linkBuilder?.invoke(index, result.url) ?: result.url, classes = "title") {
                                     attributes["rel"] = "noopener noreferrer"
                                     +result.title
                                 }
@@ -1291,6 +1393,10 @@ class SearchServer(
     private val rankingPreferences: RankingPreferences? = null,
     private val userPreferences: PreferencesRepository? = null,
     private val historyStore: HistoryStore? = null,
+    // Lets owner clicks on the served page train the learned model (loopback-only); gated by the
+    // owner's personalization toggle, read fresh each request.
+    private val personalizationPreferences: PersonalizationPreferences? = null,
+    private val personalizationEnabled: suspend () -> Boolean = { false },
     // Lazily resolved each (re)start so a token minted after the server started still takes effect.
     private val accessToken: () -> String? = { null },
 ) {
@@ -1331,6 +1437,8 @@ class SearchServer(
                     rankingPreferences,
                     userPreferences,
                     historyStore,
+                    personalizationPreferences,
+                    personalizationEnabled,
                     token,
                 ) { port }
             }
