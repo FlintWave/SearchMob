@@ -40,6 +40,23 @@ docs(readme): clarify free-vs-BYO-key search sourcing
 - Kotlin official style (`kotlin.code.style=official`). Run `./gradlew ktlintCheck` once ktlint is wired.
 - Keep modules/packages aligned with the layout: `ui/`, `service/`, `server/`, `engine/`, `data/`.
 
+## Surfacing new opt-in settings to existing users
+
+When a feature adds a new **opt-in setting that users should review and choose** (a privacy or
+ranking toggle, a new data-storing option, anything they would want to know exists), make the setup
+wizard show it to people who already onboarded, not just fresh installs:
+
+1. Add the feature's page to the wizard (`ui/onboarding/`) and bump `ONBOARDING_VERSION` in
+   `ui/onboarding/OnboardingState.kt` in the same change.
+2. The wizard re-appears **once** for any user whose saved onboarding version is behind, showing the
+   new feature's page (with its activation toggle) so they can review and enable it. New installs see
+   it as the last step of first-run setup.
+3. Keep the toggle **off by default** and persist it the moment it is changed, so nothing is enabled
+   unless the user actually opts in.
+
+Treat this as part of "done" for any settings-bearing feature, and confirm it during release review.
+The desktop app mirrors this with `ONBOARDING_VERSION` in `gui/onboarding_dialog.py`.
+
 ## Releases (maintainers)
 
 Releases are automated and distributed via **GitHub Releases + F-Droid** (never Google Play).
