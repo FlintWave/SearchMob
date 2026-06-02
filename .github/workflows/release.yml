@@ -90,6 +90,11 @@ jobs:
       - name: Publish APK + SHA256SUMS to the GitHub Release
         uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v3.0.0
         with:
+          # A tag with a `-rc` suffix (e.g. v26.06.01-rc.1) publishes a PRE-RELEASE: it is not
+          # marked "Latest", so the once-a-day in-app update check (which reads /releases/latest)
+          # never offers it to users. Push such a tag to test a real signed APK without announcing
+          # a new version; a normal `vX.Y.Z` tag publishes the announced release.
+          prerelease: ${{ contains(github.ref_name, '-rc') }}
           files: |
             dist/*.apk
             dist/SHA256SUMS
