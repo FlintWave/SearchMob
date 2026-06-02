@@ -51,7 +51,7 @@ val hasReleaseSigning =
 // date versioning: YY.MM.VV (two-digit year, month, and per-month build), set manually each release.
 // `versionCode` is derived as (YY*10000 + MM*100 + VV) so it always increases monotonically with the
 // date (e.g. 26.05.00 -> 260500, 26.06.00 -> 260600, 27.01.00 -> 270100). Bump this on each release.
-val appVersionName = "26.05.05"
+val appVersionName = "26.06.00"
 val appVersionCode =
     appVersionName
         .split("-")[0]

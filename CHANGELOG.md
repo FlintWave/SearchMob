@@ -4,6 +4,26 @@ All notable changes to SearchMob are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses Ubuntu-style date
 versioning (`YY.MM.VV`).
 
+## [26.06.00] - 2026-06-02
+
+### Added
+- **Personalized ranking that learns from your clicks.** SearchMob can now quietly move the sites
+  you tend to click higher, and it gets better the more you search. It learns on-device from a
+  position-bias-resistant "clicked over skipped-above" signal, applies a bounded boost (so engine
+  consensus stays primary and your pin/raise/lower/block rules always win), and includes exploration,
+  a cold-start gate, and time decay so it never collapses result diversity or acts on weak evidence.
+- **Opt-in, recommended, and private.** Off by default, offered as a recommended step in the setup
+  wizard and a toggle on the **Result ranking** settings page. What it learns is encrypted on your
+  device, never leaves it, and is never trained by, nor applied for, other people on your network.
+  You can **export, import, and reset** the learned model; the format is shared with SearchMob
+  Desktop, so you can move it between devices.
+- **Learns from the served browser page too.** Clicking a result from a browser search through the
+  local server trains the model the same way the in-app results do, through an owner-only redirect
+  that only ever sends you to the result you clicked. Network clients get plain links and are never
+  tracked or personalized.
+- **Setup wizard re-appears once after a feature update** (framed as "what's new") when an update
+  adds a new opt-in setting, so existing users discover it instead of only fresh installs.
+
 ## [26.05.05] - 2026-05-31
 
 ### Added
