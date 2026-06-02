@@ -52,6 +52,13 @@ creates a GitHub Release; that publish event triggers
 [`release.yml`](.github/workflows/release.yml), which runs `assembleRelease`, signs the APK, verifies
 the signature, generates `SHA256SUMS`, and attaches the signed APK + `SHA256SUMS` to the Release.
 
+**Release candidates (testing without announcing a version).** To build a real signed APK for
+testing without bumping the version users are told about, push a tag with a `-rc` suffix, for example
+`v26.06.01-rc.1`. The same `release.yml` runs, but the GitHub Release is published as a
+**pre-release**: it is not marked "Latest", so the once-a-day in-app update check (which reads
+`/releases/latest`) never offers it to users. Install the pre-release APK manually to test, then cut
+the normal release through release-please when the work is ready to announce.
+
 **Required repository Secrets** (Settings → Secrets and variables → Actions). The keystore is
 **never** committed; `*.jks`/`*.keystore`/`keystore.properties` are gitignored. Generate the key
 once and keep it backed up securely (losing it breaks update continuity for sideloaded installs):
