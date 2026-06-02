@@ -127,6 +127,13 @@
     <string name="settings_rules_import">Import rules</string>
     <string name="settings_rules_paste_title">Paste exported rules JSON</string>
     <string name="settings_rules_exported_title">Rules (copy to back up)</string>
+    <string name="settings_personalization">Learn from my clicks to personalize ranking (recommended)</string>
+    <string name="settings_personalization_supporting">Quietly moves the sites you tend to click higher, and gets better the more you search. The learned model is encrypted on your device, never leaves it, and is never trained by others on your network.</string>
+    <string name="settings_personalization_export">Export model</string>
+    <string name="settings_personalization_import">Import model</string>
+    <string name="settings_personalization_reset">Reset</string>
+    <string name="settings_personalization_paste_title">Paste exported personalization JSON</string>
+    <string name="settings_personalization_exported_title">Personalization model (copy to back up)</string>
     <string name="settings_close">Close</string>
     <string name="settings_section_suggestions">Suggestions</string>
     <string name="settings_suggestions_upstream">Live suggestions from the web</string>
@@ -225,6 +232,10 @@
     <string name="onboarding_privacy_title">Privacy</string>
     <string name="onboarding_privacy_body">SearchMob stores nothing by default. You can optionally enable encrypted, zero-knowledge search history in Settings.</string>
     <string name="onboarding_privacy_open_settings">Open privacy settings</string>
+    <string name="onboarding_personalize_title">Personalize your ranking (recommended)</string>
+    <string name="onboarding_personalize_body">SearchMob can learn which sites you click and quietly move the ones you prefer higher. It gets better the more you search. Everything stays on this device: what it learns is encrypted, is never sent anywhere, and other people on your network can never read it or change it.</string>
+    <string name="onboarding_personalize_toggle">Turn on personalized ranking</string>
+    <string name="onboarding_personalize_note">It is as private as your data and device are: keep a strong passphrase and a locked, encrypted device, and turn on zero-knowledge mode for the strongest protection. You can reset or export it any time in Settings.</string>
 
     <!-- About / Privacy screen -->
     <string name="about_title">About &amp; privacy</string>

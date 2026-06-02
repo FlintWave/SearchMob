@@ -37,6 +37,7 @@ import org.searchmob.ui.AppDependencies
 import org.searchmob.ui.Routes
 import org.searchmob.ui.SearchMobNavHost
 import org.searchmob.ui.SearchMobViewModelFactory
+import org.searchmob.ui.onboarding.ONBOARDING_VERSION
 import org.searchmob.ui.onboarding.OnboardingWizard
 import org.searchmob.ui.prefs.DataStorePreferencesStore
 import org.searchmob.ui.prefs.UserPreferences
@@ -59,6 +60,7 @@ class MainActivity : ComponentActivity() {
             engineConfig = app.storage.engineConfig,
             spellCorrector = app.spellCorrector,
             rankingPreferences = app.rankingPreferences,
+            personalizationPreferences = app.personalizationPreferences,
             slopDomains = { app.aiSlopBlocklistLoader.current() },
         )
     }
@@ -168,18 +170,36 @@ fun SearchMobApp(
     val factory = remember(deps) { SearchMobViewModelFactory(deps) }
     val navController = rememberNavController()
 
-    // Gate the first-run wizard on the persisted completion flag. `null` while the flag is loading so
-    // we don't flash the wizard before the stored value arrives.
+    // Gate the first-run wizard on the persisted completion flag and the onboarding revision: the
+    // wizard shows on first run and once more after an update that adds a step (version behind the
+    // app's current one). `null` while either value loads so we don't flash the wizard.
     val onboardingCompleted: Boolean? by deps.preferencesRepository.onboardingCompleted
         .collectAsStateWithLifecycle(initialValue = null)
+    val onboardingVersion: Int? by deps.preferencesRepository.onboardingVersion
+        .collectAsStateWithLifecycle(initialValue = null)
+    val personalizationEnabled: Boolean by deps.preferencesRepository.personalizationEnabled
+        .collectAsStateWithLifecycle(initialValue = false)
+    val showOnboarding: Boolean? =
+        if (onboardingCompleted == null || onboardingVersion == null) {
+            null
+        } else {
+            onboardingCompleted == false || (onboardingVersion ?: 0) < ONBOARDING_VERSION
+        }
     val port: Int? by LocalServerState.port.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+    val completeOnboarding = {
+        scope.launch {
+            deps.preferencesRepository.setOnboardingCompleted(true)
+            deps.preferencesRepository.setOnboardingVersion(ONBOARDING_VERSION)
+        }
+        Unit
+    }
 
-    // Widget deep link: each new token navigates to Search, but only once onboarding is complete and
-    // the nav host is actually composed (navigating before then has no host to receive it).
-    LaunchedEffect(openSearchToken, onboardingCompleted) {
-        if (openSearchToken != null && onboardingCompleted == true) {
+    // Widget deep link: each new token navigates to Search, but only once onboarding is done and the
+    // nav host is actually composed (navigating before then has no host to receive it).
+    LaunchedEffect(openSearchToken, showOnboarding) {
+        if (openSearchToken != null && showOnboarding == false) {
             navController.navigate(Routes.SEARCH) {
                 launchSingleTop = true
             }
@@ -190,18 +210,20 @@ fun SearchMobApp(
         themeMode = prefs.themeMode,
         dynamicColor = prefs.dynamicColor,
     ) {
-        when (onboardingCompleted) {
+        when (showOnboarding) {
             null -> Unit // loading; render nothing for the first frame
-            false ->
+            true ->
                 OnboardingWizard(
                     port = port,
-                    onComplete = { scope.launch { deps.preferencesRepository.setOnboardingCompleted(true) } },
+                    onComplete = { completeOnboarding() },
                     onOpenUrl = { url -> context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) },
                     onStartService = { ServiceController.start(context) },
                     // Finishing the wizard hands off to the main app, where the history /
                     // zero-knowledge privacy controls live in Settings.
-                    onOpenPrivacySettings = {
-                        scope.launch { deps.preferencesRepository.setOnboardingCompleted(true) }
+                    onOpenPrivacySettings = { completeOnboarding() },
+                    personalizationEnabled = personalizationEnabled,
+                    onSetPersonalization = {
+                        scope.launch { deps.preferencesRepository.setPersonalizationEnabled(it) }
                     },
                 )
             else -> SearchMobNavHost(factory = factory, navController = navController)
@@ -209,7 +231,7 @@ fun SearchMobApp(
 
         // In-app update prompt: shown only once the user is past onboarding so it never competes with
         // the wizard. Opening the releases page requires an explicit tap; "Not now" just dismisses.
-        if (availableUpdate != null && onboardingCompleted == true) {
+        if (availableUpdate != null && showOnboarding == false) {
             UpdateAvailableDialog(
                 update = availableUpdate,
                 onOpenReleases = {

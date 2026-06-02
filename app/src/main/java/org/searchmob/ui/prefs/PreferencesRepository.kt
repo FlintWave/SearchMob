@@ -3,6 +3,7 @@ package org.searchmob.ui.prefs
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import org.searchmob.ui.theme.ThemeMode
 
 /**
@@ -62,6 +63,27 @@ class PreferencesRepository(
 
     suspend fun setOnboardingCompleted(completed: Boolean) =
         store.setBoolean(PreferenceKeys.ONBOARDING_COMPLETED, completed)
+
+    /** The onboarding revision the user last saw (0 if never). Drives re-onboarding after updates. */
+    val onboardingVersion: Flow<Int> =
+        store.getString(PreferenceKeys.ONBOARDING_VERSION, "0").map { it.toIntOrNull() ?: 0 }
+
+    suspend fun setOnboardingVersion(version: Int) =
+        store.setString(PreferenceKeys.ONBOARDING_VERSION, version.toString())
+
+    /**
+     * Whether click personalization is enabled. OFF by default (store-nothing): with it off, no
+     * engagement is recorded and ranking is untouched. A dedicated flow rather than a field on
+     * [UserPreferences] because the typed combine there is already at capacity.
+     */
+    val personalizationEnabled: Flow<Boolean> =
+        store.getBoolean(PreferenceKeys.PERSONALIZATION_ENABLED, false)
+
+    suspend fun setPersonalizationEnabled(enabled: Boolean) =
+        store.setBoolean(PreferenceKeys.PERSONALIZATION_ENABLED, enabled)
+
+    /** One-shot read for the search providers (in-app + server) deciding whether to personalize. */
+    suspend fun personalizationEnabled(): Boolean = personalizationEnabled.first()
 
     /**
      * Whether the opt-in network mode is enabled. OFF by default; the server binds to loopback only

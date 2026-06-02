@@ -32,7 +32,13 @@ object PreferenceKeys {
     const val DYNAMIC_COLOR = "dynamic_color"
     const val ENGINE_ENABLED = "engine_enabled"
     const val HISTORY_ENABLED = "history_enabled"
+    const val PERSONALIZATION_ENABLED = "personalization_enabled"
     const val ONBOARDING_COMPLETED = "onboarding_completed"
+
+    // The onboarding revision the user last saw; the wizard re-appears once after an update that adds
+    // a step worth showing (when this is below the app's ONBOARDING_VERSION). Stored as a string
+    // because the store has no Int type.
+    const val ONBOARDING_VERSION = "onboarding_version"
     const val NETWORK_ACCESS_ENABLED = "network_access_enabled"
     const val NETWORK_ACCESS_TOKEN = "network_access_token"
     const val UPSTREAM_SUGGESTIONS_ENABLED = "upstream_suggestions_enabled"

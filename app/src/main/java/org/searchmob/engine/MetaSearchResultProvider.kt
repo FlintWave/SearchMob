@@ -9,6 +9,8 @@ import org.searchmob.engine.correct.NoopSpellCorrector
 import org.searchmob.engine.correct.SpellCorrector
 import org.searchmob.engine.http.HttpClientFactory
 import org.searchmob.engine.rank.DomainRanker
+import org.searchmob.engine.rank.PersonalizationModel
+import org.searchmob.engine.rank.Personalizer
 import org.searchmob.engine.rank.RankingRules
 import org.searchmob.engine.sort.ResultSorter
 import org.searchmob.engine.sort.SortMode
@@ -42,6 +44,9 @@ class MetaSearchResultProvider(
     // Both default inert so callers without the filter behave exactly as before.
     private val slopDomains: suspend () -> Set<String> = { emptySet() },
     private val aiSlopMode: suspend () -> String = { "off" },
+    // The owner's learned click model, or null when personalization is off. Applied (when the caller
+    // allows it) as a bounded boost between the sort and the rule pass. Defaults to none.
+    private val personalization: suspend () -> PersonalizationModel? = { null },
 ) : SearchResultProvider {
     /** Convenience constructor for a fixed registry (tests and callers without dynamic config). */
     constructor(
@@ -53,6 +58,7 @@ class MetaSearchResultProvider(
         summaryFetcher: suspend (String) -> WikiSummary? = { null },
         slopDomains: suspend () -> Set<String> = { emptySet() },
         aiSlopMode: suspend () -> String = { "off" },
+        personalization: suspend () -> PersonalizationModel? = { null },
     ) : this(
         { registry },
         aggregator,
@@ -62,6 +68,7 @@ class MetaSearchResultProvider(
         summaryFetcher,
         slopDomains,
         aiSlopMode,
+        personalization,
     )
 
     override suspend fun search(query: String): List<SearchResult> = searchWithCorrection(query).results
@@ -70,6 +77,7 @@ class MetaSearchResultProvider(
         query: String,
         sortMode: SortMode,
         vertical: Vertical,
+        personalize: Boolean,
     ): SearchOutcome =
         coroutineScope {
             if (query.isBlank()) return@coroutineScope SearchOutcome(emptyList())
@@ -79,7 +87,10 @@ class MetaSearchResultProvider(
             val rules = rankingRules()
             val slopMode = aiSlopMode()
             val slop = if (slopMode == "off") emptySet() else slopDomains()
-            val (results, upstreamRaw) = aggregateRanked(query, vertical, rules, sortMode, slop, slopMode)
+            // The learned model is applied only when the caller allows it (in-app always; the server
+            // only for the loopback owner) and only when personalization is enabled.
+            val model = if (personalize) runCatching { personalization() }.getOrNull() else null
+            val (results, upstreamRaw) = aggregateRanked(query, vertical, rules, sortMode, slop, slopMode, model)
 
             val upstreamCorrection = upstreamRaw?.takeIf { !it.equals(query, ignoreCase = true) }
             val onDevice = corrector.suggest(query)
@@ -98,7 +109,8 @@ class MetaSearchResultProvider(
             if (autoCorrection == null || autoCorrection.equals(query, ignoreCase = true)) {
                 return@coroutineScope SearchOutcome(results, didYouMean = suggestion, summary = summary)
             }
-            val (retryResults, _) = aggregateRanked(autoCorrection, vertical, rules, sortMode, slop, slopMode)
+            val (retryResults, _) =
+                aggregateRanked(autoCorrection, vertical, rules, sortMode, slop, slopMode, model)
             if (retryResults.isEmpty()) {
                 SearchOutcome(results, didYouMean = suggestion, summary = summary)
             } else {
@@ -114,13 +126,14 @@ class MetaSearchResultProvider(
         sortMode: SortMode,
         slopDomains: Set<String>,
         slopMode: String,
+        personalization: PersonalizationModel?,
     ): Pair<List<SearchResult>, String?> {
         // Scope the query for the chosen vertical (a `site:` OR group the engines understand). The
         // original query still drives sort/summary/correction so freshness keywords are detected.
         val scoped = Verticals.transformQuery(query, vertical)
         val aggregated = aggregator.aggregate(SearchQuery(scoped), registryProvider().activeEngines(httpClient))
-        // Sort first (relevance/date/freshness blend), then bucket by rules so PIN/RAISE preserve
-        // the chosen order within each bucket.
+        // Sort first (relevance/date/freshness blend), then nudge by the owner's learned click model
+        // (between sort and rules, so PIN/RAISE/BLOCK still win), then bucket by rules.
         val sorted =
             ResultSorter.sort(
                 aggregated.results,
@@ -129,9 +142,21 @@ class MetaSearchResultProvider(
                 System.currentTimeMillis(),
                 publishedOf = { it.publishedMillis },
             )
+        val personalized =
+            if (personalization != null) {
+                Personalizer.reorder(
+                    sorted,
+                    { DomainRanker.host(it.url) },
+                    query,
+                    personalization,
+                    System.currentTimeMillis(),
+                )
+            } else {
+                sorted
+            }
         val ranked =
             DomainRanker.apply(
-                items = sorted,
+                items = personalized,
                 rules = rules,
                 hostOf = { DomainRanker.host(it.url) },
                 textOf = { "${it.title} ${it.snippet}" },

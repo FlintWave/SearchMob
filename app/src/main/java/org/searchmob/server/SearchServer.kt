@@ -184,7 +184,9 @@ fun Application.searchModule(
                         emptyList(),
                     )
                 } else {
-                    guard.aroundRequest { provider.searchWithCorrection(query, sortMode, vertical) }
+                    // Personalize only for the loopback owner; a network visitor gets engine order.
+                    val owner = isOwnerRequest(call)
+                    guard.aroundRequest { provider.searchWithCorrection(query, sortMode, vertical, owner) }
                 }
             val rules = rankingPreferences?.load() ?: RankingRules.EMPTY
             // Only the loopback owner gets the editing controls; a network visitor sees a read-only
@@ -206,7 +208,8 @@ fun Application.searchModule(
                         emptyList(),
                     )
                 } else {
-                    guard.aroundRequest { provider.searchWithCorrection(query, sortMode, vertical) }
+                    val owner = isOwnerRequest(call)
+                    guard.aroundRequest { provider.searchWithCorrection(query, sortMode, vertical, owner) }
                 }
             call.respond(
                 SearchResponse(

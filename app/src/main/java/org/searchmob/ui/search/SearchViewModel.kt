@@ -11,8 +11,10 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.searchmob.data.prefs.PersonalizationPreferences
 import org.searchmob.data.prefs.RankingPreferences
 import org.searchmob.engine.rank.DomainRanker
+import org.searchmob.engine.rank.Personalizer
 import org.searchmob.engine.rank.RankRule
 import org.searchmob.engine.sort.SortMode
 import org.searchmob.engine.vertical.Vertical
@@ -35,6 +37,7 @@ class SearchViewModel(
     private val onRecordQuery: (String) -> Unit = {},
     private val rankingPreferences: RankingPreferences? = null,
     private val preferences: PreferencesRepository? = null,
+    private val personalizationPreferences: PersonalizationPreferences? = null,
 ) : ViewModel() {
     private val mutableState = MutableStateFlow<SearchUiState>(SearchUiState.Idle)
     val state: StateFlow<SearchUiState> = mutableState.asStateFlow()
@@ -108,6 +111,38 @@ class SearchViewModel(
 
     fun onQueryChange(text: String) {
         mutableQuery.value = text
+    }
+
+    /**
+     * A result was opened: learn from the click (clicked over skipped-above) when personalization is
+     * enabled. Resolves the clicked position from the displayed list so the model sees the same order
+     * the user saw. Best-effort and off the main thread; a missing/locked vault simply records nothing.
+     */
+    fun onResultOpened(url: String) {
+        val prefs = preferences ?: return
+        val store = personalizationPreferences ?: return
+        val current = mutableState.value as? SearchUiState.Results ?: return
+        val results = current.results
+        val position = results.indexOfFirst { it.url == url }
+        if (position < 0) return
+        val query = lastDispatched
+        viewModelScope.launch {
+            if (!prefs.personalizationEnabled()) return@launch
+            withContext(ioDispatcher) {
+                runCatching {
+                    val model = store.load()
+                    val hosts = results.map { DomainRanker.host(it.url) }
+                    Personalizer.updateFromClick(
+                        model,
+                        hosts,
+                        position,
+                        Personalizer.queryTerms(query),
+                        System.currentTimeMillis(),
+                    )
+                    store.save(model)
+                }
+            }
+        }
     }
 
     /** Dispatch the current query. No-op for empty/whitespace-only input. */

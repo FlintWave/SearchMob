@@ -163,7 +163,9 @@ fun SearchScreen(
                         onSearchCorrected = viewModel::searchCorrected,
                         onSetDomainRule = viewModel::setDomainRule,
                         onOpen = { url ->
-                            // Open only the result URL; no query/identifier is attached.
+                            // Learn from the click first (when personalization is on), then open the
+                            // result URL; no query/identifier is attached to the outbound request.
+                            viewModel.onResultOpened(url)
                             context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
                         },
                     )

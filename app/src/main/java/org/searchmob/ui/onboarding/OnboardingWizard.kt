@@ -5,6 +5,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -23,6 +24,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -32,6 +34,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
@@ -52,6 +55,7 @@ object OnboardingTestTags {
     const val NOTIFICATIONS_GRANT = "onboarding_notifications_grant"
     const val BATTERY_GRANT = "onboarding_battery_grant"
     const val PRIVACY_SETTINGS = "onboarding_privacy_settings"
+    const val PERSONALIZE_SWITCH = "onboarding_personalize_switch"
 }
 
 /**
@@ -70,6 +74,8 @@ fun OnboardingWizard(
     onOpenUrl: (String) -> Unit,
     onStartService: () -> Unit,
     onOpenPrivacySettings: () -> Unit,
+    personalizationEnabled: Boolean = false,
+    onSetPersonalization: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     var progress by remember { mutableStateOf(OnboardingProgress()) }
@@ -122,6 +128,8 @@ fun OnboardingWizard(
                             onCopy = onCopy,
                         )
                     OnboardingStep.PRIVACY -> PrivacyPage(onOpenPrivacySettings = onOpenPrivacySettings)
+                    OnboardingStep.PERSONALIZE ->
+                        PersonalizePage(enabled = personalizationEnabled, onToggle = onSetPersonalization)
                 }
             }
 
@@ -266,6 +274,32 @@ private fun PrivacyPage(onOpenPrivacySettings: () -> Unit) {
     ) {
         Text(str(R.string.onboarding_privacy_open_settings))
     }
+}
+
+@Composable
+private fun PersonalizePage(
+    enabled: Boolean,
+    onToggle: (Boolean) -> Unit,
+) {
+    Text(str(R.string.onboarding_personalize_title), style = MaterialTheme.typography.headlineSmall)
+    Text(str(R.string.onboarding_personalize_body), style = MaterialTheme.typography.bodyLarge)
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .clickable { onToggle(!enabled) }
+                .testTag(OnboardingTestTags.PERSONALIZE_SWITCH),
+    ) {
+        Text(
+            text = str(R.string.onboarding_personalize_toggle),
+            style = MaterialTheme.typography.bodyLarge,
+            modifier = Modifier.weight(1f),
+        )
+        Switch(checked = enabled, onCheckedChange = null)
+    }
+    Text(str(R.string.onboarding_personalize_note), style = MaterialTheme.typography.bodySmall)
 }
 
 private fun hasNotificationsPermission(context: android.content.Context): Boolean =
