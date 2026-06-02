@@ -34,6 +34,9 @@ interface SearchResultProvider {
         query: String,
         sortMode: SortMode = SortMode.FRESH_RELEVANT,
         vertical: Vertical = Vertical.WEB,
+        // Whether to apply the owner's learned personalization model. The server passes this true
+        // only for the loopback owner, so a network visitor never gets the owner's personalized order.
+        personalize: Boolean = true,
     ): SearchOutcome = SearchOutcome(search(query))
 }
 

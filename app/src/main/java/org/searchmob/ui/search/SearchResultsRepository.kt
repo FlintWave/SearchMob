@@ -47,6 +47,9 @@ class InProcessSearchResultsRepository(
     // Contextual Wikipedia summary for the in-app results, gated by the user preference upstream.
     // Defaults to none so callers/tests without it behave exactly as before.
     private val summaryFetcher: suspend (String) -> org.searchmob.engine.summary.WikiSummary? = { null },
+    // The owner's learned click model, or null when personalization is off. In-app results are always
+    // the owner's, so the provider applies it whenever it is non-null.
+    private val personalization: suspend () -> org.searchmob.engine.rank.PersonalizationModel? = { null },
 ) : SearchResultsRepository {
     private fun provider() =
         MetaSearchResultProvider(
@@ -57,6 +60,7 @@ class InProcessSearchResultsRepository(
             summaryFetcher = summaryFetcher,
             slopDomains = slopDomains,
             aiSlopMode = aiSlopMode,
+            personalization = personalization,
         )
 
     override suspend fun search(query: String): List<SearchResult> = provider().search(query)

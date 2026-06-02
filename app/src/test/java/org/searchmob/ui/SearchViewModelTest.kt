@@ -24,6 +24,30 @@ import org.searchmob.ui.search.SearchViewModel
 class SearchViewModelTest {
     private val dispatcher = StandardTestDispatcher()
 
+    // Minimal in-memory data-layer store for the encrypted-model side (PersonalizationPreferences).
+    private class FakeModelStore : org.searchmob.data.prefs.PreferencesStore {
+        private val map = mutableMapOf<String, String>()
+
+        override fun observe() = kotlinx.coroutines.flow.flowOf(map.toMap())
+
+        override suspend fun getAll(): org.searchmob.data.prefs.Preferences = map.toMap()
+
+        override suspend fun get(key: String): String? = map[key]
+
+        override suspend fun put(
+            key: String,
+            value: String,
+        ) {
+            map[key] = value
+        }
+
+        override suspend fun remove(key: String) {
+            map.remove(key)
+        }
+
+        override suspend fun clear() = map.clear()
+    }
+
     @Before
     fun setUp() {
         Dispatchers.setMain(dispatcher)
@@ -119,6 +143,62 @@ class SearchViewModelTest {
             viewModel.submit()
             advanceUntilIdle()
             assertEquals(SearchUiState.Empty, viewModel.state.value)
+        }
+
+    @Test
+    fun onResultOpened_whenEnabled_learnsFromTheClick() =
+        runTest(dispatcher) {
+            val store = org.searchmob.ui.prefs.InMemoryPreferencesStore()
+            val prefs = org.searchmob.ui.prefs.PreferencesRepository(store)
+            prefs.setPersonalizationEnabled(true)
+            val personalization = org.searchmob.data.prefs.PersonalizationPreferences(FakeModelStore())
+            val results =
+                listOf(
+                    SearchResult("A", "https://a.com/1", "s", "e"),
+                    SearchResult("B", "https://b.com/2", "s", "e"),
+                    SearchResult("C", "https://so.com/3", "s", "e"),
+                )
+            val viewModel =
+                SearchViewModel(
+                    repository = { results },
+                    ioDispatcher = dispatcher,
+                    preferences = prefs,
+                    personalizationPreferences = personalization,
+                )
+            viewModel.onQueryChange("python list")
+            viewModel.submit()
+            advanceUntilIdle()
+
+            // Click the third result; the two above it are skipped.
+            viewModel.onResultOpened("https://so.com/3")
+            advanceUntilIdle()
+
+            val model = personalization.load()
+            assertEquals(1, model.totalClickedQueries)
+            assertEquals(model.config.alphaPrior + 1, model.domains["so.com"]!!.alpha, 1e-9)
+            assertEquals(model.config.betaPrior + 1, model.domains["a.com"]!!.beta, 1e-9)
+        }
+
+    @Test
+    fun onResultOpened_whenDisabled_recordsNothing() =
+        runTest(dispatcher) {
+            val store = org.searchmob.ui.prefs.InMemoryPreferencesStore()
+            val prefs = org.searchmob.ui.prefs.PreferencesRepository(store) // personalization off
+            val personalization = org.searchmob.data.prefs.PersonalizationPreferences(FakeModelStore())
+            val results = listOf(SearchResult("A", "https://a.com/1", "s", "e"))
+            val viewModel =
+                SearchViewModel(
+                    repository = { results },
+                    ioDispatcher = dispatcher,
+                    preferences = prefs,
+                    personalizationPreferences = personalization,
+                )
+            viewModel.onQueryChange("q")
+            viewModel.submit()
+            advanceUntilIdle()
+            viewModel.onResultOpened("https://a.com/1")
+            advanceUntilIdle()
+            assertTrue(personalization.load().isEmpty())
         }
 
     @Test

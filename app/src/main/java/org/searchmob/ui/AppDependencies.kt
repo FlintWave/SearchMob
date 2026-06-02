@@ -44,6 +44,7 @@ class AppDependencies(
     val engineConfig: EngineConfigPreferences? = null,
     val spellCorrector: SpellCorrector = NoopSpellCorrector,
     val rankingPreferences: RankingPreferences? = null,
+    val personalizationPreferences: org.searchmob.data.prefs.PersonalizationPreferences? = null,
     // Cached AI-slop blocklist domains, supplied by the process-wide loader; empty in tests.
     private val slopDomains: () -> Set<String> = { emptySet() },
     private val adapters: List<EngineAdapter> = defaultAdapters(),
@@ -105,6 +106,10 @@ class AppDependencies(
             // the same preference the served page uses.
             summaryFetcher = { query ->
                 if (preferencesRepository.summaryEnabled()) wikiSummaryProvider.fetch(query) else null
+            },
+            // In-app results are always the owner's, so apply the learned model whenever it is on.
+            personalization = {
+                if (preferencesRepository.personalizationEnabled()) personalizationPreferences?.load() else null
             },
         )
 

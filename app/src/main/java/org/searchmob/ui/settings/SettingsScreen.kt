@@ -71,6 +71,7 @@ object SettingsTestTags {
     const val SUMMARY_SWITCH = "settings_summary_switch"
     const val UPDATE_CHECK_SWITCH = "settings_update_check_switch"
     const val AI_SLOP_CHIPS = "settings_ai_slop_chips"
+    const val PERSONALIZATION_SWITCH = "settings_personalization_switch"
     const val NETWORK_SWITCH = "settings_network_switch"
     const val NETWORK_ADDRESS_COPY = "settings_network_address_copy"
     const val BROWSER_SETUP = "settings_browser_setup"
@@ -489,10 +490,32 @@ private fun ResultRankingSection(
     var showAddLens by remember { mutableStateOf(false) }
     var showImportGoggle by remember { mutableStateOf(false) }
     var showImportRules by remember { mutableStateOf(false) }
+    var showImportPersonalization by remember { mutableStateOf(false) }
     var exportedJson by remember { mutableStateOf<String?>(null) }
+    val personalizationEnabled by viewModel.personalizationEnabled.collectAsStateWithLifecycle()
 
     SectionTitle(str(R.string.settings_section_ranking))
     Text(str(R.string.settings_ranking_supporting), style = MaterialTheme.typography.bodySmall)
+
+    // Click personalization (opt-in, recommended): learns a bounded boost from the owner's clicks.
+    ToggleRow(
+        label = str(R.string.settings_personalization),
+        supporting = str(R.string.settings_personalization_supporting),
+        checked = personalizationEnabled,
+        tag = SettingsTestTags.PERSONALIZATION_SWITCH,
+        onCheckedChange = viewModel::setPersonalizationEnabled,
+    )
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        OutlinedButton(onClick = { viewModel.exportPersonalizationJson { exportedJson = it } }) {
+            Text(str(R.string.settings_personalization_export))
+        }
+        OutlinedButton(onClick = { showImportPersonalization = true }) {
+            Text(str(R.string.settings_personalization_import))
+        }
+        TextButton(onClick = { viewModel.resetPersonalization() }) {
+            Text(str(R.string.settings_personalization_reset))
+        }
+    }
 
     // AI-slop / low-quality domain filter (on-device blocklist). Tri-state: downrank (default) / hide /
     // off. Shown first because it affects every result regardless of the per-domain rules below.
@@ -598,6 +621,16 @@ private fun ResultRankingSection(
             onConfirm = {
                 viewModel.importRulesJson(it)
                 showImportRules = false
+            },
+        )
+    }
+    if (showImportPersonalization) {
+        PasteTextDialog(
+            title = str(R.string.settings_personalization_paste_title),
+            onDismiss = { showImportPersonalization = false },
+            onConfirm = {
+                viewModel.importPersonalizationJson(it)
+                showImportPersonalization = false
             },
         )
     }

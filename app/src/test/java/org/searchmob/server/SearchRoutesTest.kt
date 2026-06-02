@@ -188,6 +188,7 @@ class SearchRoutesTest {
                         query: String,
                         sortMode: org.searchmob.engine.sort.SortMode,
                         vertical: org.searchmob.engine.vertical.Vertical,
+                        personalize: Boolean,
                     ): SearchOutcome {
                         seenSort = sortMode
                         return SearchOutcome(emptyList())
@@ -212,6 +213,7 @@ class SearchRoutesTest {
                         query: String,
                         sortMode: org.searchmob.engine.sort.SortMode,
                         vertical: org.searchmob.engine.vertical.Vertical,
+                        personalize: Boolean,
                     ): SearchOutcome {
                         seenVertical = vertical
                         seenSort = sortMode

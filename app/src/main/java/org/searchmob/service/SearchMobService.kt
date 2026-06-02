@@ -129,6 +129,15 @@ class SearchMobService : Service() {
                     // On-device AI-slop filter: the cached blocklist plus the user's mode preference.
                     slopDomains = { (application as SearchMobApplication).aiSlopBlocklistLoader.current() },
                     aiSlopMode = { preferences.aiSlopMode() },
+                    // The owner's learned model, when enabled. The server only asks the provider to
+                    // apply it for the loopback owner (the `personalize` flag in SearchServer).
+                    personalization = {
+                        if (preferences.personalizationEnabled()) {
+                            (application as SearchMobApplication).personalizationPreferences.load()
+                        } else {
+                            null
+                        }
+                    },
                 ),
             guard = WakeLockRequestGuard(AndroidWorkLock(applicationContext)),
             suggestionsProvider = suggestionsProvider,

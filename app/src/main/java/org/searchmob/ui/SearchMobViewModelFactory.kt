@@ -23,6 +23,7 @@ class SearchMobViewModelFactory(
             apiKeysSink = deps.apiKeys,
             engineConfig = deps.engineConfig,
             rankingPreferences = deps.rankingPreferences,
+            personalizationPreferences = deps.personalizationPreferences,
         )
     }
 
@@ -38,6 +39,7 @@ class SearchMobViewModelFactory(
                     onRecordQuery = { settingsViewModel.recordQuery(it) },
                     rankingPreferences = deps.rankingPreferences,
                     preferences = deps.preferencesRepository,
+                    personalizationPreferences = deps.personalizationPreferences,
                 ) as T
             else -> error("Unknown ViewModel class: ${modelClass.name}")
         }

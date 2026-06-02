@@ -27,6 +27,9 @@ class OnboardingProgressTest {
         assertEquals(OnboardingStep.DEFAULT_SEARCH, p.step)
         p = p.next()
         assertEquals(OnboardingStep.PRIVACY, p.step)
+        assertFalse(p.isLast)
+        p = p.next()
+        assertEquals(OnboardingStep.PERSONALIZE, p.step)
         assertTrue(p.isLast)
     }
 

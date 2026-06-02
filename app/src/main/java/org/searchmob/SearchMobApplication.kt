@@ -7,6 +7,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import org.searchmob.data.StorageProvider
+import org.searchmob.data.prefs.PersonalizationPreferences
 import org.searchmob.data.prefs.RankingPreferences
 import org.searchmob.engine.correct.AssetDictionaryLoader
 import org.searchmob.engine.correct.OnDeviceSpellCorrector
@@ -50,6 +51,11 @@ class SearchMobApplication : Application() {
 
     /** User result-ranking rules, persisted in the encrypted store; shared by the UI and the service. */
     val rankingPreferences: RankingPreferences by lazy { RankingPreferences(storage.preferences) }
+
+    /** Learned click-personalization model, persisted in the encrypted store; shared UI + service. */
+    val personalizationPreferences: PersonalizationPreferences by lazy {
+        PersonalizationPreferences(storage.preferences)
+    }
 
     /**
      * Bundled AI-slop / low-quality domain blocklist, loaded once off the main thread and shared by the

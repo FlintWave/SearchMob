@@ -38,6 +38,7 @@ class SettingsViewModel(
     private val apiKeysSink: MutableStateFlow<Map<String, String>>,
     private val engineConfig: EngineConfigPreferences? = null,
     private val rankingPreferences: RankingPreferences? = null,
+    private val personalizationPreferences: org.searchmob.data.prefs.PersonalizationPreferences? = null,
 ) : ViewModel() {
     val preferencesState: StateFlow<UserPreferences> =
         preferences.preferences.stateIn(viewModelScope, SharingStarted.Eagerly, UserPreferences())
@@ -163,6 +164,39 @@ class SettingsViewModel(
     fun exportRulesJson(onReady: (String) -> Unit) {
         val prefs = rankingPreferences ?: return onReady("{}")
         viewModelScope.launch { onReady(prefs.exportJson()) }
+    }
+
+    /** Whether click personalization is enabled (off by default). Observed by the Settings toggle. */
+    val personalizationEnabled: StateFlow<Boolean> =
+        preferences.personalizationEnabled.stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
+    /** Enable/disable learning from clicks. Persists immediately; nothing is recorded while off. */
+    fun setPersonalizationEnabled(enabled: Boolean) {
+        viewModelScope.launch { preferences.setPersonalizationEnabled(enabled) }
+    }
+
+    /** The learned model as a portable JSON document for export/backup, delivered via [onReady]. */
+    fun exportPersonalizationJson(onReady: (String) -> Unit) {
+        val prefs = personalizationPreferences ?: return onReady("{}")
+        viewModelScope.launch { onReady(prefs.exportJson()) }
+    }
+
+    /** Replace the learned model from an exported JSON document; returns true on success. */
+    fun importPersonalizationJson(
+        text: String,
+        onResult: (Boolean) -> Unit = {},
+    ) {
+        val prefs = personalizationPreferences ?: return onResult(false)
+        viewModelScope.launch { onResult(prefs.importJson(text)) }
+    }
+
+    /** Forget everything learned from clicks (ranking rules and scopes are unaffected). */
+    fun resetPersonalization(onDone: () -> Unit = {}) {
+        val prefs = personalizationPreferences ?: return onDone()
+        viewModelScope.launch {
+            prefs.reset()
+            onDone()
+        }
     }
 
     fun setThemeMode(mode: ThemeMode) {

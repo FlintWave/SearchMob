@@ -6,7 +6,15 @@ enum class OnboardingStep {
     PERMISSIONS,
     DEFAULT_SEARCH,
     PRIVACY,
+    PERSONALIZE,
 }
+
+/**
+ * Bump when the wizard gains a step worth re-showing to existing users (a new opt-in feature). The
+ * wizard re-appears once for anyone whose saved onboarding version is below this.
+ * 1: added the click-personalization step.
+ */
+const val ONBOARDING_VERSION = 1
 
 /**
  * Pure step-navigation logic for the wizard pager, extracted so it can be unit-tested without Compose.
