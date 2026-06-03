@@ -610,7 +610,10 @@ private fun HTML.renderResultsPage(
                     sortBar(query, sortMode)
                     if (editable) scopeBar(rules)
                     results.forEachIndexed { index, result ->
-                        div("result") {
+                        // Results past the first reveal window start collapsed; the reveal script
+                        // unhides them in batches on scroll. The full list is still in the DOM, so
+                        // click positions (and the owner's /click links) stay aligned with the order.
+                        div(if (index >= REVEAL_SIZE) "result is-collapsed" else "result") {
                             div("url") { +displayUrl(result.url) }
                             // Only emit a clickable link for http(s) URLs. A javascript:/data:/file: URL
                             // would survive HTML escaping in href and could execute in the loopback origin,
@@ -640,9 +643,15 @@ private fun HTML.renderResultsPage(
                             if (editable) rankControls(result.url, rules)
                         }
                     }
+                    if (results.size > REVEAL_SIZE) {
+                        div("reveal-sentinel") { attributes["aria-hidden"] = "true" }
+                    }
                 }
             }
         }
+        // Infinite scroll: when the pool is larger than the first window, this unhides the next
+        // batch as the sentinel scrolls into view. No new request, nothing stored, JS-off shows all.
+        if (results.size > REVEAL_SIZE) script { unsafe { +REVEAL_JS } }
         script { unsafe { +THEME_TOGGLE_JS } }
     }
 }
@@ -1292,6 +1301,8 @@ private val PAGE_CSS =
     .results{max-width:660px;margin:0 auto;padding:18px 20px 64px}
     .results .meta{color:var(--muted);font-size:13px;margin:2px 0 20px}
     .result{margin:0 0 26px}
+    .result.is-collapsed{display:none}
+    .reveal-sentinel{height:1px}
     .result .url{color:var(--url);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .result .title{display:block;font-size:20px;line-height:1.3;margin:1px 0 3px}
     .result .snippet{margin:2px 0 7px;color:var(--snippet);font-size:14px}
@@ -1383,6 +1394,32 @@ private val THEME_TOGGLE_JS =
         document.documentElement.setAttribute('data-theme',n);
         try{localStorage.setItem('sm-theme',n);}catch(e){}label();};
       label();
+    })();
+    """.trimIndent()
+
+// How many results the served page shows before infinite scroll reveals the rest. Matches the GUI
+// reveal window and the desktop served page.
+private const val REVEAL_SIZE = 10
+
+// Infinite scroll: the page renders the whole ranked pool but hides results past the first window;
+// this watches a sentinel at the bottom and unhides the next batch as it scrolls into view. No new
+// request (the pool is already in the page), nothing stored, and with JS off every result still shows.
+@Suppress("ktlint:standard:max-line-length")
+private val REVEAL_JS =
+    """
+    (function(){
+      var step=$REVEAL_SIZE;
+      var sentinel=document.querySelector('.reveal-sentinel');
+      if(!sentinel)return;
+      function more(){
+        var h=document.querySelectorAll('.result.is-collapsed');
+        for(var i=0;i<step&&i<h.length;i++){h[i].classList.remove('is-collapsed');}
+        if(document.querySelectorAll('.result.is-collapsed').length===0){o.disconnect();sentinel.remove();}
+      }
+      var o=new IntersectionObserver(function(es){
+        es.forEach(function(e){if(e.isIntersecting){more();}});
+      },{rootMargin:'300px'});
+      o.observe(sentinel);
     })();
     """.trimIndent()
 

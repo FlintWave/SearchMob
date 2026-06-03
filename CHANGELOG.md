@@ -4,6 +4,13 @@ All notable changes to SearchMob are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses Ubuntu-style date
 versioning (`YY.MM.VV`).
 
+## [Unreleased]
+
+### Changed
+- **More results, loaded as you scroll.** The results list no longer stops at the first screenful.
+  It now keeps the full ranked set and reveals more as you scroll to the bottom, both in the app and
+  on the search pages you open in a browser, with no extra request and nothing stored.
+
 ## [26.06.02] - 2026-06-03
 
 ### Changed
