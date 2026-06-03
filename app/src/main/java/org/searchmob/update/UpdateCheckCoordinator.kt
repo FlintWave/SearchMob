@@ -35,6 +35,11 @@ class UpdateCheckCoordinator(
     /**
      * Runs a check if enabled and due. Returns the [UpdateInfo] when a strictly newer release is found
      * (the signal to prompt), or null when disabled, not due, on any failure, or already up to date.
+     *
+     * On a completed check it also persists the pending-update record: set when a newer release is
+     * found (so the in-app and served-page banners survive a restart), cleared when the check confirms
+     * the user is current (so the banner disappears after they update). A network failure leaves any
+     * existing record untouched.
      */
     suspend fun checkIfDue(): UpdateInfo? =
         runCatching {
@@ -46,6 +51,12 @@ class UpdateCheckCoordinator(
             preferences.setLastUpdateCheckMs(now)
 
             val latest = checker.fetchLatest() ?: return null
-            if (latest.isNewerThan(currentVersionCode)) latest else null
+            if (latest.isNewerThan(currentVersionCode)) {
+                preferences.setPendingUpdate(latest.latestVersionName, latest.releaseUrl)
+                latest
+            } else {
+                preferences.clearPendingUpdate()
+                null
+            }
         }.getOrNull()
 }

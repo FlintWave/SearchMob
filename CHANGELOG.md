@@ -4,6 +4,18 @@ All notable changes to SearchMob are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses Ubuntu-style date
 versioning (`YY.MM.VV`).
 
+## [Unreleased]
+
+### Added
+- **You now actually get told when an update is out.** When SearchMob is open and a newer release is
+  available, it posts a system notification and shows a banner across the top of the app; the served
+  search pages show the same banner (only to you, on this device, never to other people on your
+  network). The check still runs about once a day through the privacy proxy and stays opt-out.
+- **One-tap update.** Tapping **Update** (in the banner or the notification) downloads the new APK,
+  verifies it against the release's published SHA-256 checksums, and hands it to the system package
+  installer (which shows its usual install confirmation). Falls back to the release page if there is
+  no usable asset or the download fails.
+
 ## [26.06.00] - 2026-06-02
 
 ### Added

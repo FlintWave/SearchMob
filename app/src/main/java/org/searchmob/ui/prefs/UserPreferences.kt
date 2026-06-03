@@ -49,4 +49,10 @@ object PreferenceKeys {
 
     // Stored as a string because the store has no Long type; parsed back to a Long timestamp.
     const val LAST_UPDATE_CHECK_MS = "last_update_check_ms"
+
+    // The newest release the last update check found (empty when none / up to date). These drive the
+    // in-app and served-page "update available" banners and the notification, so a found update
+    // survives a restart until a later check supersedes or clears it.
+    const val PENDING_UPDATE_VERSION = "pending_update_version"
+    const val PENDING_UPDATE_URL = "pending_update_url"
 }

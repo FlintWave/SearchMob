@@ -13,6 +13,9 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Lets the in-app updater hand a downloaded, checksum-verified APK to the system package
+         installer. The OS still shows its install-confirmation UI; nothing installs silently. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <application
         android:name=".SearchMobApplication"
@@ -54,6 +57,12 @@
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="On-device private metasearch/HTTP service available to the user at all times" />
         </service>
+
+        <!-- Receives PackageInstaller session callbacks for the in-app update install, so the system's
+             install-confirmation UI can be launched when it reports STATUS_PENDING_USER_ACTION. -->
+        <receiver
+            android:name=".update.PackageInstallReceiver"
+            android:exported="false" />
 
         <!-- Re-starts the service after device boot (specialUse boot-start is permitted on API 35). -->
         <receiver

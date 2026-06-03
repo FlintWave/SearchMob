@@ -7,12 +7,21 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.material3.AlertDialog
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.material3.Button
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -22,7 +31,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
@@ -45,7 +57,10 @@ import org.searchmob.ui.theme.SearchMobTheme
 import org.searchmob.update.RELEASES_PAGE_URL
 import org.searchmob.update.UpdateCheckCoordinator
 import org.searchmob.update.UpdateChecker
-import org.searchmob.update.UpdateInfo
+import org.searchmob.update.UpdateFlow
+import org.searchmob.update.UpdateInstaller
+import org.searchmob.update.UpdateNotifier
+import org.searchmob.update.VersionTag
 import org.searchmob.widget.SearchDeepLink
 
 class MainActivity : ComponentActivity() {
@@ -70,9 +85,9 @@ class MainActivity : ComponentActivity() {
     // Boolean so each fresh request (incl. onNewIntent relaunches) re-triggers navigation.
     private var openSearchToken by mutableStateOf<Long?>(null)
 
-    // Set when the (opt-out, throttled) launch-time update check finds a strictly newer release; the
-    // root composable observes it to show an in-app "Update available" prompt. Null means no prompt.
-    private var availableUpdate by mutableStateOf<UpdateInfo?>(null)
+    // True while a one-click update download/verify is in flight, so the banner shows progress and the
+    // Update button is disabled. The banner itself is driven by the persisted pending-update prefs.
+    private var updateInProgress by mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -101,7 +116,9 @@ class MainActivity : ComponentActivity() {
                         currentVersionCode = currentVersionCode(),
                     ).checkIfDue()
                 }
-            if (update != null) availableUpdate = update
+            // A found update persists to prefs (driving the banner reactively); also post a system
+            // notification so the user is told while the app is open. The notification opens the app.
+            if (update != null) UpdateNotifier.notify(this@MainActivity, update.latestVersionName)
         }
 
         setContent {
@@ -122,10 +139,51 @@ class MainActivity : ComponentActivity() {
             SearchMobApp(
                 deps = deps,
                 openSearchToken = openSearchToken,
-                availableUpdate = availableUpdate,
-                onDismissUpdate = { availableUpdate = null },
+                currentVersionCode = currentVersionCode(),
+                updateInProgress = updateInProgress,
+                onStartUpdate = ::startUpdate,
             )
         }
+    }
+
+    /**
+     * One-click update: re-fetch the latest release (for fresh asset URLs + checksum), download and
+     * verify the APK, then hand it to the system installer. Falls back to opening the release page
+     * when there is no usable asset (or on failure). Runs the network work off the main thread; the
+     * banner shows progress via [updateInProgress].
+     */
+    private fun startUpdate() {
+        if (updateInProgress) return
+        updateInProgress = true
+        lifecycleScope.launch {
+            val fallback = deps.preferencesRepository.pendingUpdateUrl().ifBlank { RELEASES_PAGE_URL }
+            val result =
+                withContext(Dispatchers.IO) {
+                    val client = HttpClientFactory.create(connectTimeoutMs = 10_000, readTimeoutMs = 60_000)
+                    UpdateFlow.prepare(client, cacheDir, fallback)
+                }
+            updateInProgress = false
+            when (result) {
+                is UpdateFlow.Result.Installable -> {
+                    UpdateNotifier.cancel(this@MainActivity)
+                    runCatching { UpdateInstaller.installApk(this@MainActivity, result.file) }
+                        .onFailure { openUrl(fallback) }
+                }
+                is UpdateFlow.Result.OpenPage -> openUrl(result.url)
+                is UpdateFlow.Result.Failed -> {
+                    Toast.makeText(
+                        this@MainActivity,
+                        getString(R.string.update_download_failed, result.message),
+                        Toast.LENGTH_LONG,
+                    ).show()
+                    openUrl(result.url)
+                }
+            }
+        }
+    }
+
+    private fun openUrl(url: String) {
+        runCatching { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
     }
 
     /**
@@ -162,8 +220,9 @@ class MainActivity : ComponentActivity() {
 fun SearchMobApp(
     deps: AppDependencies,
     openSearchToken: Long? = null,
-    availableUpdate: UpdateInfo? = null,
-    onDismissUpdate: () -> Unit = {},
+    currentVersionCode: Int = 0,
+    updateInProgress: Boolean = false,
+    onStartUpdate: () -> Unit = {},
 ) {
     val prefs: UserPreferences by deps.preferencesRepository.preferences
         .collectAsStateWithLifecycle(initialValue = UserPreferences())
@@ -179,6 +238,18 @@ fun SearchMobApp(
         .collectAsStateWithLifecycle(initialValue = null)
     val personalizationEnabled: Boolean by deps.preferencesRepository.personalizationEnabled
         .collectAsStateWithLifecycle(initialValue = false)
+    // The "update available" banner is driven by the persisted pending-update record (written by the
+    // launch-time check), so it survives a restart and clears itself once the user is current.
+    val pendingVersion: String by deps.preferencesRepository.pendingUpdateVersion
+        .collectAsStateWithLifecycle(initialValue = "")
+    val pendingUrl: String by deps.preferencesRepository.pendingUpdateUrl
+        .collectAsStateWithLifecycle(initialValue = "")
+    var updateDismissed by remember { mutableStateOf(false) }
+    val showUpdateBanner =
+        !updateDismissed &&
+            pendingVersion.isNotBlank() &&
+            pendingUrl.isNotBlank() &&
+            (VersionTag.toVersionCode(pendingVersion) ?: 0) > currentVersionCode
     val showOnboarding: Boolean? =
         if (onboardingCompleted == null || onboardingVersion == null) {
             null
@@ -210,66 +281,83 @@ fun SearchMobApp(
         themeMode = prefs.themeMode,
         dynamicColor = prefs.dynamicColor,
     ) {
-        when (showOnboarding) {
-            null -> Unit // loading; render nothing for the first frame
-            true ->
-                OnboardingWizard(
-                    port = port,
-                    onComplete = { completeOnboarding() },
-                    onOpenUrl = { url -> context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) },
-                    onStartService = { ServiceController.start(context) },
-                    // Finishing the wizard hands off to the main app, where the history /
-                    // zero-knowledge privacy controls live in Settings.
-                    onOpenPrivacySettings = { completeOnboarding() },
-                    personalizationEnabled = personalizationEnabled,
-                    onSetPersonalization = {
-                        scope.launch { deps.preferencesRepository.setPersonalizationEnabled(it) }
-                    },
+        // The update banner is pinned above the content (only past onboarding so it never competes
+        // with the wizard); the rest of the app renders below it.
+        Column(modifier = Modifier.fillMaxWidth()) {
+            if (showUpdateBanner && showOnboarding == false) {
+                UpdateBanner(
+                    version = pendingVersion,
+                    inProgress = updateInProgress,
+                    onUpdate = onStartUpdate,
+                    onDismiss = { updateDismissed = true },
                 )
-            else -> SearchMobNavHost(factory = factory, navController = navController)
-        }
-
-        // In-app update prompt: shown only once the user is past onboarding so it never competes with
-        // the wizard. Opening the releases page requires an explicit tap; "Not now" just dismisses.
-        if (availableUpdate != null && showOnboarding == false) {
-            UpdateAvailableDialog(
-                update = availableUpdate,
-                onOpenReleases = {
-                    val url = availableUpdate.releaseUrl.takeIf { it.isNotBlank() } ?: RELEASES_PAGE_URL
-                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
-                    onDismissUpdate()
-                },
-                onDismiss = onDismissUpdate,
-            )
+            }
+            when (showOnboarding) {
+                null -> Unit // loading; render nothing for the first frame
+                true ->
+                    OnboardingWizard(
+                        port = port,
+                        onComplete = { completeOnboarding() },
+                        onOpenUrl = { url -> context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) },
+                        onStartService = { ServiceController.start(context) },
+                        // Finishing the wizard hands off to the main app, where the history /
+                        // zero-knowledge privacy controls live in Settings.
+                        onOpenPrivacySettings = { completeOnboarding() },
+                        personalizationEnabled = personalizationEnabled,
+                        onSetPersonalization = {
+                            scope.launch { deps.preferencesRepository.setPersonalizationEnabled(it) }
+                        },
+                    )
+                else -> SearchMobNavHost(factory = factory, navController = navController)
+            }
         }
     }
 }
 
 /**
- * Material3 dialog announcing a newer release. It only surfaces the version and a link out; SearchMob
- * never auto-downloads or auto-installs, so the user stays in control of whether and when to update.
+ * The "update available" banner, pinned at the top of the app. Shows the available version with an
+ * Update action (the verified one-click download + system install) and a dismiss. While a download is
+ * in flight the action is disabled and the label shows progress.
  */
 @Composable
-private fun UpdateAvailableDialog(
-    update: UpdateInfo,
-    onOpenReleases: () -> Unit,
+private fun UpdateBanner(
+    version: String,
+    inProgress: Boolean,
+    onUpdate: () -> Unit,
     onDismiss: () -> Unit,
 ) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(LocalContext.current.getString(R.string.update_available_title)) },
-        text = {
-            Text(LocalContext.current.getString(R.string.update_available_body, update.latestVersionName))
-        },
-        confirmButton = {
-            TextButton(onClick = onOpenReleases) {
-                Text(LocalContext.current.getString(R.string.update_open_releases))
+    Surface(
+        color = MaterialTheme.colorScheme.primaryContainer,
+        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Row(
+            // Edge-to-edge is on, so pad for the status bar this banner sits beneath.
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .statusBarsPadding()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            val context = LocalContext.current
+            Text(
+                text =
+                    if (inProgress) {
+                        context.getString(R.string.update_banner_downloading, version)
+                    } else {
+                        context.getString(R.string.update_banner_available, version)
+                    },
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.weight(1f),
+            )
+            Button(onClick = onUpdate, enabled = !inProgress) {
+                Text(context.getString(R.string.update_banner_action))
             }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(LocalContext.current.getString(R.string.update_not_now))
+            TextButton(onClick = onDismiss, enabled = !inProgress) {
+                Text(context.getString(R.string.update_banner_dismiss))
             }
-        },
-    )
+        }
+    }
 }

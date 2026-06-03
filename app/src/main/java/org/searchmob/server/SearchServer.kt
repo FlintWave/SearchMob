@@ -134,6 +134,10 @@ fun Application.searchModule(
     // and the `/click` learning route records nothing.
     personalizationPreferences: PersonalizationPreferences? = null,
     personalizationEnabled: suspend () -> Boolean = { false },
+    // Owner-only "update available" banner. Returns (version, releaseUrl) when a newer release is
+    // pending, or null. Rendered only for the loopback owner (a network visitor can't install
+    // anything and the owner's version is not leaked). Default null = no banner.
+    updateBanner: suspend () -> Pair<String, String>? = { null },
     // Network-mode access control (mirrors the desktop `_SecurityHeadersMiddleware`). When the server
     // is bound to all interfaces, a non-loopback client hitting a query route must present this token,
     // and its Host header must be loopback / an IP literal / one of `allowedHosts` (DNS-rebind guard).
@@ -208,7 +212,8 @@ fun Application.searchModule(
             val link = settingsAvailable(call)
             val owner = rankingPreferences != null && isOwnerRequest(call)
             val rules = if (owner) rankingPreferences.load() else null
-            call.respondHtml { renderHomePage(link, rules, owner) }
+            val banner = if (isOwnerRequest(call)) updateBanner() else null
+            call.respondHtml { renderHomePage(link, rules, owner, banner) }
         }
         get("/healthz") {
             call.respondText("ok")
@@ -244,6 +249,7 @@ fun Application.searchModule(
                 } else {
                     null
                 }
+            val banner = if (isOwnerRequest(call)) updateBanner() else null
             call.respondHtml {
                 renderResultsPage(
                     query,
@@ -254,6 +260,7 @@ fun Application.searchModule(
                     vertical.value,
                     link,
                     linkBuilder,
+                    banner,
                 )
             }
         }
@@ -558,12 +565,15 @@ private fun HTML.renderResultsPage(
     // When set (owner + personalization on), maps a result's (position, url) to the `/click` link
     // that trains the model; null means plain destination links (network visitors, disabled owner).
     linkBuilder: ((Int, String) -> String)? = null,
+    // Owner-only "update available" banner (version, releaseUrl), or null.
+    updateBanner: Pair<String, String>? = null,
 ) {
     attributes["lang"] = "en"
     val results = outcome.results
     head { pageHead(if (query.isBlank()) "SearchMob" else "$query · SearchMob") }
     body {
         attributes["data-page"] = "results"
+        updateBanner(updateBanner)
         div("topbar") {
             a(href = "/", classes = "logo") { +"SearchMob" }
             form(action = "/search", method = FormMethod.get, classes = "searchbox") {
@@ -794,11 +804,13 @@ private fun HTML.renderHomePage(
     settingsLink: Boolean = false,
     rules: RankingRules? = null,
     editable: Boolean = false,
+    updateBanner: Pair<String, String>? = null,
 ) {
     attributes["lang"] = "en"
     head { pageHead("SearchMob") }
     body {
         attributes["data-page"] = "home"
+        updateBanner(updateBanner)
         div("topbar") {
             span("logo") { +"SearchMob" }
             settingsLink(settingsLink)
@@ -826,6 +838,24 @@ private fun HTML.renderHomePage(
 /** A Settings-page link for the loopback owner (the route itself is owner-only). */
 private fun FlowContent.settingsLink(show: Boolean) {
     if (show) a(href = "/settings", classes = "settings-link") { +"Settings" }
+}
+
+/**
+ * Owner-only "update available" banner pinned above the top bar. [banner] is (version, releaseUrl);
+ * null renders nothing. The link opens the release page (the in-app updater offers the one-click
+ * install). The kotlinx.html builder escapes the version and href, so no manual escaping is needed.
+ */
+private fun FlowContent.updateBanner(banner: Pair<String, String>?) {
+    if (banner == null) return
+    val (version, url) = banner
+    div("updatebar") {
+        attributes["role"] = "status"
+        span("msg") { +"SearchMob $version is available." }
+        a(href = url, classes = "btn") {
+            attributes["rel"] = "noopener noreferrer"
+            +"Get the update"
+        }
+    }
 }
 
 private fun FlowContent.selectField(
@@ -1236,6 +1266,12 @@ private val PAGE_CSS =
     .topbar{display:flex;align-items:center;gap:14px;padding:10px 18px;border-bottom:1px solid var(--border);
       position:sticky;top:0;background:var(--topbar);backdrop-filter:saturate(1.4) blur(8px);z-index:10}
     .topbar .logo{font-weight:800;font-size:20px;color:var(--accent);letter-spacing:-.5px;white-space:nowrap}
+    .updatebar{display:flex;align-items:center;gap:12px;padding:9px 18px;background:var(--accent);
+      color:#fff;font-size:13px}
+    .updatebar .msg{font-weight:600}
+    .updatebar .btn{margin-left:auto;background:#fff;color:var(--accent);border-radius:16px;padding:5px 14px;
+      font-weight:700;text-decoration:none;white-space:nowrap}
+    .updatebar .btn:hover{text-decoration:none;opacity:.92}
     .theme-toggle{margin-left:auto;background:transparent;border:1px solid var(--border);color:var(--fg);
       border-radius:20px;padding:6px 14px;cursor:pointer;font-size:13px;white-space:nowrap}
     .theme-toggle:hover{border-color:var(--accent);color:var(--accent)}
@@ -1397,6 +1433,9 @@ class SearchServer(
     // owner's personalization toggle, read fresh each request.
     private val personalizationPreferences: PersonalizationPreferences? = null,
     private val personalizationEnabled: suspend () -> Boolean = { false },
+    // Owner-only "update available" banner: returns (version, releaseUrl) when a newer release is
+    // pending, else null. Read fresh each request so it appears/clears without a server restart.
+    private val updateBanner: suspend () -> Pair<String, String>? = { null },
     // Lazily resolved each (re)start so a token minted after the server started still takes effect.
     private val accessToken: () -> String? = { null },
 ) {
@@ -1439,6 +1478,7 @@ class SearchServer(
                     historyStore,
                     personalizationPreferences,
                     personalizationEnabled,
+                    updateBanner,
                     token,
                 ) { port }
             }

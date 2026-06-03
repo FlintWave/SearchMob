@@ -97,6 +97,40 @@ class UpdateCheckerTest {
         assertNull(checker.parse("this is not json"))
     }
 
+    // ----- assets parsing + selection -----
+
+    private val releaseWithAssets =
+        """
+        {"tag_name":"v26.07.00","html_url":"https://example.test/r/v26.07.00","assets":[
+          {"name":"searchmob-26.07.00.apk","browser_download_url":"https://example.test/dl/app.apk","size":12345},
+          {"name":"SHA256SUMS","browser_download_url":"https://example.test/dl/SHA256SUMS"},
+          {"name":"broken-no-url"},
+          "not-a-dict"
+        ]}
+        """.trimIndent()
+
+    @Test
+    fun parse_readsAssetsAndSkipsMalformedEntries() {
+        val info = UpdateChecker(proxyClient()).parse(releaseWithAssets)!!
+        assertEquals(listOf("searchmob-26.07.00.apk", "SHA256SUMS"), info.assets.map { it.name })
+        assertEquals(12345L, info.assets[0].size)
+        assertEquals(0L, info.assets[1].size)
+    }
+
+    @Test
+    fun apkAndChecksumsAssetSelection() {
+        val info = UpdateChecker(proxyClient()).parse(releaseWithAssets)!!
+        assertEquals("searchmob-26.07.00.apk", info.apkAsset()!!.name)
+        assertEquals("SHA256SUMS", info.checksumsAsset()!!.name)
+    }
+
+    @Test
+    fun apkAsset_nullWhenAbsent() {
+        val info = UpdateChecker(proxyClient()).parse(releaseJson("v26.07.00"))!!
+        assertNull(info.apkAsset())
+        assertNull(info.checksumsAsset())
+    }
+
     // ----- fetchLatest (fail-soft over MockWebServer) -----
 
     @Test
