@@ -61,7 +61,7 @@ class Aggregator(
                         }
                     }.awaitAll()
             }.filterNotNull()
-        val results = rank(successes.flatMap { it.items })
+        val results = rank(successes.flatMap { it.items }, query.terms)
         return AggregationResult(results, consensusCorrection(query.terms, successes))
     }
 
@@ -84,7 +84,10 @@ class Aggregator(
         return byKey.values.maxByOrNull { it.second }?.first
     }
 
-    private fun rank(items: List<EngineResultItem>): List<AggregatedResult> {
+    private fun rank(
+        items: List<EngineResultItem>,
+        query: String,
+    ): List<AggregatedResult> {
         val nowMillis = System.currentTimeMillis()
         val buckets = LinkedHashMap<String, MutableBucket>()
         for (item in items) {
@@ -114,13 +117,28 @@ class Aggregator(
                 }
             }
         }
+        // Fold a lexical query-match score into the RRF score so the final order leads with relevance
+        // (does the result actually contain the query's content words, especially the title) and keeps
+        // engine consensus as a strong secondary signal. Without this, near-tied RRF scores let an
+        // irrelevant result one engine ranked highly sit among the top hits. The blend is demotion-only
+        // and language-agnostic; the existing tie-breakers keep ordering deterministic. See Relevance.
+        val terms = Relevance.contentTerms(query)
         return buckets.values
             .map { AggregatedResult(it.title, it.url, it.snippet, it.engines.toList(), it.score, it.publishedMillis) }
+            .map {
+                it to
+                    Relevance.blendedScore(
+                        it.score,
+                        Relevance.lexicalScore(it.title, it.snippet, terms),
+                        Relevance.languageAffinity(query, it.title, it.snippet),
+                    )
+            }
             .sortedWith(
-                compareByDescending<AggregatedResult> { it.score }
-                    .thenBy { UrlNormalizer.normalize(it.url) }
-                    .thenBy { it.engines.joinToString(",") },
+                compareByDescending<Pair<AggregatedResult, Double>> { it.second }
+                    .thenBy { UrlNormalizer.normalize(it.first.url) }
+                    .thenBy { it.first.engines.joinToString(",") },
             )
+            .map { it.first }
     }
 
     /** A structured date from the engine wins; else parse snippet/title. Weak (bare-year) -> null. */
