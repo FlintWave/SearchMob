@@ -4,7 +4,7 @@ All notable changes to SearchMob are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses Ubuntu-style date
 versioning (`YY.MM.VV`).
 
-## [Unreleased]
+## [26.06.01] - 2026-06-03
 
 ### Added
 - **You now actually get told when an update is out.** When SearchMob is open and a newer release is
