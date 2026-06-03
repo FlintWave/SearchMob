@@ -45,6 +45,7 @@ import org.searchmob.server.suggest.HistorySuggestionsProvider
 import org.searchmob.server.suggest.UpstreamSuggestionsProvider
 import org.searchmob.ui.prefs.DataStorePreferencesStore
 import org.searchmob.ui.prefs.PreferencesRepository
+import org.searchmob.update.VersionTag
 
 /**
  * The always-on backbone: a `specialUse` foreground service.
@@ -147,6 +148,20 @@ class SearchMobService : Service() {
             // the owner's personalization toggle.
             personalizationPreferences = (application as SearchMobApplication).personalizationPreferences,
             personalizationEnabled = { preferences.personalizationEnabled() },
+            // Owner-only served-page "update available" banner: surfaced only when a newer release is
+            // pending (recorded by the launch-time check). The server further gates it to loopback.
+            updateBanner = {
+                val version = preferences.pendingUpdateVersion()
+                val url = preferences.pendingUpdateUrl()
+                if (version.isNotBlank() &&
+                    url.isNotBlank() &&
+                    (VersionTag.toVersionCode(version) ?: 0) > currentVersionCode()
+                ) {
+                    version to url
+                } else {
+                    null
+                }
+            },
             // Powers the served Settings page (preference toggles + history view/clear), loopback-only.
             userPreferences = preferences,
             historyStore = (application as SearchMobApplication).storage.history,
@@ -298,6 +313,18 @@ class SearchMobService : Service() {
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
+
+    /** The running build's version code, for gating the served-page update banner. 0 on any failure. */
+    private fun currentVersionCode(): Int =
+        runCatching {
+            val info = packageManager.getPackageInfo(packageName, 0)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                info.longVersionCode.toInt()
+            } else {
+                @Suppress("DEPRECATION")
+                info.versionCode
+            }
+        }.getOrDefault(0)
 
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {

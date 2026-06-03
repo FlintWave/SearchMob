@@ -149,6 +149,15 @@
     <string name="update_available_body">A newer version of SearchMob is available: %1$s. You can download it from the releases page.</string>
     <string name="update_open_releases">Open releases page</string>
     <string name="update_not_now">Not now</string>
+    <!-- Update notification + in-app banner (notify-while-open + one-click install) -->
+    <string name="update_channel_name">App updates</string>
+    <string name="update_channel_description">Notifies you when a newer version of SearchMob is available.</string>
+    <string name="update_notification_text">SearchMob %1$s is available. Tap to update.</string>
+    <string name="update_banner_available">SearchMob %1$s is available.</string>
+    <string name="update_banner_downloading">Downloading SearchMob %1$s…</string>
+    <string name="update_banner_action">Update</string>
+    <string name="update_banner_dismiss">Dismiss</string>
+    <string name="update_download_failed">Update download failed: %1$s. Opening the release page instead.</string>
 
     <string name="settings_section_device">Keep the service alive</string>
 

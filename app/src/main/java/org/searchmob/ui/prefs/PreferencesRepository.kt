@@ -180,6 +180,34 @@ class PreferencesRepository(
     suspend fun setLastUpdateCheckMs(value: Long) =
         store.setString(PreferenceKeys.LAST_UPDATE_CHECK_MS, value.toString())
 
+    /**
+     * The newest release a prior check found (version name + release URL), or empty strings when none
+     * is pending. Observed by the in-app banner and read by the served-page banner; persisted so a
+     * found update survives a restart. Set via [setPendingUpdate] and cleared by [clearPendingUpdate].
+     */
+    val pendingUpdateVersion: Flow<String> =
+        store.getString(PreferenceKeys.PENDING_UPDATE_VERSION, "")
+
+    val pendingUpdateUrl: Flow<String> =
+        store.getString(PreferenceKeys.PENDING_UPDATE_URL, "")
+
+    suspend fun pendingUpdateVersion(): String = pendingUpdateVersion.first()
+
+    suspend fun pendingUpdateUrl(): String = pendingUpdateUrl.first()
+
+    suspend fun setPendingUpdate(
+        version: String,
+        url: String,
+    ) {
+        store.setString(PreferenceKeys.PENDING_UPDATE_VERSION, version)
+        store.setString(PreferenceKeys.PENDING_UPDATE_URL, url)
+    }
+
+    suspend fun clearPendingUpdate() {
+        store.setString(PreferenceKeys.PENDING_UPDATE_VERSION, "")
+        store.setString(PreferenceKeys.PENDING_UPDATE_URL, "")
+    }
+
     suspend fun setThemeMode(mode: ThemeMode) = store.setString(PreferenceKeys.THEME_MODE, mode.name)
 
     suspend fun setDynamicColor(enabled: Boolean) = store.setBoolean(PreferenceKeys.DYNAMIC_COLOR, enabled)

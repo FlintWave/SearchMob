@@ -127,6 +127,42 @@ class UpdateCheckCoordinatorTest {
         }
 
     @Test
+    fun checkIfDue_persistsPendingUpdateWhenNewer() =
+        runTest {
+            val server = MockWebServer()
+            server.enqueue(MockResponse().setBody(releaseJson("v26.06.00")))
+            server.start()
+            try {
+                val r = repo()
+                val checker = UpdateChecker(proxyClient(), baseUrl = server.url("/latest").toString())
+                UpdateCheckCoordinator(r, checker, currentVersionCode = 260501, nowMs = { 1_000_000 }).checkIfDue()
+                assertEquals("26.06.00", r.pendingUpdateVersion())
+                assertTrue(r.pendingUpdateUrl().endsWith("/v26.06.00"))
+            } finally {
+                server.shutdown()
+            }
+        }
+
+    @Test
+    fun checkIfDue_clearsPendingUpdateWhenUpToDate() =
+        runTest {
+            val server = MockWebServer()
+            server.enqueue(MockResponse().setBody(releaseJson("v26.05.01")))
+            server.start()
+            try {
+                val r = repo()
+                // A stale pending record from a prior check must be cleared once we're current.
+                r.setPendingUpdate("26.06.00", "https://example.test/old")
+                val checker = UpdateChecker(proxyClient(), baseUrl = server.url("/latest").toString())
+                UpdateCheckCoordinator(r, checker, currentVersionCode = 260501, nowMs = { 1_000_000 }).checkIfDue()
+                assertEquals("", r.pendingUpdateVersion())
+                assertEquals("", r.pendingUpdateUrl())
+            } finally {
+                server.shutdown()
+            }
+        }
+
+    @Test
     fun checkIfDue_stampsThrottleEvenOnFailure() =
         runTest {
             val server = MockWebServer()
