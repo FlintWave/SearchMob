@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MoreVert
@@ -35,10 +36,13 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -225,6 +229,11 @@ private fun ErrorState(
     }
 }
 
+// Infinite scroll: how many results to show before the user scrolls, and how close to the end of the
+// composed window triggers revealing the next batch. Matches the served page and desktop reveal sizes.
+private const val REVEAL_STEP = 10
+private const val REVEAL_THRESHOLD = 3
+
 @Composable
 private fun ResultsList(
     results: List<SearchResult>,
@@ -235,7 +244,22 @@ private fun ResultsList(
     onSetDomainRule: (String, RankRule) -> Unit,
     onOpen: (String) -> Unit,
 ) {
+    val listState = rememberLazyListState()
+    // Hold the whole ranked pool but compose only a window, growing it as the user nears the end. No
+    // new search happens; the pool is already in memory. The window resets when the results change.
+    var revealed by remember(results) { mutableIntStateOf(results.size.coerceAtMost(REVEAL_STEP)) }
+    LaunchedEffect(listState, results) {
+        snapshotFlow {
+            val info = listState.layoutInfo
+            (info.visibleItemsInfo.lastOrNull()?.index ?: 0) to info.totalItemsCount
+        }.collect { (lastVisible, total) ->
+            if (total > 0 && lastVisible >= total - REVEAL_THRESHOLD && revealed < results.size) {
+                revealed = (revealed + REVEAL_STEP).coerceAtMost(results.size)
+            }
+        }
+    }
     LazyColumn(
+        state = listState,
         modifier = Modifier.fillMaxSize().testTag(SearchTestTags.RESULTS),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
@@ -260,7 +284,7 @@ private fun ResultsList(
                 )
             }
         }
-        items(results) { result ->
+        items(results.take(revealed)) { result ->
             ResultCard(result = result, onOpen = onOpen, onSetDomainRule = onSetDomainRule)
         }
     }
