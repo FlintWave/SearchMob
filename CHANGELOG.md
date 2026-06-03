@@ -4,6 +4,16 @@ All notable changes to SearchMob are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses Ubuntu-style date
 versioning (`YY.MM.VV`).
 
+## [26.06.02] - 2026-06-03
+
+### Changed
+- **More relevant results.** Ranking now weighs how well each result actually matches what you typed,
+  not just how many engines returned it, so off-topic pages that one engine happened to rank highly
+  get pushed down instead of sitting near the top. Results written in a different alphabet than your
+  search (say, a stray English page for a Russian query) are demoted too. It works in any language,
+  runs entirely on your device, and still lets engine agreement and your own pin, raise, lower, and
+  block rules decide between good matches. This brings Android in line with the desktop app.
+
 ## [26.06.01] - 2026-06-03
 
 ### Added
