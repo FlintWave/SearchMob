@@ -60,6 +60,7 @@ import kotlinx.coroutines.launch
 import org.searchmob.R
 import org.searchmob.engine.rank.Lens
 import org.searchmob.engine.rank.RankingRules
+import org.searchmob.i18n.SupportedLocales
 import org.searchmob.server.LocalServerState
 import org.searchmob.server.networkReachableUrl
 import org.searchmob.service.BatteryOptimization
@@ -80,6 +81,7 @@ object SettingsTestTags {
     const val DYNAMIC_COLOR = "settings_dynamic_color"
     const val LIGHT_THEME_SELECT = "settings_light_theme_select"
     const val DARK_THEME_SELECT = "settings_dark_theme_select"
+    const val LANGUAGE_SELECT = "settings_language_select"
     const val FONT_DECREASE = "settings_font_decrease"
     const val FONT_INCREASE = "settings_font_increase"
     const val FONT_SIZE_VALUE = "settings_font_size_value"
@@ -199,6 +201,11 @@ fun SettingsScreen(
             FontSizeStepper(
                 pointSize = prefs.fontPointSize,
                 onChange = viewModel::setFontPointSize,
+            )
+
+            LanguageSelector(
+                selectedTag = prefs.language,
+                onSelect = viewModel::setLanguage,
             )
 
             HorizontalDivider()
@@ -429,6 +436,57 @@ private fun ThemeSlotSelector(
                         text = { Text(APP_THEMES_BY_ID[id]?.displayName ?: id) },
                         onClick = {
                             onSelect(id)
+                            expanded = false
+                        },
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * The UI-language picker, rendered as a dropdown like the theme selector. The first entry, "Follow
+ * system", maps to the empty preference (use the OS language); the rest are the shipped locales shown
+ * by their own endonym so a speaker recognizes their language. Choosing one persists the tag and the
+ * whole interface re-translates immediately (and flips direction for Arabic/Urdu), no restart.
+ */
+@Composable
+private fun LanguageSelector(
+    selectedTag: String,
+    onSelect: (String) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val systemLabel = str(R.string.settings_language_system)
+    val selectedName =
+        if (selectedTag.isBlank()) {
+            systemLabel
+        } else {
+            SupportedLocales.localeFor(selectedTag).nativeName
+        }
+    Column(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+        Text(str(R.string.settings_language), style = MaterialTheme.typography.labelLarge)
+        Box {
+            OutlinedButton(
+                onClick = { expanded = true },
+                modifier = Modifier.fillMaxWidth().testTag(SettingsTestTags.LANGUAGE_SELECT),
+            ) {
+                Text(selectedName, modifier = Modifier.weight(1f))
+                Icon(Icons.Filled.ArrowDropDown, contentDescription = null)
+            }
+            DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                DropdownMenuItem(
+                    text = { Text(systemLabel) },
+                    onClick = {
+                        onSelect("")
+                        expanded = false
+                    },
+                )
+                SupportedLocales.SUPPORTED.forEach { locale ->
+                    DropdownMenuItem(
+                        text = { Text(locale.nativeName) },
+                        onClick = {
+                            onSelect(locale.tag)
                             expanded = false
                         },
                     )

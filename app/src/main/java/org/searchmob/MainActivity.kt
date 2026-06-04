@@ -43,6 +43,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.searchmob.engine.http.HttpClientFactory
+import org.searchmob.i18n.LocalizedApp
 import org.searchmob.server.LocalServerState
 import org.searchmob.service.ServiceController
 import org.searchmob.ui.AppDependencies
@@ -277,41 +278,43 @@ fun SearchMobApp(
         }
     }
 
-    SearchMobTheme(
-        themeMode = prefs.themeMode,
-        dynamicColor = prefs.dynamicColor,
-        lightThemeId = prefs.lightThemeId,
-        darkThemeId = prefs.darkThemeId,
-        fontPointSize = prefs.fontPointSize,
-    ) {
-        // The update banner is pinned above the content (only past onboarding so it never competes
-        // with the wizard); the rest of the app renders below it.
-        Column(modifier = Modifier.fillMaxWidth()) {
-            if (showUpdateBanner && showOnboarding == false) {
-                UpdateBanner(
-                    version = pendingVersion,
-                    inProgress = updateInProgress,
-                    onUpdate = onStartUpdate,
-                    onDismiss = { updateDismissed = true },
-                )
-            }
-            when (showOnboarding) {
-                null -> Unit // loading; render nothing for the first frame
-                true ->
-                    OnboardingWizard(
-                        port = port,
-                        onComplete = { completeOnboarding() },
-                        onOpenUrl = { url -> context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) },
-                        onStartService = { ServiceController.start(context) },
-                        // Finishing the wizard hands off to the main app, where the history /
-                        // zero-knowledge privacy controls live in Settings.
-                        onOpenPrivacySettings = { completeOnboarding() },
-                        personalizationEnabled = personalizationEnabled,
-                        onSetPersonalization = {
-                            scope.launch { deps.preferencesRepository.setPersonalizationEnabled(it) }
-                        },
+    LocalizedApp(languageTag = prefs.language) {
+        SearchMobTheme(
+            themeMode = prefs.themeMode,
+            dynamicColor = prefs.dynamicColor,
+            lightThemeId = prefs.lightThemeId,
+            darkThemeId = prefs.darkThemeId,
+            fontPointSize = prefs.fontPointSize,
+        ) {
+            // The update banner is pinned above the content (only past onboarding so it never competes
+            // with the wizard); the rest of the app renders below it.
+            Column(modifier = Modifier.fillMaxWidth()) {
+                if (showUpdateBanner && showOnboarding == false) {
+                    UpdateBanner(
+                        version = pendingVersion,
+                        inProgress = updateInProgress,
+                        onUpdate = onStartUpdate,
+                        onDismiss = { updateDismissed = true },
                     )
-                else -> SearchMobNavHost(factory = factory, navController = navController)
+                }
+                when (showOnboarding) {
+                    null -> Unit // loading; render nothing for the first frame
+                    true ->
+                        OnboardingWizard(
+                            port = port,
+                            onComplete = { completeOnboarding() },
+                            onOpenUrl = { url -> context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) },
+                            onStartService = { ServiceController.start(context) },
+                            // Finishing the wizard hands off to the main app, where the history /
+                            // zero-knowledge privacy controls live in Settings.
+                            onOpenPrivacySettings = { completeOnboarding() },
+                            personalizationEnabled = personalizationEnabled,
+                            onSetPersonalization = {
+                                scope.launch { deps.preferencesRepository.setPersonalizationEnabled(it) }
+                            },
+                        )
+                    else -> SearchMobNavHost(factory = factory, navController = navController)
+                }
             }
         }
     }

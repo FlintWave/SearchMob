@@ -222,6 +222,11 @@ class SettingsViewModel(
         viewModelScope.launch { preferences.setFontPointSize(pointSize) }
     }
 
+    /** Set the UI language (a shipped locale tag, or "" to follow the OS). Applies immediately. */
+    fun setLanguage(tag: String) {
+        viewModelScope.launch { preferences.setLanguage(tag) }
+    }
+
     fun setEngineEnabled(
         engineId: String,
         enabled: Boolean,

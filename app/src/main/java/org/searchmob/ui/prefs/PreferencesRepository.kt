@@ -22,6 +22,14 @@ class PreferencesRepository(
 ) {
     private val engineDefaults: Map<String, Boolean> = knownEngineIds.associateWith { true }
 
+    /** Local presentation prefs grouped into one combine slot (no typed combine past five flows). */
+    private data class Presentation(
+        val lightId: String,
+        val darkId: String,
+        val font: String,
+        val language: String,
+    )
+
     val preferences: Flow<UserPreferences> =
         combine(
             // First five flows feed the typed five-arg combine; the rest are folded in below because
@@ -50,24 +58,26 @@ class PreferencesRepository(
                 store.getString(PreferenceKeys.AI_SLOP_MODE, "downrank"),
                 store.getString(PreferenceKeys.SORT_MODE, "fresh"),
             ) { updateCheck, aiSlop, sortMode -> Triple(updateCheck, aiSlop, sortMode) },
-            // The two theme slots + the font size also share a sub-flow (the trio of theming prefs).
+            // The two theme slots, the font size, and the UI language share one sub-flow (the local
+            // presentation prefs); the typed combine tops out at five flows but four fit here.
             combine(
                 store.getString(PreferenceKeys.LIGHT_THEME, DEFAULT_LIGHT_ID),
                 store.getString(PreferenceKeys.DARK_THEME, DEFAULT_DARK_ID),
                 store.getString(PreferenceKeys.FONT_POINT_SIZE, DEFAULT_FONT_POINT_SIZE.toString()),
-            ) { lightId, darkId, font -> Triple(lightId, darkId, font) },
-        ) { base, upstreamSuggestions, summary, updateAndSlopSort, theming ->
+                store.getString(PreferenceKeys.LANGUAGE, ""),
+            ) { lightId, darkId, font, language -> Presentation(lightId, darkId, font, language) },
+        ) { base, upstreamSuggestions, summary, updateAndSlopSort, presentation ->
             val (updateCheck, aiSlop, sortMode) = updateAndSlopSort
-            val (lightId, darkId, fontRaw) = theming
             base.copy(
                 upstreamSuggestionsEnabled = upstreamSuggestions,
                 summaryEnabled = summary,
                 sortMode = sortMode,
                 updateCheckEnabled = updateCheck,
                 aiSlopMode = aiSlop,
-                lightThemeId = lightId,
-                darkThemeId = darkId,
-                fontPointSize = clampFontPointSize(fontRaw.toIntOrNull() ?: DEFAULT_FONT_POINT_SIZE),
+                lightThemeId = presentation.lightId,
+                darkThemeId = presentation.darkId,
+                fontPointSize = clampFontPointSize(presentation.font.toIntOrNull() ?: DEFAULT_FONT_POINT_SIZE),
+                language = presentation.language,
             )
         }
 
@@ -235,6 +245,17 @@ class PreferencesRepository(
     /** Set the base UI font size in points; the value is clamped to the supported 8..24 range. */
     suspend fun setFontPointSize(pointSize: Int) =
         store.setString(PreferenceKeys.FONT_POINT_SIZE, clampFontPointSize(pointSize).toString())
+
+    /**
+     * The UI language as a shipped locale tag (e.g. "es"), or "" to follow the OS language. Drives
+     * the in-app locale/layout direction and the per-engine result tailoring.
+     */
+    val language: Flow<String> = store.getString(PreferenceKeys.LANGUAGE, "")
+
+    suspend fun setLanguage(tag: String) = store.setString(PreferenceKeys.LANGUAGE, tag)
+
+    /** One-shot read of the saved language tag ("" = follow OS) for the search providers. */
+    suspend fun language(): String = language.first()
 
     suspend fun setHistoryEnabled(enabled: Boolean) = store.setBoolean(PreferenceKeys.HISTORY_ENABLED, enabled)
 

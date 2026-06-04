@@ -26,7 +26,11 @@ class DuckDuckGoAdapter(
         query: SearchQuery,
         ctx: EngineContext,
     ): Request {
-        val url = "$baseUrl/html/?q=${URLEncoder.encode(query.terms, "UTF-8")}"
+        // A non-English UI locale carries a DuckDuckGo region-language code (`kl`), tailoring results
+        // to that language; English / unmapped locales omit it and stay region-neutral as before.
+        val region = ctx.languageRegion?.ddgKl?.takeIf { it.isNotBlank() }
+        val kl = region?.let { "&kl=${URLEncoder.encode(it, "UTF-8")}" }.orEmpty()
+        val url = "$baseUrl/html/?q=${URLEncoder.encode(query.terms, "UTF-8")}$kl"
         return Request.Builder().url(url).get().build()
     }
 

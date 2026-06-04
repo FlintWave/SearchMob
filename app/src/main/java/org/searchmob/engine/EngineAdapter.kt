@@ -31,6 +31,10 @@ data class EngineContext(
     val apiKey: String? = null,
     val timeoutMs: Long = 5_000L,
     val politeness: Politeness? = null,
+    // Per-engine language/region parameters for the active UI locale, or null for English / a locale
+    // with no mapping (the engine then behaves region-neutrally, exactly as before). Only the engines
+    // that document such a parameter (DuckDuckGo, Brave) read it.
+    val languageRegion: LanguageRegion? = null,
 )
 
 /** Fail-soft result of one engine: items on success, or a reason on failure, never thrown to the aggregator. */

@@ -50,6 +50,8 @@ class InProcessSearchResultsRepository(
     // The owner's learned click model, or null when personalization is off. In-app results are always
     // the owner's, so the provider applies it whenever it is non-null.
     private val personalization: suspend () -> org.searchmob.engine.rank.PersonalizationModel? = { null },
+    // The active UI language tag (or null/empty for English), used to tailor results to that language.
+    private val languageProvider: suspend () -> String? = { null },
 ) : SearchResultsRepository {
     private fun provider() =
         MetaSearchResultProvider(
@@ -61,6 +63,7 @@ class InProcessSearchResultsRepository(
             slopDomains = slopDomains,
             aiSlopMode = aiSlopMode,
             personalization = personalization,
+            languageProvider = languageProvider,
         )
 
     override suspend fun search(query: String): List<SearchResult> = provider().search(query)

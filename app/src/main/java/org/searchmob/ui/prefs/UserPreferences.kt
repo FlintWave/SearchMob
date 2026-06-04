@@ -31,6 +31,9 @@ data class UserPreferences(
     val updateCheckEnabled: Boolean = true,
     // AI-slop / low-quality domain filter: "downrank" (on by default), "hide", or "off".
     val aiSlopMode: String = "downrank",
+    // UI language as a shipped locale tag (e.g. "es", "ar"), or "" to follow the OS language. Drives
+    // the in-app locale + layout direction and tailors results to that language.
+    val language: String = "",
 ) {
     fun isEngineEnabled(engineId: String): Boolean = engineEnabled[engineId] ?: true
 }
@@ -60,6 +63,7 @@ object PreferenceKeys {
     const val SORT_MODE = "sort_mode"
     const val UPDATE_CHECK_ENABLED = "update_check_enabled"
     const val AI_SLOP_MODE = "ai_slop_mode"
+    const val LANGUAGE = "language"
 
     // Stored as a string because the store has no Long type; parsed back to a Long timestamp.
     const val LAST_UPDATE_CHECK_MS = "last_update_check_ms"
