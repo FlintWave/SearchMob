@@ -72,6 +72,7 @@ import org.searchmob.engine.rank.Lens
 import org.searchmob.engine.rank.Personalizer
 import org.searchmob.engine.rank.RankRule
 import org.searchmob.engine.rank.RankingRules
+import org.searchmob.engine.rank.ScopeToken
 import org.searchmob.engine.sort.SortMode
 import org.searchmob.engine.summary.WikiSummary
 import org.searchmob.engine.vertical.Vertical
@@ -228,11 +229,16 @@ fun Application.searchModule(
             call.respondText("ok")
         }
         get("/search") {
-            val query = call.request.queryParameters["q"].orEmpty().take(MAX_QUERY_LENGTH)
+            val rawQuery = call.request.queryParameters["q"].orEmpty().take(MAX_QUERY_LENGTH)
             val vertical = Vertical.fromValue(call.request.queryParameters["vertical"])
             // An explicit `?sort=` wins; absent it, the vertical picks the sensible default sort.
             val sortParam = call.request.queryParameters["sort"]
             val sortMode = resolveSort(sortParam, vertical)
+            val rules = rankingPreferences?.load() ?: RankingRules.EMPTY
+            // An inline `+name` token applies a saved scope to this one search, additively and
+            // without persisting it. The engines, summary, and correction run on the cleaned query;
+            // the original text is echoed in the box so the token round-trips on a re-search.
+            val (query, scope) = ScopeToken.parse(rawQuery, rules)
             val outcome =
                 if (query.isBlank()) {
                     SearchOutcome(
@@ -241,9 +247,10 @@ fun Application.searchModule(
                 } else {
                     // Personalize only for the loopback owner; a network visitor gets engine order.
                     val owner = isOwnerRequest(call)
-                    guard.aroundRequest { provider.searchWithCorrection(query, sortMode, vertical, owner) }
+                    guard.aroundRequest {
+                        provider.searchWithCorrection(query, sortMode, vertical, owner, scope)
+                    }
                 }
-            val rules = rankingPreferences?.load() ?: RankingRules.EMPTY
             // Only the loopback owner gets the editing controls; a network visitor sees a read-only
             // page, because the mutation routes below are loopback-only.
             val editable = rankingPreferences != null && isOwnerRequest(call)
@@ -261,7 +268,7 @@ fun Application.searchModule(
             val banner = if (isOwnerRequest(call)) updateBanner() else null
             call.respondHtml {
                 renderResultsPage(
-                    query,
+                    rawQuery,
                     outcome,
                     rules,
                     editable,
@@ -274,10 +281,14 @@ fun Application.searchModule(
             }
         }
         get("/api/search") {
-            val query = call.request.queryParameters["q"].orEmpty().take(MAX_QUERY_LENGTH)
+            val rawQuery = call.request.queryParameters["q"].orEmpty().take(MAX_QUERY_LENGTH)
             val vertical = Vertical.fromValue(call.request.queryParameters["vertical"])
             val sortParam = call.request.queryParameters["sort"]
             val sortMode = resolveSort(sortParam, vertical)
+            // Same inline `+name` scope token as the HTML route: applied to this request only, with
+            // the engines/correction run on the cleaned query and the original echoed back as `query`.
+            val rules = rankingPreferences?.load() ?: RankingRules.EMPTY
+            val (query, scope) = ScopeToken.parse(rawQuery, rules)
             val outcome =
                 if (query.isBlank()) {
                     SearchOutcome(
@@ -285,11 +296,13 @@ fun Application.searchModule(
                     )
                 } else {
                     val owner = isOwnerRequest(call)
-                    guard.aroundRequest { provider.searchWithCorrection(query, sortMode, vertical, owner) }
+                    guard.aroundRequest {
+                        provider.searchWithCorrection(query, sortMode, vertical, owner, scope)
+                    }
                 }
             call.respond(
                 SearchResponse(
-                    query = query,
+                    query = rawQuery,
                     results = outcome.results,
                     didYouMean = outcome.didYouMean,
                     showingResultsFor = outcome.showingResultsFor,

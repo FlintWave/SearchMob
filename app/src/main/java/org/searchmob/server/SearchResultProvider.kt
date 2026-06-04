@@ -37,6 +37,10 @@ interface SearchResultProvider {
         // Whether to apply the owner's learned personalization model. The server passes this true
         // only for the loopback owner, so a network visitor never gets the owner's personalized order.
         personalize: Boolean = true,
+        // An inline `+name` scope token (parsed from the query by the route) overrides the saved
+        // active scope for this one search only; the persisted selection is never written. Null
+        // leaves the saved scope in effect.
+        activeLensOverride: String? = null,
     ): SearchOutcome = SearchOutcome(search(query))
 }
 

@@ -19,6 +19,7 @@ class WebUiSummaryTest {
             sortMode: org.searchmob.engine.sort.SortMode,
             vertical: org.searchmob.engine.vertical.Vertical,
             personalize: Boolean,
+            activeLensOverride: String?,
         ): SearchOutcome = SearchOutcome(results = search(query), summary = summary)
     }
 
