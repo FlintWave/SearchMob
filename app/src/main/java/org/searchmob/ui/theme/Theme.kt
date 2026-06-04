@@ -10,7 +10,7 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
 
-private val DarkColors =
+internal val DarkColors =
     darkColorScheme(
         primary = SearchMobPrimaryDark,
         onPrimary = SearchMobDarkOnPrimary,
@@ -22,7 +22,7 @@ private val DarkColors =
         onSurface = SearchMobDarkOnSurface,
     )
 
-private val LightColors =
+internal val LightColors =
     lightColorScheme(
         primary = SearchMobPrimary,
         onPrimary = SearchMobLightOnPrimary,
@@ -37,21 +37,28 @@ private val LightColors =
 /**
  * SearchMob Material 3 theme.
  *
- * Theme precedence is resolved in one place via [resolveDarkTheme] and [resolvePaletteSource]:
- * - an explicit [ThemeMode.LIGHT]/[ThemeMode.DARK] override beats the system setting;
- * - [ThemeMode.SYSTEM] tracks [isSystemInDarkTheme];
- * - Material You dynamic color is used only on API 31+ when [dynamicColor] is on, in the resolved
- *   light/dark variant; otherwise the bundled WCAG-AA [LightColors]/[DarkColors] are used.
+ * Theme precedence is resolved in one place:
+ * - Material You dynamic color is used only on API 31+ when [dynamicColor] is on (it overrides the
+ *   named theme), in the light/dark variant chosen by [resolveDarkTheme];
+ * - otherwise the active named theme is resolved by the two-slot rule ([resolveActiveTheme]): the
+ *   [lightThemeId] slot, the [darkThemeId] slot, or (for [ThemeMode.SYSTEM]) the one matching the OS
+ *   scheme, and its [colorSchemeFor] scheme is applied. The two SearchMob defaults keep the existing
+ *   [LightColors]/[DarkColors] look, so the default appearance is unchanged.
  *
- * The font scale is intentionally not overridden, so the app respects the system font scale.
+ * [fontPointSize] scales the whole type scale (12pt = 1.0x) on top of the system font scale, which
+ * Compose still honors separately.
  */
 @Composable
 fun SearchMobTheme(
     themeMode: ThemeMode = ThemeMode.SYSTEM,
     dynamicColor: Boolean = true,
+    lightThemeId: String = DEFAULT_LIGHT_ID,
+    darkThemeId: String = DEFAULT_DARK_ID,
+    fontPointSize: Int = DEFAULT_FONT_POINT_SIZE,
     content: @Composable () -> Unit,
 ) {
-    val darkTheme = resolveDarkTheme(themeMode, isSystemInDarkTheme())
+    val systemDark = isSystemInDarkTheme()
+    val darkTheme = resolveDarkTheme(themeMode, systemDark)
     val paletteSource = resolvePaletteSource(dynamicColor, Build.VERSION.SDK_INT)
 
     val colorScheme =
@@ -60,13 +67,12 @@ fun SearchMobTheme(
                 val context = LocalContext.current
                 if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
             }
-            darkTheme -> DarkColors
-            else -> LightColors
+            else -> colorSchemeFor(resolveActiveTheme(themeMode, lightThemeId, darkThemeId, systemDark))
         }
 
     MaterialTheme(
         colorScheme = colorScheme,
-        typography = Typography,
+        typography = scaledTypography(fontPointSize),
         content = content,
     )
 }

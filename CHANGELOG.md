@@ -6,6 +6,14 @@ versioning (`YY.MM.VV`).
 
 ## [Unreleased]
 
+### Added
+- **Themes, text size, and a high-contrast option.** Pick from a library of named themes (a curated
+  slate plus two accessibility themes), choose which one fills the light slot and which fills the
+  dark slot, and step the text size up or down. The quick light/dark/follow-system control now swaps
+  between your two chosen themes, and Material You dynamic color stays an independent option. It all
+  applies in the app and on the search pages you open in a browser, and your choices stay on this
+  device. Mirrors the desktop app.
+
 ### Changed
 - **More results, loaded as you scroll.** The results list no longer stops at the first screenful.
   It now keeps the full ranked set and reveals more as you scroll to the bottom, both in the app and

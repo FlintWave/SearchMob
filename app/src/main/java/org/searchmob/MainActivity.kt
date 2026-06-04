@@ -280,6 +280,9 @@ fun SearchMobApp(
     SearchMobTheme(
         themeMode = prefs.themeMode,
         dynamicColor = prefs.dynamicColor,
+        lightThemeId = prefs.lightThemeId,
+        darkThemeId = prefs.darkThemeId,
+        fontPointSize = prefs.fontPointSize,
     ) {
         // The update banner is pinned above the content (only past onboarding so it never competes
         // with the wizard); the rest of the app renders below it.

@@ -207,6 +207,21 @@ class SettingsViewModel(
         viewModelScope.launch { preferences.setDynamicColor(enabled) }
     }
 
+    /** Set the named theme for the light slot (light-mode themes only). Persists immediately. */
+    fun setLightTheme(themeId: String) {
+        viewModelScope.launch { preferences.setLightTheme(themeId) }
+    }
+
+    /** Set the named theme for the dark slot (dark-mode themes only). Persists immediately. */
+    fun setDarkTheme(themeId: String) {
+        viewModelScope.launch { preferences.setDarkTheme(themeId) }
+    }
+
+    /** Set the base UI font size in points; clamped to the supported range by the repository. */
+    fun setFontPointSize(pointSize: Int) {
+        viewModelScope.launch { preferences.setFontPointSize(pointSize) }
+    }
+
     fun setEngineEnabled(
         engineId: String,
         enabled: Boolean,

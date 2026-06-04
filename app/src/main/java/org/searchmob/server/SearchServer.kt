@@ -79,6 +79,15 @@ import org.searchmob.engine.vertical.Verticals
 import org.searchmob.server.suggest.NoSuggestionsProvider
 import org.searchmob.server.suggest.SuggestionsProvider
 import org.searchmob.ui.prefs.PreferencesRepository
+import org.searchmob.ui.theme.APP_THEMES
+import org.searchmob.ui.theme.AppTheme
+import org.searchmob.ui.theme.DEFAULT_DARK_ID
+import org.searchmob.ui.theme.DEFAULT_FONT_POINT_SIZE
+import org.searchmob.ui.theme.DEFAULT_LIGHT_ID
+import org.searchmob.ui.theme.FONT_POINT_STEP
+import org.searchmob.ui.theme.MAX_FONT_POINT_SIZE
+import org.searchmob.ui.theme.MIN_FONT_POINT_SIZE
+import org.searchmob.ui.theme.ThemePaletteMode
 import java.net.InetSocketAddress
 import java.net.ServerSocket
 import java.net.URI
@@ -747,6 +756,46 @@ private fun FlowContent.verticalBar(
     }
 }
 
+/**
+ * Drop a trailing parenthetical from a lens name for the compact nested home-page scope selector.
+ * "Less clutter (no Pinterest/Quora)" -> "Less clutter"; the full name stays in a hover title.
+ */
+private fun shortLensLabel(name: String): String {
+    val idx = name.indexOf(" (")
+    val short = if (idx > 0) name.substring(0, idx).trimEnd() else name
+    return short.ifEmpty { name }
+}
+
+/**
+ * The home-page scope (lens) select, nested inside the search box just left of the Search button. It
+ * submits to the hidden `/scope` form via the HTML `form=` attribute. The visible label drops any
+ * trailing parenthetical to stay compact; the full lens name is the option value and a hover title.
+ * Mirrors the desktop `_home_scope`.
+ */
+private fun FlowContent.homeScopeSelect(rules: RankingRules) {
+    val activeFull = rules.lenses.firstOrNull { it.name == rules.activeLens }?.name
+    select {
+        attributes["id"] = "sm-scope"
+        attributes["name"] = "lens"
+        attributes["form"] = "sm-scope-form"
+        attributes["aria-label"] = "Search scope"
+        if (activeFull != null) attributes["title"] = activeFull
+        attributes["onchange"] = "this.form.submit()"
+        option {
+            attributes["value"] = ""
+            +"No scope"
+        }
+        rules.lenses.forEach { lens ->
+            option {
+                attributes["value"] = lens.name
+                attributes["title"] = lens.name
+                if (lens.name == rules.activeLens) attributes["selected"] = "selected"
+                +shortLensLabel(lens.name)
+            }
+        }
+    }
+}
+
 /** Scope (lens) selector; rendered only when the profile has at least one lens defined. */
 private fun FlowContent.scopeBar(rules: RankingRules) {
     if (rules.lenses.isEmpty()) return
@@ -825,6 +874,10 @@ private fun HTML.renderHomePage(
             settingsLink(settingsLink)
             themeToggle()
         }
+        // The scope (lens) selector nests inside the search box for the owner; it belongs to a
+        // separate hidden /scope form via the HTML `form=` attribute, so changing it persists exactly
+        // as the standalone scope bar does without nesting two forms. Empty when no lens is defined.
+        val hasScope = editable && rules != null && rules.lenses.isNotEmpty()
         div("home") {
             div("brand") { +"SearchMob" }
             p("tagline") { +"Private, on-device metasearch." }
@@ -835,10 +888,15 @@ private fun HTML.renderHomePage(
                     attributes["autocomplete"] = "off"
                     attributes["autofocus"] = "autofocus"
                 }
+                if (hasScope) homeScopeSelect(rules)
                 submitInput { value = "Search" }
             }
-            // A scope can be chosen before searching (the selector renders only when a lens exists).
-            if (editable && rules != null) scopeBar(rules)
+            if (hasScope) {
+                form(action = "/scope", method = FormMethod.post) {
+                    attributes["id"] = "sm-scope-form"
+                    attributes["hidden"] = "hidden"
+                }
+            }
         }
         script { unsafe { +THEME_TOGGLE_JS } }
     }
@@ -919,6 +977,11 @@ private fun HTML.renderSettingsPage(
             h1 { +"Settings" }
             if (saved) p("saved") { +"Saved." }
 
+            // The Appearance card is client-side only (localStorage); it sits above the prefs form and
+            // nothing here posts to the server. The mode select, the two theme-slot selects, and the
+            // A-/A+ stepper are wired by THEME_CONTROLS_JS at the bottom of the page.
+            appearanceCard()
+
             form(action = "/settings/prefs", method = FormMethod.post) {
                 section("card") {
                     h2 { +"Search & ranking" }
@@ -966,7 +1029,74 @@ private fun HTML.renderSettingsPage(
             if (history != null) historyCard(history, historyClearable)
         }
         script { unsafe { +THEME_TOGGLE_JS } }
+        script { unsafe { +THEME_CONTROLS_JS } }
         script { unsafe { +GOGGLE_FILE_JS } }
+    }
+}
+
+/**
+ * The Appearance card: the mode select, the two theme-slot selects (filled from the registry,
+ * partitioned by mode), and an A-/A+ text-size stepper. Browser-local; THEME_CONTROLS_JS wires it.
+ */
+private fun FlowContent.appearanceCard() {
+    section("card") {
+        h2 { +"Appearance" }
+        div("field") {
+            label {
+                attributes["for"] = "sm-mode"
+                +"Mode"
+            }
+            select {
+                attributes["id"] = "sm-mode"
+                listOf("light" to "Light", "dark" to "Dark", "system" to "Follow system").forEach { (v, lbl) ->
+                    option {
+                        attributes["value"] = v
+                        +lbl
+                    }
+                }
+            }
+        }
+        themeSlotField("sm-light-theme", "Light theme", ThemePaletteMode.LIGHT)
+        themeSlotField("sm-dark-theme", "Dark theme", ThemePaletteMode.DARK)
+        div("field") {
+            label { +"Text size" }
+            div("sizerow") {
+                button(type = ButtonType.button) {
+                    attributes["id"] = "sm-font-dec"
+                    attributes["aria-label"] = "Smaller text"
+                    +"A-"
+                }
+                span("sizeval") { attributes["id"] = "sm-font-val" }
+                button(type = ButtonType.button) {
+                    attributes["id"] = "sm-font-inc"
+                    attributes["aria-label"] = "Larger text"
+                    +"A+"
+                }
+            }
+        }
+    }
+}
+
+/** One theme-slot select (light or dark), listing only that mode's themes from the registry. */
+private fun FlowContent.themeSlotField(
+    selectId: String,
+    labelText: String,
+    mode: ThemePaletteMode,
+) {
+    div("field") {
+        label {
+            attributes["for"] = selectId
+            +labelText
+        }
+        select {
+            attributes["id"] = selectId
+            APP_THEMES.filter { it.mode == mode }.forEach { theme ->
+                option {
+                    attributes["value"] = theme.id
+                    +theme.displayName
+                }
+            }
+        }
     }
 }
 
@@ -1169,7 +1299,12 @@ private fun HEAD.pageHead(titleText: String) {
     meta(name = "viewport", content = "width=device-width, initial-scale=1")
     title { +titleText }
     openSearchLink()
-    style { unsafe { +PAGE_CSS } }
+    style {
+        unsafe {
+            +THEME_CSS
+            +PAGE_CSS
+        }
+    }
     script { unsafe { +THEME_INIT_JS } }
 }
 
@@ -1241,34 +1376,61 @@ fun openSearchDescriptor(port: Int): String {
 """
 }
 
-// Self-contained stylesheet (no external fonts/CDNs). Theme via CSS variables: light by default,
-// dark via prefers-color-scheme, and an explicit [data-theme] override (set by the toggle) wins.
+// Blend a "#rrggbb" toward white by `t` (0..1), for the chip hover tint of a theme's surface. Matches
+// the desktop `_from_roles` card-hover derivation closely enough for the chip background.
+private fun mixToWhite(
+    hex: String,
+    t: Double,
+): String {
+    val h = hex.trim().removePrefix("#")
+    val r = h.substring(0, 2).toInt(16)
+    val g = h.substring(2, 4).toInt(16)
+    val b = h.substring(4, 6).toInt(16)
+
+    fun blend(c: Int) = (c + (255 - c) * t).toInt().coerceIn(0, 255)
+    return "#%02x%02x%02x".format(blend(r), blend(g), blend(b))
+}
+
+/**
+ * The `--bg`/`--fg`/... CSS custom properties for one theme, derived from its six roles exactly like
+ * the desktop `_theme_vars`: `--card` is the surface, `--chip-bg` a hover tint of the surface, link /
+ * accent / url all the accent, snippet the muted role, the shadow tracks the mode, and `--topbar` is
+ * the background with an alpha byte so the sticky bar reads through its blur.
+ */
+fun themeVars(theme: AppTheme): String {
+    val shadow =
+        if (theme.mode == ThemePaletteMode.LIGHT) "0 1px 6px rgba(32,33,36,.12)" else "0 1px 6px rgba(0,0,0,.5)"
+    val chipBg = mixToWhite(theme.surface, 0.07)
+    return "--bg:${theme.background};--fg:${theme.text};--muted:${theme.muted};--border:${theme.border};" +
+        "--card:${theme.surface};--link:${theme.accent};--url:${theme.accent};--snippet:${theme.muted};" +
+        "--chip-bg:$chipBg;--chip-fg:${theme.muted};--accent:${theme.accent};--shadow:$shadow;" +
+        "--topbar:${theme.background}ee;"
+}
+
+// The generated theme blocks: `:root` (default light), the prefers-color-scheme dark query, and one
+// `[data-theme="<id>"]` override per theme so the JS picker is authoritative. Built once from the
+// constant registry. Prepended to PAGE_CSS at render time.
+private val THEME_CSS: String =
+    buildString {
+        append(":root{").append(themeVars(APP_THEMES.first { it.id == DEFAULT_LIGHT_ID })).append("}")
+        append("@media (prefers-color-scheme:dark){:root{")
+            .append(themeVars(APP_THEMES.first { it.id == DEFAULT_DARK_ID })).append("}}")
+        APP_THEMES.forEach { theme ->
+            append("[data-theme=\"${theme.id}\"]{").append(themeVars(theme)).append("}")
+        }
+    }
+
+// Self-contained stylesheet (no external fonts/CDNs). Theme via CSS variables (the per-theme blocks
+// in THEME_CSS are prepended at render time): light by default, dark via prefers-color-scheme, and an
+// explicit [data-theme] override (set by the picker/toggle) wins. The root font size is in points and
+// content sizes are in rem, so the served-page font-size preference (sm-font) scales everything.
 @Suppress("ktlint:standard:max-line-length")
 private val PAGE_CSS =
     """
     *{box-sizing:border-box}
     html,body{margin:0;padding:0}
-    :root{
-      --bg:#ffffff;--fg:#202124;--muted:#5f6368;--border:#dfe1e5;--card:#ffffff;
-      --link:#1a0dab;--url:#0b8043;--snippet:#4d5156;--chip-bg:#f1f3f4;--chip-fg:#5f6368;
-      --accent:#3d5afe;--shadow:0 1px 6px rgba(32,33,36,.12);--topbar:#ffffffee;
-    }
-    @media (prefers-color-scheme:dark){:root{
-      --bg:#0e0f13;--fg:#e3e5e8;--muted:#9aa0a6;--border:#2a2c33;--card:#15171c;
-      --link:#8ab4f8;--url:#5fd07f;--snippet:#bdc1c6;--chip-bg:#1f2127;--chip-fg:#c5c8ce;
-      --accent:#8c9eff;--shadow:0 1px 6px rgba(0,0,0,.5);--topbar:#0e0f13ee;
-    }}
-    [data-theme="light"]{
-      --bg:#ffffff;--fg:#202124;--muted:#5f6368;--border:#dfe1e5;--card:#ffffff;
-      --link:#1a0dab;--url:#0b8043;--snippet:#4d5156;--chip-bg:#f1f3f4;--chip-fg:#5f6368;
-      --accent:#3d5afe;--shadow:0 1px 6px rgba(32,33,36,.12);--topbar:#ffffffee;
-    }
-    [data-theme="dark"]{
-      --bg:#0e0f13;--fg:#e3e5e8;--muted:#9aa0a6;--border:#2a2c33;--card:#15171c;
-      --link:#8ab4f8;--url:#5fd07f;--snippet:#bdc1c6;--chip-bg:#1f2127;--chip-fg:#c5c8ce;
-      --accent:#8c9eff;--shadow:0 1px 6px rgba(0,0,0,.5);--topbar:#0e0f13ee;
-    }
-    body{background:var(--bg);color:var(--fg);line-height:1.5;
+    html{font-size:${DEFAULT_FONT_POINT_SIZE}pt}
+    body{background:var(--bg);color:var(--fg);line-height:1.5;font-size:1rem;
       font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
     a{color:var(--link);text-decoration:none}
     a:hover{text-decoration:underline}
@@ -1287,25 +1449,27 @@ private val PAGE_CSS =
     .searchbox{display:flex;align-items:stretch;background:var(--card);border:1px solid var(--border);
       border-radius:26px;box-shadow:var(--shadow);overflow:hidden}
     .searchbox input[type=text]{flex:1;min-width:0;border:0;outline:0;background:transparent;color:var(--fg);
-      font-size:16px;padding:13px 18px}
+      font-size:1rem;padding:13px 18px}
     .searchbox input[type=submit]{border:0;background:var(--accent);color:#fff;padding:0 22px;cursor:pointer;
-      font-size:15px;font-weight:600}
+      font-size:.9375rem;font-weight:600}
     .searchbox input[type=submit]:hover{filter:brightness(1.07)}
+    .searchbox select{border:0;border-left:1px solid var(--border);background:transparent;color:var(--fg);
+      font-size:.875rem;padding:0 12px;outline:0;max-width:190px;cursor:pointer}
     .home{max-width:600px;margin:0 auto;padding:13vh 20px 0;text-align:center}
-    .home .brand{font-size:48px;font-weight:800;color:var(--accent);letter-spacing:-1.5px}
-    .home .tagline{color:var(--muted);margin:8px 0 28px;font-size:15px}
+    .home .brand{font-size:3rem;font-weight:800;color:var(--accent);letter-spacing:-1.5px}
+    .home .tagline{color:var(--muted);margin:8px 0 28px;font-size:.9375rem}
     .home .searchbox{max-width:560px;margin:0 auto;text-align:left}
     .topbar .searchbox{flex:1;max-width:620px}
     .topbar .searchbox input[type=text]{padding:9px 16px}
     .topbar .searchbox input[type=submit]{padding:0 16px}
     .results{max-width:660px;margin:0 auto;padding:18px 20px 64px}
-    .results .meta{color:var(--muted);font-size:13px;margin:2px 0 20px}
+    .results .meta{color:var(--muted);font-size:.8125rem;margin:2px 0 20px}
     .result{margin:0 0 26px}
     .result.is-collapsed{display:none}
     .reveal-sentinel{height:1px}
-    .result .url{color:var(--url);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .result .title{display:block;font-size:20px;line-height:1.3;margin:1px 0 3px}
-    .result .snippet{margin:2px 0 7px;color:var(--snippet);font-size:14px}
+    .result .url{color:var(--url);font-size:.8125rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .result .title{display:block;font-size:1.25rem;line-height:1.3;margin:1px 0 3px}
+    .result .snippet{margin:2px 0 7px;color:var(--snippet);font-size:.875rem}
     .engines{display:flex;flex-wrap:wrap;gap:6px}
     .chip{background:var(--chip-bg);color:var(--chip-fg);font-size:11px;padding:2px 9px;border-radius:10px}
     .empty{color:var(--muted);text-align:center;padding:48px 0}
@@ -1336,16 +1500,20 @@ private val PAGE_CSS =
     .settings-link+.theme-toggle{margin-left:0}
     .topbar .spacer{margin-left:auto}
     .settings{max-width:680px;margin:0 auto;padding:24px 18px 60px}
-    .settings h1{font-size:24px;margin:8px 0 18px}
+    .settings h1{font-size:1.5rem;margin:8px 0 18px}
     .settings .saved{color:#fff;background:var(--accent);display:inline-block;border-radius:6px;padding:4px 12px;font-size:13px;margin:0 0 16px}
     .settings .card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin:0 0 16px}
-    .settings .card h2{font-size:15px;margin:0 0 14px;color:var(--accent)}
+    .settings .card h2{font-size:.9375rem;margin:0 0 14px;color:var(--accent)}
     .settings .card h3.sub{font-size:13px;margin:16px 0 8px;color:var(--muted)}
     .settings .field{margin:0 0 14px}
-    .settings .field>label{display:block;font-size:13px;margin:0 0 6px;font-weight:600}
-    .settings select{width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--fg);font-size:14px}
-    .settings .checkrow{display:flex;align-items:center;gap:9px;font-size:14px;margin:0 0 10px;cursor:pointer}
-    .settings .hint{font-size:12px;color:var(--muted);margin:6px 0 0}
+    .settings .field>label{display:block;font-size:.8125rem;margin:0 0 6px;font-weight:600}
+    .settings select{width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--fg);font-size:.875rem}
+    .settings .checkrow{display:flex;align-items:center;gap:9px;font-size:.875rem;margin:0 0 10px;cursor:pointer}
+    .settings .hint{font-size:.75rem;color:var(--muted);margin:6px 0 0}
+    .settings .sizerow{display:flex;align-items:center;gap:10px}
+    .settings .sizerow button{width:40px;height:40px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--fg);font-size:1rem;cursor:pointer}
+    .settings .sizerow button:hover{border-color:var(--accent);color:var(--accent)}
+    .settings .sizerow .sizeval{font-size:.875rem;color:var(--muted);min-width:54px}
     .settings .hint .code{background:var(--chip-bg);color:var(--chip-fg);padding:1px 5px;border-radius:5px;font-size:12px}
     .settings .actions{margin-top:6px}
     .settings .actions button{background:var(--accent);color:#fff;border:0;border-radius:22px;padding:10px 26px;font-size:15px;font-weight:600;cursor:pointer}
@@ -1376,26 +1544,69 @@ private val PAGE_CSS =
     @media (max-width:560px){.topbar .logo{display:none}}
     """.trimIndent()
 
-// Runs in <head> before first paint to restore the saved theme (avoids a flash of the wrong theme).
-private val THEME_INIT_JS =
-    "(function(){try{var t=localStorage.getItem('sm-theme');" +
-        "if(t){document.documentElement.setAttribute('data-theme',t);}}catch(e){}})();"
+// Shared client-side resolve helpers, inlined into every page's theme scripts (mirrors the desktop
+// `_THEME_RESOLVE_JS`). `smOsDark` reads the OS scheme; `smSlots` reads the two slot ids (each
+// defaulting to its SearchMob default); `smResolve` turns the stored mode (light/dark/system/absent)
+// plus the slots into the active theme id (null when no mode is stored, so the CSS :root/@media
+// defaults stand); `smApply` sets data-theme + the root font size.
+@Suppress("ktlint:standard:max-line-length")
+private val THEME_RESOLVE_JS =
+    "function smGet(k){try{return localStorage.getItem(k);}catch(e){return null;}}" +
+        "function smOsDark(){return !!(window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches);}" +
+        "function smSlots(){return {light:smGet('sm-light-theme')||'$DEFAULT_LIGHT_ID'," +
+        "dark:smGet('sm-dark-theme')||'$DEFAULT_DARK_ID'};}" +
+        "function smResolve(){var m=smGet('sm-theme');var s=smSlots();" +
+        "if(m==='light')return s.light;if(m==='dark')return s.dark;" +
+        "if(m==='system')return smOsDark()?s.dark:s.light;return null;}" +
+        "function smApply(){var id=smResolve();var r=document.documentElement;" +
+        "if(id)r.setAttribute('data-theme',id);else r.removeAttribute('data-theme');" +
+        "var f=smGet('sm-font');if(f)r.style.fontSize=f+'pt';}"
 
-// Defines smToggle() (flips + persists the theme) and labels the button to show the alternative theme.
+// Runs in <head> before first paint to restore the saved theme + font (avoids a flash of the wrong
+// theme/size). Resolves the active slot id from the mode and applies it, plus any saved font size.
+private val THEME_INIT_JS = "(function(){try{$THEME_RESOLVE_JS smApply();}catch(e){}})();"
+
+// Defines smToggle() (flips the effective mode light<->dark, persists it, re-applies the resolved
+// slot) and labels the quick toggle button with the alternative theme.
 @Suppress("ktlint:standard:max-line-length")
 private val THEME_TOGGLE_JS =
-    """
-    (function(){
-      function resolved(){var d=document.documentElement.getAttribute('data-theme');if(d)return d;
-        return (window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches)?'dark':'light';}
-      function label(){var b=document.getElementById('sm-theme-btn');
-        if(b)b.textContent=resolved()==='dark'?'☀ Light':'☾ Dark';}
-      window.smToggle=function(){var n=resolved()==='dark'?'light':'dark';
-        document.documentElement.setAttribute('data-theme',n);
-        try{localStorage.setItem('sm-theme',n);}catch(e){}label();};
-      label();
-    })();
-    """.trimIndent()
+    "(function(){$THEME_RESOLVE_JS" +
+        "function eff(){var m=smGet('sm-theme');" +
+        "if(m==='light')return 'light';if(m==='dark')return 'dark';return smOsDark()?'dark':'light';}" +
+        "function label(){var b=document.getElementById('sm-theme-btn');" +
+        "if(b)b.textContent=eff()==='dark'?'☀ Light':'☾ Dark';}" +
+        "window.smToggle=function(){var n=eff()==='dark'?'light':'dark';" +
+        "try{localStorage.setItem('sm-theme',n);}catch(e){}smApply();label();};" +
+        "label();" +
+        "})();"
+
+// Wires the Appearance card (settings page only) to localStorage: on load it sets each control to its
+// stored value; on change it persists and live-applies via the shared resolve helpers. Font is clamped
+// to the supported bounds/step. No server round-trip; served prefs have always been browser-local.
+@Suppress("ktlint:standard:max-line-length")
+private val THEME_CONTROLS_JS =
+    "(function(){$THEME_RESOLVE_JS" +
+        "var MIN=$MIN_FONT_POINT_SIZE,MAX=$MAX_FONT_POINT_SIZE,STEP=$FONT_POINT_STEP,DEF=$DEFAULT_FONT_POINT_SIZE;" +
+        "function font(){var f=parseInt(smGet('sm-font'),10);return isNaN(f)?DEF:Math.max(MIN,Math.min(MAX,f));}" +
+        "function set(k,v){try{localStorage.setItem(k,v);}catch(e){}}" +
+        "var mode=document.getElementById('sm-mode');" +
+        "var li=document.getElementById('sm-light-theme');" +
+        "var di=document.getElementById('sm-dark-theme');" +
+        "var val=document.getElementById('sm-font-val');" +
+        "var dec=document.getElementById('sm-font-dec');" +
+        "var inc=document.getElementById('sm-font-inc');" +
+        "function showFont(){if(val)val.textContent=font()+' pt';}" +
+        "var s=smSlots();" +
+        "if(mode)mode.value=smGet('sm-theme')||'system';" +
+        "if(li)li.value=s.light;if(di)di.value=s.dark;" +
+        "showFont();" +
+        "if(mode)mode.addEventListener('change',function(){set('sm-theme',mode.value);smApply();});" +
+        "if(li)li.addEventListener('change',function(){set('sm-light-theme',li.value);smApply();});" +
+        "if(di)di.addEventListener('change',function(){set('sm-dark-theme',di.value);smApply();});" +
+        "function step(d){var n=Math.max(MIN,Math.min(MAX,font()+d*STEP));set('sm-font',n);smApply();showFont();}" +
+        "if(dec)dec.addEventListener('click',function(){step(-1);});" +
+        "if(inc)inc.addEventListener('click',function(){step(1);});" +
+        "})();"
 
 // How many results the served page shows before infinite scroll reveals the rest. Matches the GUI
 // reveal window and the desktop served page.

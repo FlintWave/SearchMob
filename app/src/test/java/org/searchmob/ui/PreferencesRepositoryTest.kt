@@ -137,6 +137,34 @@ class PreferencesRepositoryTest {
         }
 
     @Test
+    fun themeSlots_defaultToSearchMobAndRoundTrip() =
+        runTest {
+            val r = repo()
+            val defaults = r.preferences.first()
+            assertEquals("searchmob-light", defaults.lightThemeId)
+            assertEquals("searchmob-dark", defaults.darkThemeId)
+            r.setLightTheme("github-light")
+            r.setDarkTheme("nord")
+            val updated = r.preferences.first()
+            assertEquals("github-light", updated.lightThemeId)
+            assertEquals("nord", updated.darkThemeId)
+        }
+
+    @Test
+    fun fontPointSize_defaultsTwelveClampsAndRoundTrips() =
+        runTest {
+            val r = repo()
+            assertEquals(12, r.preferences.first().fontPointSize)
+            r.setFontPointSize(18)
+            assertEquals(18, r.preferences.first().fontPointSize)
+            // Out of bounds is pulled to the supported range.
+            r.setFontPointSize(99)
+            assertEquals(24, r.preferences.first().fontPointSize)
+            r.setFontPointSize(2)
+            assertEquals(8, r.preferences.first().fontPointSize)
+        }
+
+    @Test
     fun engineToggle_roundTrips() =
         runTest {
             val r = repo()
