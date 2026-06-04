@@ -70,6 +70,13 @@
     <string name="theme_system">Follow system</string>
     <string name="settings_dynamic_color">Material You (dynamic color)</string>
     <string name="settings_dynamic_color_unsupported">Requires Android 12 or newer; falls back to the built-in colors here.</string>
+    <string name="settings_theme_light_slot">Light theme</string>
+    <string name="settings_theme_dark_slot">Dark theme</string>
+    <string name="settings_theme_dynamic_overrides">Material You is on, so it overrides the chosen themes. Turn it off to use them.</string>
+    <string name="settings_font_size">Text size</string>
+    <string name="settings_font_smaller">Smaller text</string>
+    <string name="settings_font_larger">Larger text</string>
+    <string name="settings_font_size_value">%1$d pt</string>
 
     <string name="settings_section_engines">Search engines</string>
     <string name="settings_engine_needs_key">Needs an API key (below)</string>

@@ -4,7 +4,11 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import org.searchmob.ui.theme.DEFAULT_DARK_ID
+import org.searchmob.ui.theme.DEFAULT_FONT_POINT_SIZE
+import org.searchmob.ui.theme.DEFAULT_LIGHT_ID
 import org.searchmob.ui.theme.ThemeMode
+import org.searchmob.ui.theme.clampFontPointSize
 
 /**
  * Typed facade over [PreferencesStore]. Exposes a single [preferences] [Flow] that the UI observes for
@@ -39,21 +43,31 @@ class PreferencesRepository(
             },
             store.getBoolean(PreferenceKeys.UPSTREAM_SUGGESTIONS_ENABLED, false),
             store.getBoolean(PreferenceKeys.SUMMARY_ENABLED, true),
-            store.getString(PreferenceKeys.SORT_MODE, "fresh"),
             // The typed combine tops out at five flows, so the update-check flag and the AI-slop mode
             // share one sub-flow here; destructured below into their respective fields.
             combine(
                 store.getBoolean(PreferenceKeys.UPDATE_CHECK_ENABLED, true),
                 store.getString(PreferenceKeys.AI_SLOP_MODE, "downrank"),
-            ) { updateCheck, aiSlop -> updateCheck to aiSlop },
-        ) { base, upstreamSuggestions, summary, sortMode, updateAndSlop ->
-            val (updateCheck, aiSlop) = updateAndSlop
+                store.getString(PreferenceKeys.SORT_MODE, "fresh"),
+            ) { updateCheck, aiSlop, sortMode -> Triple(updateCheck, aiSlop, sortMode) },
+            // The two theme slots + the font size also share a sub-flow (the trio of theming prefs).
+            combine(
+                store.getString(PreferenceKeys.LIGHT_THEME, DEFAULT_LIGHT_ID),
+                store.getString(PreferenceKeys.DARK_THEME, DEFAULT_DARK_ID),
+                store.getString(PreferenceKeys.FONT_POINT_SIZE, DEFAULT_FONT_POINT_SIZE.toString()),
+            ) { lightId, darkId, font -> Triple(lightId, darkId, font) },
+        ) { base, upstreamSuggestions, summary, updateAndSlopSort, theming ->
+            val (updateCheck, aiSlop, sortMode) = updateAndSlopSort
+            val (lightId, darkId, fontRaw) = theming
             base.copy(
                 upstreamSuggestionsEnabled = upstreamSuggestions,
                 summaryEnabled = summary,
                 sortMode = sortMode,
                 updateCheckEnabled = updateCheck,
                 aiSlopMode = aiSlop,
+                lightThemeId = lightId,
+                darkThemeId = darkId,
+                fontPointSize = clampFontPointSize(fontRaw.toIntOrNull() ?: DEFAULT_FONT_POINT_SIZE),
             )
         }
 
@@ -211,6 +225,16 @@ class PreferencesRepository(
     suspend fun setThemeMode(mode: ThemeMode) = store.setString(PreferenceKeys.THEME_MODE, mode.name)
 
     suspend fun setDynamicColor(enabled: Boolean) = store.setBoolean(PreferenceKeys.DYNAMIC_COLOR, enabled)
+
+    /** Set the named theme filling the light slot (the two-slot model). Persists immediately. */
+    suspend fun setLightTheme(themeId: String) = store.setString(PreferenceKeys.LIGHT_THEME, themeId)
+
+    /** Set the named theme filling the dark slot (the two-slot model). Persists immediately. */
+    suspend fun setDarkTheme(themeId: String) = store.setString(PreferenceKeys.DARK_THEME, themeId)
+
+    /** Set the base UI font size in points; the value is clamped to the supported 8..24 range. */
+    suspend fun setFontPointSize(pointSize: Int) =
+        store.setString(PreferenceKeys.FONT_POINT_SIZE, clampFontPointSize(pointSize).toString())
 
     suspend fun setHistoryEnabled(enabled: Boolean) = store.setBoolean(PreferenceKeys.HISTORY_ENABLED, enabled)
 

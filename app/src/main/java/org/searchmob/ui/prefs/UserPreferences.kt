@@ -1,5 +1,8 @@
 package org.searchmob.ui.prefs
 
+import org.searchmob.ui.theme.DEFAULT_DARK_ID
+import org.searchmob.ui.theme.DEFAULT_FONT_POINT_SIZE
+import org.searchmob.ui.theme.DEFAULT_LIGHT_ID
 import org.searchmob.ui.theme.ThemeMode
 
 /**
@@ -12,6 +15,12 @@ import org.searchmob.ui.theme.ThemeMode
 data class UserPreferences(
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val dynamicColor: Boolean = true,
+    // The named theme filling each slot of the two-slot model (see `ui/theme/Themes.kt`). The quick
+    // light/dark/system control swaps between these. Defaults keep the original SearchMob look.
+    val lightThemeId: String = DEFAULT_LIGHT_ID,
+    val darkThemeId: String = DEFAULT_DARK_ID,
+    // Base UI font size in points (8..24, default 12). Scales the whole type scale; a local UI pref.
+    val fontPointSize: Int = DEFAULT_FONT_POINT_SIZE,
     val engineEnabled: Map<String, Boolean> = emptyMap(),
     val historyEnabled: Boolean = false,
     val networkAccessEnabled: Boolean = false,
@@ -30,6 +39,11 @@ data class UserPreferences(
 object PreferenceKeys {
     const val THEME_MODE = "theme_mode"
     const val DYNAMIC_COLOR = "dynamic_color"
+    const val LIGHT_THEME = "light_theme"
+    const val DARK_THEME = "dark_theme"
+
+    // Stored as a string because the store has no Int type; parsed back to a clamped point size.
+    const val FONT_POINT_SIZE = "font_point_size"
     const val ENGINE_ENABLED = "engine_enabled"
     const val HISTORY_ENABLED = "history_enabled"
     const val PERSONALIZATION_ENABLED = "personalization_enabled"

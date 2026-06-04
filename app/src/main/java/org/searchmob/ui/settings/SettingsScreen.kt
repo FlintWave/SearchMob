@@ -4,6 +4,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -15,9 +16,12 @@ import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
@@ -46,6 +50,8 @@ import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
@@ -59,6 +65,12 @@ import org.searchmob.server.networkReachableUrl
 import org.searchmob.service.BatteryOptimization
 import org.searchmob.service.OemGuidance
 import org.searchmob.ui.ApiKeyEngines
+import org.searchmob.ui.theme.APP_THEMES_BY_ID
+import org.searchmob.ui.theme.DARK_THEME_IDS
+import org.searchmob.ui.theme.FONT_POINT_STEP
+import org.searchmob.ui.theme.LIGHT_THEME_IDS
+import org.searchmob.ui.theme.MAX_FONT_POINT_SIZE
+import org.searchmob.ui.theme.MIN_FONT_POINT_SIZE
 import org.searchmob.ui.theme.ThemeMode
 
 object SettingsTestTags {
@@ -66,6 +78,11 @@ object SettingsTestTags {
     const val THEME_DARK = "settings_theme_dark"
     const val THEME_SYSTEM = "settings_theme_system"
     const val DYNAMIC_COLOR = "settings_dynamic_color"
+    const val LIGHT_THEME_SELECT = "settings_light_theme_select"
+    const val DARK_THEME_SELECT = "settings_dark_theme_select"
+    const val FONT_DECREASE = "settings_font_decrease"
+    const val FONT_INCREASE = "settings_font_increase"
+    const val FONT_SIZE_VALUE = "settings_font_size_value"
     const val HISTORY_SWITCH = "settings_history_switch"
     const val SUGGESTIONS_UPSTREAM_SWITCH = "settings_suggestions_upstream_switch"
     const val SUMMARY_SWITCH = "settings_summary_switch"
@@ -150,6 +167,38 @@ fun SettingsScreen(
                 checked = prefs.dynamicColor,
                 tag = SettingsTestTags.DYNAMIC_COLOR,
                 onCheckedChange = viewModel::setDynamicColor,
+            )
+
+            // Named-theme slots (the two-slot model): which theme fills the light slot and which fills
+            // the dark slot. The Light/Dark/Follow-system control above swaps between them. When
+            // Material You is on it overrides these, so a hint explains that rather than disabling them.
+            val dynamicOverrides =
+                prefs.dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+            ThemeSlotSelector(
+                label = str(R.string.settings_theme_light_slot),
+                selectedId = prefs.lightThemeId,
+                options = LIGHT_THEME_IDS,
+                tag = SettingsTestTags.LIGHT_THEME_SELECT,
+                onSelect = viewModel::setLightTheme,
+            )
+            ThemeSlotSelector(
+                label = str(R.string.settings_theme_dark_slot),
+                selectedId = prefs.darkThemeId,
+                options = DARK_THEME_IDS,
+                tag = SettingsTestTags.DARK_THEME_SELECT,
+                onSelect = viewModel::setDarkTheme,
+            )
+            if (dynamicOverrides) {
+                Text(
+                    str(R.string.settings_theme_dynamic_overrides),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
+            FontSizeStepper(
+                pointSize = prefs.fontPointSize,
+                onChange = viewModel::setFontPointSize,
             )
 
             HorizontalDivider()
@@ -346,6 +395,93 @@ private fun ThemeOption(
     ) {
         RadioButton(selected = selected, onClick = onSelect)
         Text(label, style = MaterialTheme.typography.bodyLarge)
+    }
+}
+
+/**
+ * A theme-slot picker rendered as a dropdown: the label, the current theme's display name, and a
+ * menu of the themes valid for this slot (light-mode themes for the light slot, dark for the dark
+ * slot). Choosing one persists the slot id; the active appearance updates immediately.
+ */
+@Composable
+private fun ThemeSlotSelector(
+    label: String,
+    selectedId: String,
+    options: List<String>,
+    tag: String,
+    onSelect: (String) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val selectedName = APP_THEMES_BY_ID[selectedId]?.displayName ?: selectedId
+    Column(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+        Text(label, style = MaterialTheme.typography.labelLarge)
+        Box {
+            OutlinedButton(
+                onClick = { expanded = true },
+                modifier = Modifier.fillMaxWidth().testTag(tag),
+            ) {
+                Text(selectedName, modifier = Modifier.weight(1f))
+                Icon(Icons.Filled.ArrowDropDown, contentDescription = null)
+            }
+            DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                options.forEach { id ->
+                    DropdownMenuItem(
+                        text = { Text(APP_THEMES_BY_ID[id]?.displayName ?: id) },
+                        onClick = {
+                            onSelect(id)
+                            expanded = false
+                        },
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * The A-/A+ text-size stepper: two square buttons flanking the current point size. Each tap steps by
+ * [FONT_POINT_STEP] within the supported bounds; the value is shown in points between the buttons.
+ */
+@Composable
+private fun FontSizeStepper(
+    pointSize: Int,
+    onChange: (Int) -> Unit,
+) {
+    Column(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+        Text(str(R.string.settings_font_size), style = MaterialTheme.typography.labelLarge)
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            val smaller = str(R.string.settings_font_smaller)
+            val larger = str(R.string.settings_font_larger)
+            OutlinedButton(
+                onClick = { onChange(pointSize - FONT_POINT_STEP) },
+                enabled = pointSize > MIN_FONT_POINT_SIZE,
+                modifier =
+                    Modifier
+                        .testTag(SettingsTestTags.FONT_DECREASE)
+                        .semantics { contentDescription = smaller },
+            ) {
+                Text("A-")
+            }
+            Text(
+                str(R.string.settings_font_size_value, pointSize),
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.testTag(SettingsTestTags.FONT_SIZE_VALUE),
+            )
+            OutlinedButton(
+                onClick = { onChange(pointSize + FONT_POINT_STEP) },
+                enabled = pointSize < MAX_FONT_POINT_SIZE,
+                modifier =
+                    Modifier
+                        .testTag(SettingsTestTags.FONT_INCREASE)
+                        .semantics { contentDescription = larger },
+            ) {
+                Text("A+")
+            }
+        }
     }
 }
 
@@ -757,3 +893,9 @@ private fun PasteTextDialog(
 
 @Composable
 private fun str(id: Int): String = LocalContext.current.getString(id)
+
+@Composable
+private fun str(
+    id: Int,
+    vararg formatArgs: Any,
+): String = LocalContext.current.getString(id, *formatArgs)
