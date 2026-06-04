@@ -13,6 +13,11 @@ versioning (`YY.MM.VV`).
   between your two chosen themes, and Material You dynamic color stays an independent option. It all
   applies in the app and on the search pages you open in a browser, and your choices stay on this
   device. Mirrors the desktop app.
+- **Inline scope tokens on the search pages.** On a SearchMob search page in your browser, add a
+  `+name` word to a query to run that one search through a saved scope, for example
+  `mechanical keyboards +research`. The token is matched by the scope name's first word
+  (case-insensitive), applied to that search only, and stripped from the query; an unmatched `+word`
+  stays an ordinary term, and your saved scope selection is left unchanged. Mirrors the desktop app.
 
 ### Changed
 - **More results, loaded as you scroll.** The results list no longer stops at the first screenful.

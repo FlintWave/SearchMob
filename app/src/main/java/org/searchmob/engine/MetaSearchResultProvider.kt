@@ -78,13 +78,17 @@ class MetaSearchResultProvider(
         sortMode: SortMode,
         vertical: Vertical,
         personalize: Boolean,
+        activeLensOverride: String?,
     ): SearchOutcome =
         coroutineScope {
             if (query.isBlank()) return@coroutineScope SearchOutcome(emptyList())
 
             // Fetch the contextual summary concurrently with the metasearch so it adds no latency.
             val summaryDeferred = async { runCatching { summaryFetcher(query) }.getOrNull() }
-            val rules = rankingRules()
+            // An inline `+name` scope token (parsed by the route) overrides the saved active scope
+            // for this one search only; the persisted selection is never written.
+            val rules =
+                rankingRules().let { if (activeLensOverride != null) it.copy(activeLens = activeLensOverride) else it }
             val slopMode = aiSlopMode()
             val slop = if (slopMode == "off") emptySet() else slopDomains()
             // The learned model is applied only when the caller allows it (in-app always; the server
