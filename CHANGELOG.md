@@ -6,7 +6,27 @@ versioning (`YY.MM.VV`).
 
 ## [Unreleased]
 
+## 26.06.03 — 2026-06-05
+
 ### Added
+- **SearchMob now speaks ten languages.** The whole interface translates into English, Chinese,
+  Hindi, Spanish, Arabic, French, Bengali, Portuguese, Indonesian, and Urdu, in both the app and the
+  served page. Pick your language in Settings; the app remembers it and follows your device language
+  on first launch, switching live with no restart. Arabic and Urdu lay out right-to-left. Choosing a
+  language also tailors results to it for the engines that support it. Translating result pages
+  themselves is not part of this; SearchMob translates its own interface and asks the engines for
+  language-appropriate results.
+- **See which search engines responded.** Each search shows an unobtrusive "N of M engines
+  responded" line, tap to expand the per-engine detail, so when results look thin you can tell
+  whether an engine was simply quiet or actually failed (timed out or was blocked for your network).
+  It is computed entirely on your device, never stored or sent anywhere, and shown only to you, never
+  to other people on your network.
+- **Quick links for films, music, books, and games.** When a search is about a film, musician,
+  album, song, book, or video game, SearchMob shows a row of canonical places to watch, listen, read,
+  or play it, leading with free and open options (Bandcamp, Open Library, GOG, and the like) and the
+  entity's Wikipedia article, and nudges those platforms up in the results. It only recognizes media
+  from the Wikipedia lookup the summary card already makes, so it adds no new requests; every link is
+  built on your device. Turn it off in Settings.
 - **Themes, text size, and a high-contrast option.** Pick from a library of named themes (a curated
   slate plus two accessibility themes), choose which one fills the light slot and which fills the
   dark slot, and step the text size up or down. The quick light/dark/follow-system control now swaps
