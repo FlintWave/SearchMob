@@ -35,6 +35,7 @@ import kotlinx.html.a
 import kotlinx.html.body
 import kotlinx.html.button
 import kotlinx.html.checkBoxInput
+import kotlinx.html.details
 import kotlinx.html.div
 import kotlinx.html.fileInput
 import kotlinx.html.form
@@ -57,6 +58,7 @@ import kotlinx.html.select
 import kotlinx.html.span
 import kotlinx.html.style
 import kotlinx.html.submitInput
+import kotlinx.html.summary
 import kotlinx.html.textArea
 import kotlinx.html.textInput
 import kotlinx.html.title
@@ -70,6 +72,8 @@ import org.searchmob.data.history.HistoryEntry
 import org.searchmob.data.history.HistoryStore
 import org.searchmob.data.prefs.PersonalizationPreferences
 import org.searchmob.data.prefs.RankingPreferences
+import org.searchmob.engine.aggregate.EngineOutcome
+import org.searchmob.engine.aggregate.EngineStatus
 import org.searchmob.engine.rank.DomainRanker
 import org.searchmob.engine.rank.Goggles
 import org.searchmob.engine.rank.Lens
@@ -672,6 +676,16 @@ private class ServedText(
                 "date" to s(R.string.sort_date, "Date"),
                 "relevance" to s(R.string.sort_relevance, "Relevance"),
             )
+
+    val engineNoResults get() = s(R.string.engine_status_no_results, "no results")
+    val engineFailed get() = s(R.string.engine_status_failed, "failed")
+
+    fun enginesResponded(
+        responded: Int,
+        total: Int,
+    ) = s(R.string.search_engines_responded, "%1\$d of %2\$d engines responded", responded, total)
+
+    fun engineResultCount(count: Int) = s(R.string.search_engine_result_count, "%1\$d results", count)
 }
 
 private fun HTML.renderResultsPage(
@@ -729,6 +743,9 @@ private fun HTML.renderResultsPage(
                         p("meta") { +text.resultsFor(query) }
                     }
                     outcome.didYouMean?.let { didYouMeanLine(text, it) }
+                    // Per-engine status is diagnostic and owner-only (`editable` is the loopback-owner
+                    // gate the editing controls use); never shown to a LAN visitor.
+                    if (editable) engineStatusLine(text, outcome.engineStatus)
                     sortBar(text, query, sortMode)
                     if (editable) scopeBar(rules)
                     results.forEachIndexed { index, result ->
@@ -775,6 +792,33 @@ private fun HTML.renderResultsPage(
         // batch as the sentinel scrolls into view. No new request, nothing stored, JS-off shows all.
         if (results.size > REVEAL_SIZE) script { unsafe { +REVEAL_JS } }
         script { unsafe { +THEME_TOGGLE_JS } }
+    }
+}
+
+/**
+ * Owner-only "N of M engines responded" disclosure with per-engine detail. A native `<details>`
+ * element so it is keyboard-accessible with no JavaScript and not color-only. Renders nothing when
+ * no status is supplied. The route gates this on the loopback owner; never shown to a LAN visitor.
+ */
+private fun FlowContent.engineStatusLine(
+    text: ServedText,
+    engineStatus: List<EngineOutcome>,
+) {
+    if (engineStatus.isEmpty()) return
+    val responded = engineStatus.count { it.status != EngineStatus.FAILED }
+    details(classes = "engine-status meta") {
+        summary { +text.enginesResponded(responded, engineStatus.size) }
+        ul {
+            engineStatus.forEach { outcome ->
+                val detail =
+                    when (outcome.status) {
+                        EngineStatus.CONTRIBUTED -> text.engineResultCount(outcome.count)
+                        EngineStatus.EMPTY -> text.engineNoResults
+                        EngineStatus.FAILED -> text.engineFailed
+                    }
+                li("engine engine-${outcome.status.name.lowercase()}") { +"${outcome.name} — $detail" }
+            }
+        }
     }
 }
 
@@ -1586,6 +1630,10 @@ private val PAGE_CSS =
     .topbar .searchbox input[type=submit]{padding:0 16px}
     .results{max-width:660px;margin:0 auto;padding:18px 20px 64px}
     .results .meta{color:var(--muted);font-size:.8125rem;margin:2px 0 20px}
+    .engine-status{margin:-12px 0 16px}
+    .engine-status summary{cursor:pointer;color:var(--muted)}
+    .engine-status ul{list-style:none;margin:6px 0 0;padding:0;color:var(--muted)}
+    .engine-status .engine-failed{font-weight:600}
     .result{margin:0 0 26px}
     .result.is-collapsed{display:none}
     .reveal-sentinel{height:1px}

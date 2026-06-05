@@ -7,6 +7,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.searchmob.engine.aggregate.Aggregator
+import org.searchmob.engine.aggregate.EngineStatus
 import java.util.concurrent.atomic.AtomicInteger
 
 class AggregatorTest {
@@ -134,5 +135,36 @@ class AggregatorTest {
                 }
             Aggregator(maxConcurrent = 3).aggregate(SearchQuery("q"), engines)
             assertTrue("max in-flight was ${maxSeen.get()}", maxSeen.get() <= 3)
+        }
+
+    @Test
+    fun engineStatusDistinguishesContributedEmptyAndFailed() =
+        runTest {
+            val alpha =
+                FakeEngine("alpha", listOf(item("alpha", "https://a.com/1", 0), item("alpha", "https://a.com/2", 1)))
+            val beta = FakeEngine("beta", emptyList()) // responded, but found nothing
+            val gamma = FakeEngine("gamma", emptyList(), throwError = true) // failed: must differ from empty
+
+            val out =
+                Aggregator().aggregate(
+                    SearchQuery("q"),
+                    listOf(alpha to ctx(), beta to ctx(), gamma to ctx()),
+                )
+
+            val byName = out.engineStatus.associateBy { it.name }
+            assertEquals(EngineStatus.CONTRIBUTED, byName.getValue("alpha").status)
+            assertEquals(2, byName.getValue("alpha").count)
+            assertEquals(EngineStatus.EMPTY, byName.getValue("beta").status)
+            assertEquals(EngineStatus.FAILED, byName.getValue("gamma").status)
+            // The search still succeeds on the working engine despite the failure.
+            assertEquals(2, out.results.size)
+        }
+
+    @Test
+    fun engineStatusMarksATimeoutAsFailed() =
+        runTest {
+            val slow = FakeEngine("slow", listOf(item("slow", "https://s.com/1", 0)), delayMs = 1_000)
+            val out = Aggregator().aggregate(SearchQuery("q"), listOf(slow to ctx(timeoutMs = 10)))
+            assertEquals(EngineStatus.FAILED, out.engineStatus.single().status)
         }
 }

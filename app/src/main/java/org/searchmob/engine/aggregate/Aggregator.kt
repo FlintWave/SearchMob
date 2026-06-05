@@ -24,10 +24,27 @@ data class AggregatedResult(
     val publishedMillis: Long? = null,
 )
 
-/** Ranked results plus the consensus upstream spelling correction, if any engine offered one. */
+/** One engine's outcome for a single search. */
+enum class EngineStatus { CONTRIBUTED, EMPTY, FAILED }
+
+/**
+ * Per-engine outcome for one search: it returned results, returned nothing, or failed (raised or
+ * timed out). Computed locally for owner-facing diagnostics, never persisted or transmitted.
+ */
+data class EngineOutcome(
+    val name: String,
+    val status: EngineStatus,
+    val count: Int = 0,
+)
+
+/**
+ * Ranked results, the consensus upstream spelling correction (if any engine offered one), and the
+ * per-engine outcome that produced them. [engineStatus] is for owner-facing diagnostics only.
+ */
 data class AggregationResult(
     val results: List<AggregatedResult>,
     val correction: String? = null,
+    val engineStatus: List<EngineOutcome> = emptyList(),
 )
 
 /**
@@ -44,7 +61,10 @@ class Aggregator(
         engines: List<Pair<EngineAdapter, EngineContext>>,
     ): AggregationResult {
         val semaphore = Semaphore(maxConcurrent)
-        val successes: List<EngineResult.Success> =
+        // Each engine's adapter paired with its result (or null when it timed out / threw), so we can
+        // report the per-engine outcome — distinguishing a failure from a genuine empty — alongside
+        // the merged results, without changing the fail-soft behaviour.
+        val perEngine: List<Pair<EngineAdapter, EngineResult?>> =
             supervisorScope {
                 engines
                     .map { (adapter, ctx) ->
@@ -57,12 +77,22 @@ class Aggregator(
                                 } catch (_: Exception) {
                                     null
                                 }
-                            result as? EngineResult.Success
+                            adapter to result
                         }
                     }.awaitAll()
-            }.filterNotNull()
+            }
+        val successes = perEngine.mapNotNull { it.second as? EngineResult.Success }
+        val engineStatus =
+            perEngine.map { (adapter, result) ->
+                when {
+                    result is EngineResult.Success && result.items.isNotEmpty() ->
+                        EngineOutcome(adapter.id, EngineStatus.CONTRIBUTED, result.items.size)
+                    result is EngineResult.Success -> EngineOutcome(adapter.id, EngineStatus.EMPTY)
+                    else -> EngineOutcome(adapter.id, EngineStatus.FAILED)
+                }
+            }
         val results = rank(successes.flatMap { it.items }, query.terms)
-        return AggregationResult(results, consensusCorrection(query.terms, successes))
+        return AggregationResult(results, consensusCorrection(query.terms, successes), engineStatus)
     }
 
     /**

@@ -43,6 +43,10 @@
     <string name="search_results_for">Resultados para %1$s</string>
     <string name="search_sort_label">Ordenar por:</string>
     <string name="search_apply">Aplicar</string>
+    <string name="search_engines_responded">De los %2$d motores, respondieron %1$d</string>
+    <string name="search_engine_result_count">%1$d resultados</string>
+    <string name="engine_status_no_results">no se encontraron resultados</string>
+    <string name="engine_status_failed">fallido</string>
     <string name="rank_menu">Clasificación para este sitio</string>
     <string name="rank_block">Bloquear</string>
     <string name="rank_lower">Inferior</string>

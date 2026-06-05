@@ -64,6 +64,11 @@
     <string name="search_results_for">Results for %1$s</string>
     <string name="search_sort_label">Sort:</string>
     <string name="search_apply">Apply</string>
+    <!-- Owner-only per-engine status ("N of M engines responded" + per-engine detail). -->
+    <string name="search_engines_responded">%1$d of %2$d engines responded</string>
+    <string name="search_engine_result_count">%1$d results</string>
+    <string name="engine_status_no_results">no results</string>
+    <string name="engine_status_failed">failed</string>
     <string name="rank_menu">Ranking for this site</string>
     <string name="rank_block">Block</string>
     <string name="rank_lower">Lower</string>

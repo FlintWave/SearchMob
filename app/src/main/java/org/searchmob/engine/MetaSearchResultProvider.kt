@@ -5,6 +5,7 @@ import kotlinx.coroutines.coroutineScope
 import okhttp3.OkHttpClient
 import org.searchmob.engine.aggregate.AggregatedResult
 import org.searchmob.engine.aggregate.Aggregator
+import org.searchmob.engine.aggregate.EngineOutcome
 import org.searchmob.engine.correct.NoopSpellCorrector
 import org.searchmob.engine.correct.SpellCorrector
 import org.searchmob.engine.http.HttpClientFactory
@@ -99,7 +100,8 @@ class MetaSearchResultProvider(
             // The learned model is applied only when the caller allows it (in-app always; the server
             // only for the loopback owner) and only when personalization is enabled.
             val model = if (personalize) runCatching { personalization() }.getOrNull() else null
-            val (results, upstreamRaw) = aggregateRanked(query, vertical, rules, sortMode, slop, slopMode, model)
+            val (results, upstreamRaw, engineStatus) =
+                aggregateRanked(query, vertical, rules, sortMode, slop, slopMode, model)
 
             val upstreamCorrection = upstreamRaw?.takeIf { !it.equals(query, ignoreCase = true) }
             val onDevice = corrector.suggest(query)
@@ -108,7 +110,12 @@ class MetaSearchResultProvider(
             val summary = summaryDeferred.await()
 
             if (results.isNotEmpty()) {
-                return@coroutineScope SearchOutcome(results, didYouMean = suggestion, summary = summary)
+                return@coroutineScope SearchOutcome(
+                    results,
+                    didYouMean = suggestion,
+                    summary = summary,
+                    engineStatus = engineStatus,
+                )
             }
 
             // The original query found nothing: auto-search a confident correction (an upstream
@@ -116,18 +123,28 @@ class MetaSearchResultProvider(
             val autoCorrection =
                 upstreamCorrection ?: onDevice?.takeIf { it.confidence >= AUTO_SEARCH_CONFIDENCE }?.corrected
             if (autoCorrection == null || autoCorrection.equals(query, ignoreCase = true)) {
-                return@coroutineScope SearchOutcome(results, didYouMean = suggestion, summary = summary)
+                return@coroutineScope SearchOutcome(
+                    results,
+                    didYouMean = suggestion,
+                    summary = summary,
+                    engineStatus = engineStatus,
+                )
             }
-            val (retryResults, _) =
+            val (retryResults, _, _) =
                 aggregateRanked(autoCorrection, vertical, rules, sortMode, slop, slopMode, model)
             if (retryResults.isEmpty()) {
-                SearchOutcome(results, didYouMean = suggestion, summary = summary)
+                SearchOutcome(results, didYouMean = suggestion, summary = summary, engineStatus = engineStatus)
             } else {
-                SearchOutcome(retryResults, showingResultsFor = autoCorrection, summary = summary)
+                SearchOutcome(
+                    retryResults,
+                    showingResultsFor = autoCorrection,
+                    summary = summary,
+                    engineStatus = engineStatus,
+                )
             }
         }
 
-    /** Aggregate [query], sort, apply the personalization [rules] locally; return (results, correction). */
+    /** Aggregate [query], sort, apply [rules] locally; return (results, correction, per-engine status). */
     private suspend fun aggregateRanked(
         query: String,
         vertical: Vertical,
@@ -136,7 +153,7 @@ class MetaSearchResultProvider(
         slopDomains: Set<String>,
         slopMode: String,
         personalization: PersonalizationModel?,
-    ): Pair<List<SearchResult>, String?> {
+    ): Triple<List<SearchResult>, String?, List<EngineOutcome>> {
         // Scope the query for the chosen vertical (a `site:` OR group the engines understand). The
         // original query still drives sort/summary/correction so freshness keywords are detected.
         val scoped = Verticals.transformQuery(query, vertical)
@@ -175,7 +192,7 @@ class MetaSearchResultProvider(
                 slopDomains = slopDomains,
                 slopMode = slopMode,
             )
-        return ranked.map(::toSearchResult) to aggregated.correction
+        return Triple(ranked.map(::toSearchResult), aggregated.correction, aggregated.engineStatus)
     }
 
     private fun toSearchResult(result: AggregatedResult): SearchResult =

@@ -44,6 +44,10 @@
     <string name="search_results_for">نتائج البحث عن %1$s</string>
     <string name="search_sort_label">فرز:</string>
     <string name="search_apply">تطبيق</string>
+    <string name="search_engines_responded">استجاب %1$d من أصل %2$d محركات</string>
+    <string name="search_engine_result_count">%1$d نتيجة/نتائج</string>
+    <string name="engine_status_no_results">لا توجد نتائج</string>
+    <string name="engine_status_failed">فشل</string>
     <string name="rank_menu">تصنيف هذا الموقع</string>
     <string name="rank_block">حظر</string>
     <string name="rank_lower">أقل</string>
