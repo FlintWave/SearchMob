@@ -1,5 +1,6 @@
 package org.searchmob.ui.search
 
+import org.searchmob.engine.ActionsRow
 import org.searchmob.engine.aggregate.EngineOutcome
 import org.searchmob.engine.summary.WikiSummary
 import org.searchmob.server.SearchResult
@@ -34,5 +35,7 @@ sealed interface SearchUiState {
         // Per-engine outcome for this search (contributed / empty / failed). In-app results are always
         // the owner's, so this is shown; computed on-device and never persisted or transmitted.
         val engineStatus: List<EngineOutcome> = emptyList(),
+        // The "Listen/Watch/Read/Play on" actions row for a resolved media entity, or null.
+        val actionsRow: ActionsRow? = null,
     ) : SearchUiState
 }

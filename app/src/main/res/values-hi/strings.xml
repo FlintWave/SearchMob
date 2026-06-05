@@ -39,7 +39,12 @@
     <string name="vertical_news">समाचार</string>
     <string name="vertical_forums">मंच</string>
     <string name="vertical_academic">शैक्षणिक</string>
+    <string name="media_listen_on">इस पर सुनें</string>
+    <string name="media_watch_on">देखें</string>
+    <string name="media_read_on">आगे पढ़ें</string>
+    <string name="media_play_on">चलाएं</string>
     <string name="search_did_you_mean">क्या आपका मतलब यह था:</string>
+    <string name="search_showing_results_for">परिणाम प्रदर्शित किए जा रहे हैं</string>
     <string name="search_results_for">%1$s के लिए परिणाम</string>
     <string name="search_sort_label">क्रमबद्ध करें:</string>
     <string name="search_apply">लागू करें</string>
@@ -132,6 +137,8 @@
     <string name="settings_section_suggestions">सुझाव</string>
     <string name="settings_suggestions_upstream">वेब से प्राप्त लाइव सुझाव</string>
     <string name="settings_suggestions_upstream_supporting">डिफ़ॉल्ट रूप से बंद। जब यह चालू होता है, तो आप जो टाइप करते हैं वह आपकी टाइपिंग के दौरान गोपनीयता प्रॉक्सी के माध्यम से DuckDuckGo की सुझाव सेवा को भेजा जाता है, ताकि लाइव ऑटो-कंप्लीट सुविधा दी जा सके। इसे बंद करने पर सुझाव केवल आपके स्थानीय इतिहास तक ही सीमित रहेंगे।</string>
+    <string name="settings_media_actions">फ़िल्मों, संगीत, पुस्तकों और खेलों के लिए मीडिया लिंक।</string>
+    <string name="settings_media_actions_supporting">डिफ़ॉल्ट रूप से चालू। जब कोई खोज किसी फ़िल्म, संगीतकार, एल्बम, पुस्तक या गेम के बारे में होती है, तो यह देखने, सुनने, पढ़ने या खेलने के लिए उपयुक्त स्थानों की एक पंक्ति दिखाता है (पहले निःशुल्क और खुले विकल्पों को प्रदर्शित करता है) और परिणामों में उन्हें ऊपर रखता है। यह केवल विकिपीडिया से प्राप्त सारांश का उपयोग करता है; लिंक आपके डिवाइस पर बनाए जाते हैं।</string>
     <string name="settings_summary">कुछ खोज परिणामों के लिए विकिपीडिया सारांश</string>
     <string name="settings_summary_supporting">डिफ़ॉल्ट रूप से चालू। इकाई-जैसी खोजों के लिए, संबंधित विकिपीडिया लेख से प्राप्त परिणामों के ऊपर एक संक्षिप्त सारांश कार्ड दिखाता है। गोपनीयता प्रॉक्सी के माध्यम से विकिपीडिया (जो पहले से ही यहां एक सर्च इंजन है) पर अधिकतम एक अतिरिक्त अनुरोध जोड़ता है।</string>
     <string name="settings_section_updates">अद्यतन</string>

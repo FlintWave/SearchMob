@@ -38,6 +38,10 @@
     <string name="vertical_news">Berita</string>
     <string name="vertical_forums">Forum</string>
     <string name="vertical_academic">Akademik</string>
+    <string name="media_listen_on">Dengarkan di</string>
+    <string name="media_watch_on">Tonton di sini</string>
+    <string name="media_read_on">Baca selengkapnya</string>
+    <string name="media_play_on">Mainkan lagi</string>
     <string name="search_did_you_mean">Apakah maksud Anda:</string>
     <string name="search_showing_results_for">Menampilkan hasil untuk</string>
     <string name="search_results_for">Hasil untuk %1$s</string>
@@ -132,6 +136,8 @@
     <string name="settings_section_suggestions">Saran</string>
     <string name="settings_suggestions_upstream">Saran langsung dari internet</string>
     <string name="settings_suggestions_upstream_supporting">Dinonaktifkan secara bawaan. Saat diaktifkan, teks yang Anda ketik akan dikirim ke layanan saran DuckDuckGo melalui proksi privasi saat Anda mengetik, untuk memberikan fitur pelengkapan otomatis langsung. Menonaktifkannya membatasi saran hanya pada riwayat lokal Anda.</string>
+    <string name="settings_media_actions">Tautan media untuk film, musik, buku, dan permainan</string>
+    <string name="settings_media_actions_supporting">Diaktifkan secara bawaan. Saat pencarian berkaitan dengan film, musisi, album, buku, atau permainan, akan menampilkan baris tempat resmi untuk menonton, mendengarkan, membaca, atau memainkannya (opsi gratis dan terbuka ditampilkan lebih dulu) dan menempatkannya di urutan teratas hasil pencarian. Hanya menggunakan data Wikipedia yang sudah ada dalam ringkasan; tautan dibuat di perangkat Anda.</string>
     <string name="settings_summary">Ringkasan Wikipedia untuk beberapa hasil pencarian</string>
     <string name="settings_summary_supporting">Diaktifkan secara bawaan. Untuk kueri yang mirip entitas, menampilkan kartu ringkasan singkat di atas hasil dari artikel Wikipedia terkait. Menambah paling banyak satu permintaan tambahan ke Wikipedia (yang sudah menjadi mesin pencari di sini) melalui proksi privasi.</string>
     <string name="settings_section_updates">Pembaruan</string>

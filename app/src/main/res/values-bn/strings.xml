@@ -39,7 +39,12 @@
     <string name="vertical_news">সংবাদ</string>
     <string name="vertical_forums">ফোরাম</string>
     <string name="vertical_academic">শিক্ষাগত</string>
+    <string name="media_listen_on">এটিতে শুনুন</string>
+    <string name="media_watch_on">দেখুন</string>
+    <string name="media_read_on">আরও পড়ুন</string>
+    <string name="media_play_on">চালিয়ে যান</string>
     <string name="search_did_you_mean">আপনি কি এটি বোঝাতে চেয়েছেন:</string>
+    <string name="search_showing_results_for">ফলাফল দেখানো হচ্ছে</string>
     <string name="search_results_for">%1$s-এর জন্য ফলাফল</string>
     <string name="search_sort_label">বিন্যাস করুন:</string>
     <string name="search_apply">প্রয়োগ করুন</string>
@@ -132,6 +137,8 @@
     <string name="settings_section_suggestions">পরামর্শ</string>
     <string name="settings_suggestions_upstream">ওয়েব থেকে সরাসরি প্রস্তাবনা</string>
     <string name="settings_suggestions_upstream_supporting">ডিফল্টভাবে বন্ধ থাকে। চালু থাকলে, আপনি যা টাইপ করবেন তা টাইপ করার সাথে সাথেই DuckDuckGo-এর সাজেশন সার্ভিসে গোপনীয়তা প্রক্সির মাধ্যমে পাঠানো হবে, যাতে রিয়েল-টাইম অটোকমপ্লিট সুবিধা দেওয়া যায়। বন্ধ রাখলে সাজেশনগুলো শুধুমাত্র আপনার স্থানীয় ইতিহাসে সীমাবদ্ধ থাকবে।</string>
+    <string name="settings_media_actions">চলচ্চিত্র, সঙ্গীত, বই এবং গেমের জন্য মিডিয়া লিঙ্ক।</string>
+    <string name="settings_media_actions_supporting">ডিফল্টভাবে চালু থাকে। যখন কোনো অনুসন্ধান একটি চলচ্চিত্র, সঙ্গীতশিল্পী, অ্যালবাম, বই বা গেম সম্পর্কিত হয়, তখন এটি দেখার, শোনার, পড়ার বা খেলার জন্য প্রাসঙ্গিক স্থানগুলির একটি সারি দেখায় (প্রথমে বিনামূল্যে এবং উন্মুক্ত বিকল্পগুলি) এবং অনুসন্ধানের ফলাফলে সেগুলোকে প্রথমে দেখায়। এটি শুধুমাত্র উইকিপিডিয়া থেকে সারসংক্ষেপ ব্যবহার করে; লিঙ্কগুলি আপনার ডিভাইসে তৈরি করা হয়।</string>
     <string name="settings_summary">কিছু অনুসন্ধানের জন্য উইকিপিডিয়া সারসংক্ষেপ।</string>
     <string name="settings_summary_supporting">ডিফল্টভাবে চালু করা আছে। সত্তা-সদৃশ অনুসন্ধানের জন্য, সংশ্লিষ্ট উইকিপিডিয়া নিবন্ধ থেকে প্রাপ্ত ফলাফলের উপরে একটি সংক্ষিপ্ত সারসংক্ষেপ কার্ড দেখায়। গোপনীয়তা প্রক্সি ব্যবহার করে উইকিপিডিয়ায় সর্বাধিক একটি অতিরিক্ত অনুরোধ পাঠানো হয় (যেখানে এটি ইতিমধ্যেই একটি অনুসন্ধান ইঞ্জিন হিসেবে কাজ করে)।</string>
     <string name="settings_section_updates">আপডেট</string>

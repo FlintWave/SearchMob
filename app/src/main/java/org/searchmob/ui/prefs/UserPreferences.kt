@@ -34,6 +34,9 @@ data class UserPreferences(
     // UI language as a shipped locale tag (e.g. "es", "ar"), or "" to follow the OS language. Drives
     // the in-app locale + layout direction and tailors results to that language.
     val language: String = "",
+    // For a resolved media entity, show the "Listen/Watch/Read/Play on" actions row and nudge those
+    // canonical platforms up in ranking. Default on; uses only the Wikipedia lookup the summary makes.
+    val mediaActionsEnabled: Boolean = true,
 ) {
     fun isEngineEnabled(engineId: String): Boolean = engineEnabled[engineId] ?: true
 }
@@ -64,6 +67,7 @@ object PreferenceKeys {
     const val UPDATE_CHECK_ENABLED = "update_check_enabled"
     const val AI_SLOP_MODE = "ai_slop_mode"
     const val LANGUAGE = "language"
+    const val MEDIA_ACTIONS_ENABLED = "media_actions_enabled"
 
     // Stored as a string because the store has no Long type; parsed back to a Long timestamp.
     const val LAST_UPDATE_CHECK_MS = "last_update_check_ms"

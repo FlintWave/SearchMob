@@ -142,6 +142,8 @@ class SearchMobService : Service() {
                     },
                     // Tailor results to the owner's chosen UI language (region-neutral when English/OS).
                     languageProvider = { SupportedLocales.effectiveTag(preferences.language()) },
+                    // Media actions row + canonical-platform promotion, gated by the owner's toggle.
+                    mediaActionsEnabled = { preferences.mediaActionsEnabled() },
                 ),
             guard = WakeLockRequestGuard(AndroidWorkLock(applicationContext)),
             suggestionsProvider = suggestionsProvider,

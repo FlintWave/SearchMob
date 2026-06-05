@@ -39,6 +39,10 @@
     <string name="vertical_news">新闻</string>
     <string name="vertical_forums">论坛</string>
     <string name="vertical_academic">学术</string>
+    <string name="media_listen_on">在{设备名称}上收听</string>
+    <string name="media_watch_on">观看</string>
+    <string name="media_read_on">继续阅读</string>
+    <string name="media_play_on">继续播放</string>
     <string name="search_did_you_mean">您是不是想说：</string>
     <string name="search_showing_results_for">正在显示以下搜索结果</string>
     <string name="search_results_for">%1$s 的搜索结果</string>
@@ -133,6 +137,8 @@
     <string name="settings_section_suggestions">建议</string>
     <string name="settings_suggestions_upstream">实时获取来自网络的建议</string>
     <string name="settings_suggestions_upstream_supporting">默认情况下已关闭。启用后，您输入的内容会通过隐私代理发送到 DuckDuckGo 的建议服务中，以便在您输入时提供实时自动补全功能。关闭后，建议仅限于您的本地历史记录。</string>
+    <string name="settings_media_actions">电影、音乐、书籍和游戏的媒体链接</string>
+    <string name="settings_media_actions_supporting">默认启用。当搜索内容与电影、音乐家、专辑、书籍或游戏相关时，会显示一排用于观看、收听、阅读或游玩这些内容的常用链接（首先显示免费和开放的选项），并在搜索结果中将这些链接置于更靠前的位置。它仅使用维基百科查找已有的摘要信息；链接是在您的设备上构建的。</string>
     <string name="settings_summary">针对部分搜索结果提供的维基百科摘要</string>
     <string name="settings_summary_supporting">默认启用。对于类似实体查询，会在相关维基百科文章的结果上方显示一个简短的摘要卡片。最多会通过隐私代理向维基百科发送一次额外的请求（这里维基百科本身就是一个搜索引擎）。</string>
     <string name="settings_section_updates">更新</string>

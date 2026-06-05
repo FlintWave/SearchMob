@@ -38,6 +38,10 @@
     <string name="vertical_news">Notícias</string>
     <string name="vertical_forums">Fóruns</string>
     <string name="vertical_academic">Acadêmico(a)</string>
+    <string name="media_listen_on">Ouvir em</string>
+    <string name="media_watch_on">Assistir agora</string>
+    <string name="media_read_on">Continue a ler</string>
+    <string name="media_play_on">Continuar a reproduzir</string>
     <string name="search_did_you_mean">Você quis dizer:</string>
     <string name="search_showing_results_for">Exibindo resultados para</string>
     <string name="search_results_for">Resultados para %1$s</string>
@@ -131,6 +135,8 @@
     <string name="settings_section_suggestions">Sugestões</string>
     <string name="settings_suggestions_upstream">Sugestões em tempo real da internet</string>
     <string name="settings_suggestions_upstream_supporting">Desativado por padrão. Quando ativado, o que você digita é enviado ao serviço de sugestões do DuckDuckGo por meio do proxy de privacidade enquanto você digita, para oferecer preenchimento automático em tempo real. Desativado limita as sugestões apenas ao seu histórico local.</string>
+    <string name="settings_media_actions">Links para conteúdo multimídia de filmes, músicas, livros e jogos</string>
+    <string name="settings_media_actions_supporting">Ativado por padrão. Quando uma pesquisa se refere a um filme, músico, álbum, livro ou jogo, exibe uma linha com os locais mais relevantes para assistir, ouvir, ler ou jogar (priorizando opções gratuitas e de acesso livre) e destaca esses resultados. Utiliza apenas a pesquisa no Wikipedia que já é feita ao exibir o resumo; os links são criados no seu dispositivo.</string>
     <string name="settings_summary">Resumo da Wikipédia para algumas pesquisas</string>
     <string name="settings_summary_supporting">Ativado por padrão. Para consultas semelhantes a entidades, exibe um breve resumo acima dos resultados do artigo correspondente da Wikipédia. Adiciona no máximo uma solicitação adicional à Wikipédia (que já funciona como um mecanismo de pesquisa aqui) através do proxy de privacidade.</string>
     <string name="settings_section_updates">Atualizações</string>

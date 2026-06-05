@@ -213,6 +213,7 @@ class SearchViewModel(
                                     showingResultsFor = result.showingResultsFor,
                                     summary = result.summary,
                                     engineStatus = result.engineStatus,
+                                    actionsRow = result.actionsRow,
                                 )
                             } else {
                                 // Record the query actually answered (the correction when we auto-searched
@@ -225,6 +226,7 @@ class SearchViewModel(
                                     showingResultsFor = result.showingResultsFor,
                                     summary = result.summary,
                                     engineStatus = result.engineStatus,
+                                    actionsRow = result.actionsRow,
                                 )
                             }
                         },

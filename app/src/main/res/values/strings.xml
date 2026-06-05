@@ -58,6 +58,11 @@
     <string name="vertical_news">News</string>
     <string name="vertical_forums">Forums</string>
     <string name="vertical_academic">Academic</string>
+    <!-- Media actions row (verb heading per category; brand names are not translated). -->
+    <string name="media_listen_on">Listen on</string>
+    <string name="media_watch_on">Watch on</string>
+    <string name="media_read_on">Read on</string>
+    <string name="media_play_on">Play on</string>
     <string name="search_did_you_mean">Did you mean:</string>
     <string name="search_showing_results_for">Showing results for</string>
     <!-- Served-page result header + sort label (the in-app UI lays these out differently). -->
@@ -161,6 +166,8 @@
     <string name="settings_section_suggestions">Suggestions</string>
     <string name="settings_suggestions_upstream">Live suggestions from the web</string>
     <string name="settings_suggestions_upstream_supporting">Off by default. When on, what you type is sent to DuckDuckGo\'s suggestion service through the privacy proxy as you type, to offer live autocomplete. Off keeps suggestions to your local history only.</string>
+    <string name="settings_media_actions">Media links for films, music, books, and games</string>
+    <string name="settings_media_actions_supporting">On by default. When a search is about a film, musician, album, book, or game, shows a row of canonical places to watch, listen, read, or play it (free and open options first) and nudges those up in results. Uses only the Wikipedia lookup the summary already makes; the links are built on your device.</string>
     <string name="settings_summary">Wikipedia summary for some searches</string>
     <string name="settings_summary_supporting">On by default. For entity-like queries, shows a short summary card above results from the related Wikipedia article. Adds at most one extra request to Wikipedia (already a search engine here) through the privacy proxy.</string>
 
