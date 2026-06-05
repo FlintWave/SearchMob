@@ -1,6 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <string name="app_name">SearchMob</string>
+<!--
+  English is the source of truth. The per-locale values-<q>/strings.xml are machine-authored
+  (tools/i18n_author.py) and incremental: a key absent from a locale falls back to English by design,
+  so MissingTranslation is suppressed here. The brand name is never translated.
+-->
+<resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
+    <string name="app_name" translatable="false">SearchMob</string>
     <string name="home_tagline">Private, battery-friendly, on-device search.</string>
 
     <!-- Foreground service -->
@@ -55,6 +60,10 @@
     <string name="vertical_academic">Academic</string>
     <string name="search_did_you_mean">Did you mean:</string>
     <string name="search_showing_results_for">Showing results for</string>
+    <!-- Served-page result header + sort label (the in-app UI lays these out differently). -->
+    <string name="search_results_for">Results for %1$s</string>
+    <string name="search_sort_label">Sort:</string>
+    <string name="search_apply">Apply</string>
     <string name="rank_menu">Ranking for this site</string>
     <string name="rank_block">Block</string>
     <string name="rank_lower">Lower</string>
@@ -65,6 +74,8 @@
     <!-- Settings -->
     <string name="settings_title">Settings</string>
     <string name="settings_section_theme">Appearance</string>
+    <string name="settings_language">Language</string>
+    <string name="settings_language_system">Follow system</string>
     <string name="theme_light">Light</string>
     <string name="theme_dark">Dark</string>
     <string name="theme_system">Follow system</string>

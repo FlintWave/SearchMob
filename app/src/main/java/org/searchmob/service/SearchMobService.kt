@@ -37,6 +37,7 @@ import org.searchmob.engine.adapters.MwmblAdapter
 import org.searchmob.engine.adapters.WikipediaAdapter
 import org.searchmob.engine.http.HttpClientFactory
 import org.searchmob.engine.summary.WikiSummaryProvider
+import org.searchmob.i18n.SupportedLocales
 import org.searchmob.server.LocalServerState
 import org.searchmob.server.SearchServer
 import org.searchmob.server.WakeLockRequestGuard
@@ -139,6 +140,8 @@ class SearchMobService : Service() {
                             null
                         }
                     },
+                    // Tailor results to the owner's chosen UI language (region-neutral when English/OS).
+                    languageProvider = { SupportedLocales.effectiveTag(preferences.language()) },
                 ),
             guard = WakeLockRequestGuard(AndroidWorkLock(applicationContext)),
             suggestionsProvider = suggestionsProvider,
@@ -167,6 +170,8 @@ class SearchMobService : Service() {
             historyStore = (application as SearchMobApplication).storage.history,
             // In network mode, off-loopback clients must present this token; loopback is exempt.
             accessToken = { runBlocking { preferences.networkAccessToken().ifEmpty { null } } },
+            // Localizes the served chrome to the owner's chosen UI language (with RTL where needed).
+            appContext = applicationContext,
         )
     }
 

@@ -29,8 +29,14 @@ class EngineRegistry(
         }
     }
 
-    /** Adapters that should be queried now, each paired with its [EngineContext] (including any key). */
-    fun activeEngines(httpClient: OkHttpClient): List<Pair<EngineAdapter, EngineContext>> {
+    /**
+     * Adapters that should be queried now, each paired with its [EngineContext] (including any key).
+     * [languageRegion] tailors capable engines to the active UI locale, or null to stay region-neutral.
+     */
+    fun activeEngines(
+        httpClient: OkHttpClient,
+        languageRegion: LanguageRegion? = null,
+    ): List<Pair<EngineAdapter, EngineContext>> {
         val enabled =
             adapters.filter { adapter ->
                 val config = configs[adapter.id]
@@ -50,6 +56,7 @@ class EngineRegistry(
                         apiKey = configs[adapter.id]?.apiKey,
                         timeoutMs = timeoutMs,
                         politeness = politeness,
+                        languageRegion = languageRegion,
                     )
             }
     }

@@ -19,6 +19,7 @@ import org.searchmob.engine.adapters.WikipediaAdapter
 import org.searchmob.engine.correct.NoopSpellCorrector
 import org.searchmob.engine.correct.SpellCorrector
 import org.searchmob.engine.rank.RankingRules
+import org.searchmob.i18n.SupportedLocales
 import org.searchmob.ui.prefs.InMemoryPreferencesStore
 import org.searchmob.ui.prefs.PreferencesRepository
 import org.searchmob.ui.prefs.PreferencesStore
@@ -111,6 +112,8 @@ class AppDependencies(
             personalization = {
                 if (preferencesRepository.personalizationEnabled()) personalizationPreferences?.load() else null
             },
+            // Tailor results to the chosen UI language (region-neutral when English / following the OS).
+            languageProvider = { SupportedLocales.effectiveTag(preferencesRepository.language()) },
         )
 
     /** Build a fresh registry from the current toggle + key state. */

@@ -1,5 +1,8 @@
 package org.searchmob.server
 
+import android.content.Context
+import android.content.res.Configuration
+import android.content.res.Resources
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.serialization.kotlinx.json.json
@@ -62,6 +65,7 @@ import kotlinx.html.unsafe
 import kotlinx.serialization.json.add
 import kotlinx.serialization.json.addJsonArray
 import kotlinx.serialization.json.buildJsonArray
+import org.searchmob.R
 import org.searchmob.data.history.HistoryEntry
 import org.searchmob.data.history.HistoryStore
 import org.searchmob.data.prefs.PersonalizationPreferences
@@ -77,6 +81,7 @@ import org.searchmob.engine.sort.SortMode
 import org.searchmob.engine.summary.WikiSummary
 import org.searchmob.engine.vertical.Vertical
 import org.searchmob.engine.vertical.Verticals
+import org.searchmob.i18n.SupportedLocales
 import org.searchmob.server.suggest.NoSuggestionsProvider
 import org.searchmob.server.suggest.SuggestionsProvider
 import org.searchmob.ui.prefs.PreferencesRepository
@@ -154,9 +159,40 @@ fun Application.searchModule(
     // Loopback clients are always exempt. Empty token + empty allowedHosts = loopback-only behavior.
     accessToken: String? = null,
     allowedHosts: Set<String> = emptySet(),
+    // Application context for localizing the served chrome. When null (tests / no context), the pages
+    // render in English; in the app it is the application context, so each request renders in the
+    // resolved UI language with the right text direction.
+    appContext: Context? = null,
     boundPort: () -> Int,
 ) {
     install(ContentNegotiation) { json() }
+
+    // Resolve one request's UI language: the owner's saved language wins; absent that, the visitor's
+    // Accept-Language (first supported entry); absent that, the OS language (else English). Mirrors
+    // the desktop served-page precedence.
+    suspend fun resolveLocale(call: ApplicationCall): String {
+        val pinned = userPreferences?.language?.first().orEmpty()
+        if (pinned.isNotBlank() && SupportedLocales.isSupported(pinned)) return SupportedLocales.normalizeTag(pinned)
+        val header = call.request.headers["Accept-Language"].orEmpty()
+        val fromHeader =
+            header.split(",").map { it.substringBefore(";").trim() }.firstOrNull { SupportedLocales.isSupported(it) }
+        if (fromHeader != null) return SupportedLocales.normalizeTag(fromHeader)
+        return SupportedLocales.resolveSystemTag()
+    }
+
+    // Build the localized chrome-string bundle for a request. A null app context yields English.
+    suspend fun servedText(call: ApplicationCall): ServedText {
+        val tag = resolveLocale(call)
+        val res =
+            appContext?.let { ctx ->
+                val config =
+                    Configuration(
+                        ctx.resources.configuration,
+                    ).apply { setLocale(SupportedLocales.javaLocaleFor(tag)) }
+                ctx.createConfigurationContext(config).resources
+            }
+        return ServedText(tag, SupportedLocales.isRtl(tag), res)
+    }
 
     // Run before routing on every request: conservative security headers always, plus the Host
     // allowlist and the token gate for non-loopback clients.
@@ -223,7 +259,8 @@ fun Application.searchModule(
             val owner = rankingPreferences != null && isOwnerRequest(call)
             val rules = if (owner) rankingPreferences.load() else null
             val banner = if (isOwnerRequest(call)) updateBanner() else null
-            call.respondHtml { renderHomePage(link, rules, owner, banner) }
+            val text = servedText(call)
+            call.respondHtml { renderHomePage(text, link, rules, owner, banner) }
         }
         get("/healthz") {
             call.respondText("ok")
@@ -266,8 +303,10 @@ fun Application.searchModule(
                     null
                 }
             val banner = if (isOwnerRequest(call)) updateBanner() else null
+            val text = servedText(call)
             call.respondHtml {
                 renderResultsPage(
+                    text,
                     rawQuery,
                     outcome,
                     rules,
@@ -402,7 +441,8 @@ fun Application.searchModule(
                 )
             val history = historyStore?.list(System.currentTimeMillis())?.take(HISTORY_VIEW_LIMIT)
             val saved = call.request.queryParameters["saved"] == "1"
-            call.respondHtml { renderSettingsPage(prefs, rules, history, historyStore != null, saved) }
+            val text = servedText(call)
+            call.respondHtml { renderSettingsPage(text, prefs, rules, history, historyStore != null, saved) }
         }
         post("/settings/prefs") {
             if (!guardPrefs(call, userPreferences)) return@post
@@ -576,7 +616,66 @@ private suspend fun redirectBack(call: ApplicationCall) {
     call.respondRedirect(target, permanent = false)
 }
 
+/**
+ * Localized chrome strings for the served pages. [res] is a per-request, locale-adjusted [Resources]
+ * (or null in tests / when no app context is wired, where every string falls back to its English
+ * default). [tag] drives the document `lang` attribute and [rtl] the `dir` attribute. Reuses the same
+ * `R.string` resources the in-app UI uses, so a string is authored once for both surfaces.
+ */
+private class ServedText(
+    val tag: String,
+    val rtl: Boolean,
+    private val res: Resources?,
+) {
+    private fun s(
+        id: Int,
+        en: String,
+    ): String = res?.runCatching { getString(id) }?.getOrNull() ?: en
+
+    private fun s(
+        id: Int,
+        en: String,
+        vararg args: Any,
+    ): String = res?.runCatching { getString(id, *args) }?.getOrNull() ?: en.format(*args)
+
+    val searchHint get() = s(R.string.search_hint, "Search the web")
+    val searchButton get() = s(R.string.search_submit, "Search")
+    val settings get() = s(R.string.settings_title, "Settings")
+    val sortLabel get() = s(R.string.search_sort_label, "Sort:")
+    val apply get() = s(R.string.search_apply, "Apply")
+    val didYouMean get() = s(R.string.search_did_you_mean, "Did you mean:")
+    val fromWikipedia get() = s(R.string.search_summary_source, "From Wikipedia")
+    val enterQuery get() = s(R.string.search_idle, "Enter a query to search.")
+    val noResults get() = s(R.string.search_empty, "No results found.")
+    val tagline get() = s(R.string.home_tagline, "Private, battery-friendly, on-device search.")
+    val updateAction get() = s(R.string.update_banner_action, "Update")
+
+    fun resultsFor(query: String) = s(R.string.search_results_for, "Results for %1\$s", "“$query”")
+
+    fun showingResultsFor(query: String) = s(R.string.search_showing_results_for, "Showing results for") + " “$query”"
+
+    fun updateAvailable(version: String) = s(R.string.update_banner_available, "SearchMob %1\$s is available.", version)
+
+    val verticals
+        get() =
+            listOf(
+                "web" to s(R.string.vertical_web, "Web"),
+                "news" to s(R.string.vertical_news, "News"),
+                "forums" to s(R.string.vertical_forums, "Forums"),
+                "academic" to s(R.string.vertical_academic, "Academic"),
+            )
+
+    val sortOptions
+        get() =
+            listOf(
+                "fresh" to s(R.string.sort_fresh, "Freshest + Relevant"),
+                "date" to s(R.string.sort_date, "Date"),
+                "relevance" to s(R.string.sort_relevance, "Relevance"),
+            )
+}
+
 private fun HTML.renderResultsPage(
+    text: ServedText,
     query: String,
     outcome: SearchOutcome,
     rules: RankingRules = RankingRules.EMPTY,
@@ -590,46 +689,47 @@ private fun HTML.renderResultsPage(
     // Owner-only "update available" banner (version, releaseUrl), or null.
     updateBanner: Pair<String, String>? = null,
 ) {
-    attributes["lang"] = "en"
+    attributes["lang"] = text.tag
+    if (text.rtl) attributes["dir"] = "rtl"
     val results = outcome.results
     head { pageHead(if (query.isBlank()) "SearchMob" else "$query · SearchMob") }
     body {
         attributes["data-page"] = "results"
-        updateBanner(updateBanner)
+        updateBanner(text, updateBanner)
         div("topbar") {
             a(href = "/", classes = "logo") { +"SearchMob" }
             form(action = "/search", method = FormMethod.get, classes = "searchbox") {
                 textInput(name = "q") {
                     value = query
-                    placeholder = "Search the web"
-                    attributes["aria-label"] = "Search"
+                    placeholder = text.searchHint
+                    attributes["aria-label"] = text.searchButton
                     attributes["autocomplete"] = "off"
                     attributes["spellcheck"] = "false"
                 }
-                submitInput { value = "Search" }
+                submitInput { value = text.searchButton }
             }
-            settingsLink(settingsLink)
+            settingsLink(text, settingsLink)
             themeToggle()
         }
         div("results") {
             // Category tabs render whenever there is a query, so the user can switch verticals even
             // from a vertical that returned nothing.
-            if (query.isNotBlank()) verticalBar(query, vertical)
-            if (query.isNotBlank()) outcome.summary?.let { summaryBox(it) }
+            if (query.isNotBlank()) verticalBar(text, query, vertical)
+            if (query.isNotBlank()) outcome.summary?.let { summaryBox(text, it) }
             when {
-                query.isBlank() -> p("empty") { +"Enter a query to search." }
+                query.isBlank() -> p("empty") { +text.enterQuery }
                 results.isEmpty() -> {
-                    outcome.didYouMean?.let { didYouMeanLine(it) }
-                    p("empty") { +"No results for “$query”." }
+                    outcome.didYouMean?.let { didYouMeanLine(text, it) }
+                    p("empty") { +text.noResults }
                 }
                 else -> {
                     if (outcome.showingResultsFor != null) {
-                        p("meta") { +"Showing results for “${outcome.showingResultsFor}”" }
+                        p("meta") { +text.showingResultsFor(outcome.showingResultsFor) }
                     } else {
-                        p("meta") { +"Results for “$query”" }
+                        p("meta") { +text.resultsFor(query) }
                     }
-                    outcome.didYouMean?.let { didYouMeanLine(it) }
-                    sortBar(query, sortMode)
+                    outcome.didYouMean?.let { didYouMeanLine(text, it) }
+                    sortBar(text, query, sortMode)
                     if (editable) scopeBar(rules)
                     results.forEachIndexed { index, result ->
                         // Results past the first reveal window start collapsed; the reveal script
@@ -679,15 +779,21 @@ private fun HTML.renderResultsPage(
 }
 
 /** A "Did you mean: <correction>" line linking to a fresh search for the correction. */
-private fun FlowContent.didYouMeanLine(correction: String) {
+private fun FlowContent.didYouMeanLine(
+    text: ServedText,
+    correction: String,
+) {
     p("didyoumean") {
-        +"Did you mean: "
+        +"${text.didYouMean} "
         a(href = "/search?q=${URLEncoder.encode(correction, "UTF-8")}") { +correction }
     }
 }
 
 /** A knowledge-panel-style Wikipedia summary card shown above the results. */
-private fun FlowContent.summaryBox(summary: WikiSummary) {
+private fun FlowContent.summaryBox(
+    text: ServedText,
+    summary: WikiSummary,
+) {
     div("summary") {
         if (summary.thumbnailUrl != null && isSafeHttpUrl(summary.thumbnailUrl)) {
             img(src = summary.thumbnailUrl, alt = "") { attributes["loading"] = "lazy" }
@@ -705,13 +811,14 @@ private fun FlowContent.summaryBox(summary: WikiSummary) {
             }
             if (summary.description.isNotBlank()) p("sdesc") { +summary.description }
             p("sextract") { +summary.extract }
-            p("ssource meta") { +"From Wikipedia" }
+            p("ssource meta") { +text.fromWikipedia }
         }
     }
 }
 
 /** Result sort selector. GET so the choice is bookmarkable; carries the query in a hidden field. */
 private fun FlowContent.sortBar(
+    text: ServedText,
     query: String,
     sortMode: String,
 ) {
@@ -719,17 +826,13 @@ private fun FlowContent.sortBar(
         hiddenInput(name = "q") { value = query }
         label {
             attributes["for"] = "sm-sort"
-            +"Sort:"
+            +text.sortLabel
         }
         select {
             attributes["id"] = "sm-sort"
             attributes["name"] = "sort"
             attributes["onchange"] = "this.form.submit()"
-            listOf(
-                "fresh" to "Freshest + Relevant",
-                "date" to "Date",
-                "relevance" to "Relevance",
-            ).forEach { (value, lbl) ->
+            text.sortOptions.forEach { (value, lbl) ->
                 option {
                     attributes["value"] = value
                     if (value == sortMode) attributes["selected"] = "selected"
@@ -737,7 +840,7 @@ private fun FlowContent.sortBar(
                 }
             }
         }
-        button(type = ButtonType.submit) { +"Apply" }
+        button(type = ButtonType.submit) { +text.apply }
     }
 }
 
@@ -746,18 +849,14 @@ private fun FlowContent.sortBar(
  * re-runs the search scoped to that vertical; the active one is marked so CSS can style it.
  */
 private fun FlowContent.verticalBar(
+    text: ServedText,
     query: String,
     vertical: String,
 ) {
     val encoded = URLEncoder.encode(query, "UTF-8")
     nav("verticalbar") {
         attributes["aria-label"] = "Search categories"
-        listOf(
-            "web" to "Web",
-            "news" to "News",
-            "forums" to "Forums",
-            "academic" to "Academic",
-        ).forEach { (value, lbl) ->
+        text.verticals.forEach { (value, lbl) ->
             val isActive = value == vertical
             val classes = if (isActive) "chip active" else "chip"
             a(href = "/search?q=$encoded&vertical=$value", classes = classes) {
@@ -872,19 +971,21 @@ private fun FlowContent.rankControls(
 
 /** Home page: a centered search box plus the OpenSearch link so a browser can add SearchMob. */
 private fun HTML.renderHomePage(
+    text: ServedText,
     settingsLink: Boolean = false,
     rules: RankingRules? = null,
     editable: Boolean = false,
     updateBanner: Pair<String, String>? = null,
 ) {
-    attributes["lang"] = "en"
+    attributes["lang"] = text.tag
+    if (text.rtl) attributes["dir"] = "rtl"
     head { pageHead("SearchMob") }
     body {
         attributes["data-page"] = "home"
-        updateBanner(updateBanner)
+        updateBanner(text, updateBanner)
         div("topbar") {
             span("logo") { +"SearchMob" }
-            settingsLink(settingsLink)
+            settingsLink(text, settingsLink)
             themeToggle()
         }
         // The scope (lens) selector nests inside the search box for the owner; it belongs to a
@@ -893,16 +994,16 @@ private fun HTML.renderHomePage(
         val hasScope = editable && rules != null && rules.lenses.isNotEmpty()
         div("home") {
             div("brand") { +"SearchMob" }
-            p("tagline") { +"Private, on-device metasearch." }
+            p("tagline") { +text.tagline }
             form(action = "/search", method = FormMethod.get, classes = "searchbox") {
                 textInput(name = "q") {
-                    placeholder = "Search the web"
-                    attributes["aria-label"] = "Search"
+                    placeholder = text.searchHint
+                    attributes["aria-label"] = text.searchButton
                     attributes["autocomplete"] = "off"
                     attributes["autofocus"] = "autofocus"
                 }
                 if (hasScope) homeScopeSelect(rules)
-                submitInput { value = "Search" }
+                submitInput { value = text.searchButton }
             }
             if (hasScope) {
                 form(action = "/scope", method = FormMethod.post) {
@@ -916,8 +1017,11 @@ private fun HTML.renderHomePage(
 }
 
 /** A Settings-page link for the loopback owner (the route itself is owner-only). */
-private fun FlowContent.settingsLink(show: Boolean) {
-    if (show) a(href = "/settings", classes = "settings-link") { +"Settings" }
+private fun FlowContent.settingsLink(
+    text: ServedText,
+    show: Boolean,
+) {
+    if (show) a(href = "/settings", classes = "settings-link") { +text.settings }
 }
 
 /**
@@ -925,15 +1029,18 @@ private fun FlowContent.settingsLink(show: Boolean) {
  * null renders nothing. The link opens the release page (the in-app updater offers the one-click
  * install). The kotlinx.html builder escapes the version and href, so no manual escaping is needed.
  */
-private fun FlowContent.updateBanner(banner: Pair<String, String>?) {
+private fun FlowContent.updateBanner(
+    text: ServedText,
+    banner: Pair<String, String>?,
+) {
     if (banner == null) return
     val (version, url) = banner
     div("updatebar") {
         attributes["role"] = "status"
-        span("msg") { +"SearchMob $version is available." }
+        span("msg") { +text.updateAvailable(version) }
         a(href = url, classes = "btn") {
             attributes["rel"] = "noopener noreferrer"
-            +"Get the update"
+            +text.updateAction
         }
     }
 }
@@ -971,14 +1078,16 @@ private fun FlowContent.checkRow(
 
 /** The browser Settings page: live preference toggles plus rule / scope / goggle / history management. */
 private fun HTML.renderSettingsPage(
+    text: ServedText,
     prefs: SettingsView,
     rules: RankingRules,
     history: List<HistoryEntry>?,
     historyClearable: Boolean,
     saved: Boolean,
 ) {
-    attributes["lang"] = "en"
-    head { pageHead("Settings · SearchMob") }
+    attributes["lang"] = text.tag
+    if (text.rtl) attributes["dir"] = "rtl"
+    head { pageHead("${text.settings} · SearchMob") }
     body {
         attributes["data-page"] = "settings"
         div("topbar") {
@@ -987,7 +1096,7 @@ private fun HTML.renderSettingsPage(
             themeToggle()
         }
         div("settings") {
-            h1 { +"Settings" }
+            h1 { +text.settings }
             if (saved) p("saved") { +"Saved." }
 
             // The Appearance card is client-side only (localStorage); it sits above the prefs form and
@@ -1699,6 +1808,8 @@ class SearchServer(
     private val updateBanner: suspend () -> Pair<String, String>? = { null },
     // Lazily resolved each (re)start so a token minted after the server started still takes effect.
     private val accessToken: () -> String? = { null },
+    // Application context for localizing the served chrome to the chosen UI language; null = English.
+    private val appContext: Context? = null,
 ) {
     @Volatile
     private var server: EmbeddedServer<*, *>? = null
@@ -1741,6 +1852,7 @@ class SearchServer(
                     personalizationEnabled,
                     updateBanner,
                     token,
+                    appContext = appContext,
                 ) { port }
             }
         engine.start(wait = false)

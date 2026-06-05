@@ -28,7 +28,17 @@ class BraveApiAdapter(
         query: SearchQuery,
         ctx: EngineContext,
     ): Request {
-        val url = "$baseUrl/res/v1/web/search?q=${URLEncoder.encode(query.terms, "UTF-8")}"
+        // Tailor results to the active UI locale via Brave's documented language/region params;
+        // English / unmapped locales add none and the request stays region-neutral as before.
+        val region = ctx.languageRegion
+        val params =
+            buildString {
+                append("?q=${URLEncoder.encode(query.terms, "UTF-8")}")
+                region?.braveCountry?.takeIf { it.isNotBlank() }?.let { append("&country=$it") }
+                region?.braveSearchLang?.takeIf { it.isNotBlank() }?.let { append("&search_lang=$it") }
+                region?.braveUiLang?.takeIf { it.isNotBlank() }?.let { append("&ui_lang=$it") }
+            }
+        val url = "$baseUrl/res/v1/web/search$params"
         return Request.Builder()
             .url(url)
             .header("Accept", "application/json")

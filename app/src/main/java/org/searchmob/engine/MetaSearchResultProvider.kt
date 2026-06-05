@@ -47,6 +47,9 @@ class MetaSearchResultProvider(
     // The owner's learned click model, or null when personalization is off. Applied (when the caller
     // allows it) as a bounded boost between the sort and the rule pass. Defaults to none.
     private val personalization: suspend () -> PersonalizationModel? = { null },
+    // The active UI language tag (or null/empty for English), used to tailor results to that language
+    // via per-engine region params. Defaults to none so callers/tests behave region-neutrally.
+    private val languageProvider: suspend () -> String? = { null },
 ) : SearchResultProvider {
     /** Convenience constructor for a fixed registry (tests and callers without dynamic config). */
     constructor(
@@ -59,6 +62,7 @@ class MetaSearchResultProvider(
         slopDomains: suspend () -> Set<String> = { emptySet() },
         aiSlopMode: suspend () -> String = { "off" },
         personalization: suspend () -> PersonalizationModel? = { null },
+        languageProvider: suspend () -> String? = { null },
     ) : this(
         { registry },
         aggregator,
@@ -69,6 +73,7 @@ class MetaSearchResultProvider(
         slopDomains,
         aiSlopMode,
         personalization,
+        languageProvider,
     )
 
     override suspend fun search(query: String): List<SearchResult> = searchWithCorrection(query).results
@@ -135,7 +140,10 @@ class MetaSearchResultProvider(
         // Scope the query for the chosen vertical (a `site:` OR group the engines understand). The
         // original query still drives sort/summary/correction so freshness keywords are detected.
         val scoped = Verticals.transformQuery(query, vertical)
-        val aggregated = aggregator.aggregate(SearchQuery(scoped), registryProvider().activeEngines(httpClient))
+        // Tailor results to the active UI language (region-neutral when English/unset).
+        val region = languageRegionFor(languageProvider())
+        val aggregated =
+            aggregator.aggregate(SearchQuery(scoped), registryProvider().activeEngines(httpClient, region))
         // Sort first (relevance/date/freshness blend), then nudge by the owner's learned click model
         // (between sort and rules, so PIN/RAISE/BLOCK still win), then bucket by rules.
         val sorted =
