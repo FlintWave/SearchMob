@@ -1,6 +1,8 @@
 package org.searchmob.i18n
 
+import android.content.ContextWrapper
 import android.content.res.Configuration
+import android.content.res.Resources
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember
@@ -42,8 +44,19 @@ fun LocalizedApp(
         remember(effectiveTag, baseConfig) {
             Configuration(baseConfig).apply { setLocale(SupportedLocales.javaLocaleFor(effectiveTag)) }
         }
+    // Wrap the host context (the Activity) rather than handing back the detached context from
+    // createConfigurationContext: a ContextWrapper keeps the baseContext chain intact, so things that
+    // walk it to find the Activity (e.g. rememberLauncherForActivityResult) still work, while
+    // getResources() returns the locale-adjusted resources Compose reads strings from.
     val localizedContext =
-        remember(localizedConfig) { base.createConfigurationContext(localizedConfig) }
+        remember(base, localizedConfig) {
+            val configContext = base.createConfigurationContext(localizedConfig)
+            object : ContextWrapper(base) {
+                override fun getResources(): Resources = configContext.resources
+
+                override fun getAssets() = configContext.assets
+            }
+        }
     val layoutDirection =
         if (SupportedLocales.isRtl(effectiveTag)) LayoutDirection.Rtl else LayoutDirection.Ltr
 
