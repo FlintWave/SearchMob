@@ -33,3 +33,6 @@ local/
 
 # Claude agent worktrees (transient, never committed)
 .claude/worktrees/
+
+# Python bytecode (i18n authoring tool)
+tools/__pycache__/
