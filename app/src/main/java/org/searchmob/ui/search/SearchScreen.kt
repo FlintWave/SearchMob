@@ -55,6 +55,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.searchmob.R
+import org.searchmob.engine.aggregate.EngineOutcome
+import org.searchmob.engine.aggregate.EngineStatus
 import org.searchmob.engine.rank.DomainRanker
 import org.searchmob.engine.rank.RankRule
 import org.searchmob.engine.sort.SortMode
@@ -76,6 +78,7 @@ object SearchTestTags {
     const val VERTICAL = "search_vertical"
     const val SCOPE = "search_scope"
     const val DID_YOU_MEAN = "search_did_you_mean"
+    const val ENGINE_STATUS = "search_engine_status"
     const val RANK_MENU = "search_rank_menu"
 }
 
@@ -164,6 +167,7 @@ fun SearchScreen(
                         didYouMean = s.didYouMean,
                         showingResultsFor = s.showingResultsFor,
                         summary = s.summary,
+                        engineStatus = s.engineStatus,
                         onSearchCorrected = viewModel::searchCorrected,
                         onSetDomainRule = viewModel::setDomainRule,
                         onOpen = { url ->
@@ -240,6 +244,7 @@ private fun ResultsList(
     didYouMean: String?,
     showingResultsFor: String?,
     summary: WikiSummary?,
+    engineStatus: List<EngineOutcome>,
     onSearchCorrected: (String) -> Unit,
     onSetDomainRule: (String, RankRule) -> Unit,
     onOpen: (String) -> Unit,
@@ -274,6 +279,9 @@ private fun ResultsList(
                     onSearchCorrected = onSearchCorrected,
                 )
             }
+        }
+        if (engineStatus.isNotEmpty()) {
+            item { EngineStatusRow(engineStatus) }
         }
         if (results.isEmpty()) {
             item {
@@ -327,6 +335,49 @@ private fun DidYouMeanBanner(
                         .testTag(SearchTestTags.DID_YOU_MEAN)
                         .padding(vertical = 8.dp),
             )
+    }
+}
+
+/**
+ * Unobtrusive "N of M engines responded" line, tap to expand per-engine detail. In-app results are
+ * always the owner's, so this is always shown; it is computed on-device and never leaves the device.
+ * Lets the owner tell a quiet engine apart from one that failed (timed out or was blocked).
+ */
+@Composable
+private fun EngineStatusRow(engineStatus: List<EngineOutcome>) {
+    val context = LocalContext.current
+    var expanded by remember(engineStatus) { mutableStateOf(false) }
+    val responded = engineStatus.count { it.status != EngineStatus.FAILED }
+    Column(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .testTag(SearchTestTags.ENGINE_STATUS)
+                .clickable(role = Role.Button) { expanded = !expanded }
+                .padding(vertical = 4.dp),
+    ) {
+        Text(
+            text = context.getString(R.string.search_engines_responded, responded, engineStatus.size),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        if (expanded) {
+            engineStatus.forEach { outcome ->
+                val detail =
+                    when (outcome.status) {
+                        EngineStatus.CONTRIBUTED ->
+                            context.getString(R.string.search_engine_result_count, outcome.count)
+                        EngineStatus.EMPTY -> stringResource(R.string.engine_status_no_results)
+                        EngineStatus.FAILED -> stringResource(R.string.engine_status_failed)
+                    }
+                Text(
+                    text = "${outcome.name} — $detail",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(start = 8.dp, top = 2.dp),
+                )
+            }
+        }
     }
 }
 

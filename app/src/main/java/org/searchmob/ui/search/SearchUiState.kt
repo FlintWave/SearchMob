@@ -1,5 +1,6 @@
 package org.searchmob.ui.search
 
+import org.searchmob.engine.aggregate.EngineOutcome
 import org.searchmob.engine.summary.WikiSummary
 import org.searchmob.server.SearchResult
 
@@ -30,5 +31,8 @@ sealed interface SearchUiState {
         val didYouMean: String? = null,
         val showingResultsFor: String? = null,
         val summary: WikiSummary? = null,
+        // Per-engine outcome for this search (contributed / empty / failed). In-app results are always
+        // the owner's, so this is shown; computed on-device and never persisted or transmitted.
+        val engineStatus: List<EngineOutcome> = emptyList(),
     ) : SearchUiState
 }

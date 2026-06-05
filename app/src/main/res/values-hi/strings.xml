@@ -43,6 +43,10 @@
     <string name="search_results_for">%1$s के लिए परिणाम</string>
     <string name="search_sort_label">क्रमबद्ध करें:</string>
     <string name="search_apply">लागू करें</string>
+    <string name="search_engines_responded">%2$d इंजनों में से %1$d ने जवाब दिया।</string>
+    <string name="search_engine_result_count">%1$d परिणाम</string>
+    <string name="engine_status_no_results">कोई परिणाम नहीं</string>
+    <string name="engine_status_failed">असफल</string>
     <string name="rank_menu">इस साइट के लिए रैंकिंग</string>
     <string name="rank_block">अवरुद्ध करें</string>
     <string name="rank_lower">नीचे</string>

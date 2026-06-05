@@ -44,6 +44,10 @@
     <string name="search_results_for">%1$s کے لیے نتائج</string>
     <string name="search_sort_label">ترتیب دیں:</string>
     <string name="search_apply">لاگو کریں</string>
+    <string name="search_engines_responded">%2$d انجنوں میں سے %1$d نے جواب دیا۔</string>
+    <string name="search_engine_result_count">%1$d نتائج</string>
+    <string name="engine_status_no_results">کوئی نتیجہ نہیں ملا۔</string>
+    <string name="engine_status_failed">ناکام</string>
     <string name="rank_menu">اس سائٹ کی درجہ بندی</string>
     <string name="rank_block">بند کریں</string>
     <string name="rank_lower">نیچے</string>

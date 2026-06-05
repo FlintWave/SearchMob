@@ -44,6 +44,10 @@
     <string name="search_results_for">%1$s 的搜索结果</string>
     <string name="search_sort_label">排序：</string>
     <string name="search_apply">应用</string>
+    <string name="search_engines_responded">已响应的引擎数量：%1$d/%2$d</string>
+    <string name="search_engine_result_count">找到 %1$d 个结果</string>
+    <string name="engine_status_no_results">没有结果</string>
+    <string name="engine_status_failed">失败</string>
     <string name="rank_menu">该网站的排名</string>
     <string name="rank_block">阻止</string>
     <string name="rank_lower">降低</string>

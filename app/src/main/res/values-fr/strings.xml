@@ -41,6 +41,10 @@
     <string name="search_results_for">Résultats pour %1$s</string>
     <string name="search_sort_label">Trier par :</string>
     <string name="search_apply">Appliquer</string>
+    <string name="search_engines_responded">%1$d moteurs sur %2$d ont répondu</string>
+    <string name="search_engine_result_count">%1$d résultats</string>
+    <string name="engine_status_no_results">aucun résultat</string>
+    <string name="engine_status_failed">échec</string>
     <string name="rank_menu">Classement de ce site</string>
     <string name="rank_block">Bloquer</string>
     <string name="rank_lower">Inférieur</string>

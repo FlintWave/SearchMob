@@ -1,5 +1,6 @@
 package org.searchmob.server
 
+import org.searchmob.engine.aggregate.EngineOutcome
 import org.searchmob.engine.sort.SortMode
 import org.searchmob.engine.summary.WikiSummary
 import org.searchmob.engine.vertical.Vertical
@@ -16,6 +17,9 @@ data class SearchOutcome(
     val didYouMean: String? = null,
     val showingResultsFor: String? = null,
     val summary: WikiSummary? = null,
+    // Per-engine outcome for this search (contributed / empty / failed), for owner-facing diagnostics.
+    // Computed on-device; the served page shows it to the loopback owner only. Empty for the stub.
+    val engineStatus: List<EngineOutcome> = emptyList(),
 )
 
 /**

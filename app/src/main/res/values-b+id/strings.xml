@@ -43,6 +43,10 @@
     <string name="search_results_for">Hasil untuk %1$s</string>
     <string name="search_sort_label">Urutkan:</string>
     <string name="search_apply">Terapkan</string>
+    <string name="search_engines_responded">%1$d dari %2$d mesin merespons</string>
+    <string name="search_engine_result_count">%1$d hasil</string>
+    <string name="engine_status_no_results">tidak ada hasil</string>
+    <string name="engine_status_failed">gagal</string>
     <string name="rank_menu">Peringkat untuk situs ini</string>
     <string name="rank_block">Blokir</string>
     <string name="rank_lower">Lebih rendah</string>
@@ -64,6 +68,7 @@
     <string name="settings_font_size">Ukuran teks</string>
     <string name="settings_font_smaller">Teks yang lebih kecil</string>
     <string name="settings_font_larger">Teks lebih besar</string>
+    <string name="settings_font_size_value">%1$d poin</string>
     <string name="settings_section_engines">Mesin pencari</string>
     <string name="settings_engine_needs_key">Membutuhkan kunci API (di bawah ini)</string>
     <string name="settings_section_keys">Gunakan kunci API Anda sendiri</string>
