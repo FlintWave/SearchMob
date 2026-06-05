@@ -28,6 +28,7 @@ class PreferencesRepository(
         val darkId: String,
         val font: String,
         val language: String,
+        val mediaActions: Boolean,
     )
 
     val preferences: Flow<UserPreferences> =
@@ -65,7 +66,10 @@ class PreferencesRepository(
                 store.getString(PreferenceKeys.DARK_THEME, DEFAULT_DARK_ID),
                 store.getString(PreferenceKeys.FONT_POINT_SIZE, DEFAULT_FONT_POINT_SIZE.toString()),
                 store.getString(PreferenceKeys.LANGUAGE, ""),
-            ) { lightId, darkId, font, language -> Presentation(lightId, darkId, font, language) },
+                store.getBoolean(PreferenceKeys.MEDIA_ACTIONS_ENABLED, true),
+            ) { lightId, darkId, font, language, media ->
+                Presentation(lightId, darkId, font, language, media)
+            },
         ) { base, upstreamSuggestions, summary, updateAndSlopSort, presentation ->
             val (updateCheck, aiSlop, sortMode) = updateAndSlopSort
             base.copy(
@@ -78,6 +82,7 @@ class PreferencesRepository(
                 darkThemeId = presentation.darkId,
                 fontPointSize = clampFontPointSize(presentation.font.toIntOrNull() ?: DEFAULT_FONT_POINT_SIZE),
                 language = presentation.language,
+                mediaActionsEnabled = presentation.mediaActions,
             )
         }
 
@@ -256,6 +261,16 @@ class PreferencesRepository(
 
     /** One-shot read of the saved language tag ("" = follow OS) for the search providers. */
     suspend fun language(): String = language.first()
+
+    /** Whether the media actions row + canonical-platform promotion are on. Default on. */
+    val mediaActionsEnabled: Flow<Boolean> =
+        store.getBoolean(PreferenceKeys.MEDIA_ACTIONS_ENABLED, true)
+
+    suspend fun setMediaActionsEnabled(enabled: Boolean) =
+        store.setBoolean(PreferenceKeys.MEDIA_ACTIONS_ENABLED, enabled)
+
+    /** One-shot read for the search providers deciding whether to surface media actions. */
+    suspend fun mediaActionsEnabled(): Boolean = mediaActionsEnabled.first()
 
     suspend fun setHistoryEnabled(enabled: Boolean) = store.setBoolean(PreferenceKeys.HISTORY_ENABLED, enabled)
 

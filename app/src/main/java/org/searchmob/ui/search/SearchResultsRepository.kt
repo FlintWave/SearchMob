@@ -52,6 +52,8 @@ class InProcessSearchResultsRepository(
     private val personalization: suspend () -> org.searchmob.engine.rank.PersonalizationModel? = { null },
     // The active UI language tag (or null/empty for English), used to tailor results to that language.
     private val languageProvider: suspend () -> String? = { null },
+    // Whether the media actions row + canonical-platform promotion are on. Defaults off for tests.
+    private val mediaActionsEnabled: suspend () -> Boolean = { false },
 ) : SearchResultsRepository {
     private fun provider() =
         MetaSearchResultProvider(
@@ -64,6 +66,7 @@ class InProcessSearchResultsRepository(
             aiSlopMode = aiSlopMode,
             personalization = personalization,
             languageProvider = languageProvider,
+            mediaActionsEnabled = mediaActionsEnabled,
         )
 
     override suspend fun search(query: String): List<SearchResult> = provider().search(query)

@@ -1,5 +1,6 @@
 package org.searchmob.server
 
+import org.searchmob.engine.ActionsRow
 import org.searchmob.engine.aggregate.EngineOutcome
 import org.searchmob.engine.sort.SortMode
 import org.searchmob.engine.summary.WikiSummary
@@ -20,6 +21,9 @@ data class SearchOutcome(
     // Per-engine outcome for this search (contributed / empty / failed), for owner-facing diagnostics.
     // Computed on-device; the served page shows it to the loopback owner only. Empty for the stub.
     val engineStatus: List<EngineOutcome> = emptyList(),
+    // The "Listen/Watch/Read/Play on" actions row for a resolved media entity, or null. Links are
+    // built locally; rendered in-app and on the served page when the media toggle is on.
+    val actionsRow: ActionsRow? = null,
 )
 
 /**

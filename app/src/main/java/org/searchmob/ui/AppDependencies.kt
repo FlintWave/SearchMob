@@ -114,6 +114,8 @@ class AppDependencies(
             },
             // Tailor results to the chosen UI language (region-neutral when English / following the OS).
             languageProvider = { SupportedLocales.effectiveTag(preferencesRepository.language()) },
+            // Media actions row + canonical-platform promotion, gated by the user's toggle.
+            mediaActionsEnabled = { preferencesRepository.mediaActionsEnabled() },
         )
 
     /** Build a fresh registry from the current toggle + key state. */

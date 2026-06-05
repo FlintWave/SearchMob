@@ -36,6 +36,10 @@
     <string name="vertical_web">Internet</string>
     <string name="vertical_news">Actualités</string>
     <string name="vertical_academic">Académique</string>
+    <string name="media_listen_on">Écouter sur</string>
+    <string name="media_watch_on">Regarder maintenant</string>
+    <string name="media_read_on">Pour en savoir plus</string>
+    <string name="media_play_on">Continuer la lecture</string>
     <string name="search_did_you_mean">Vouliez-vous dire :</string>
     <string name="search_showing_results_for">Affichage des résultats pour</string>
     <string name="search_results_for">Résultats pour %1$s</string>
@@ -127,6 +131,8 @@
     <string name="settings_close">Fermer</string>
     <string name="settings_suggestions_upstream">Suggestions en direct issues du Web</string>
     <string name="settings_suggestions_upstream_supporting">Désactivé par défaut. Lorsqu’il est activé, ce que vous tapez est envoyé au service de suggestions de DuckDuckGo via le serveur proxy pour la confidentialité pendant que vous tapez, afin d’offrir des suggestions en temps réel. Lorsque cette option est désactivée, les suggestions sont limitées à votre historique local.</string>
+    <string name="settings_media_actions">Liens vers des contenus multimédias pour les films, la musique, les livres et les jeux</string>
+    <string name="settings_media_actions_supporting">Activé par défaut. Lorsqu’une recherche concerne un film, un musicien, un album, un livre ou un jeu, elle affiche une rangée d’endroits où il est possible de le regarder, de l’écouter, de le lire ou d’y jouer (en commençant par les options gratuites et accessibles), et met ces options en avant dans les résultats. Elle utilise uniquement la recherche Wikipédia pour compléter le résumé déjà affiché ; les liens sont générés sur votre appareil.</string>
     <string name="settings_summary">Résumé Wikipédia pour certaines recherches</string>
     <string name="settings_summary_supporting">Activé par défaut. Pour les requêtes concernant des entités, affiche une courte carte récapitulative au-dessus des résultats de l’article Wikipédia associé. Ajoute au maximum une requête supplémentaire à Wikipédia (qui est déjà un moteur de recherche ici) via le proxy de confidentialité.</string>
     <string name="settings_section_updates">Mises à jour</string>

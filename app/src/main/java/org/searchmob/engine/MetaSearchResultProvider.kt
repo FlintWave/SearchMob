@@ -1,5 +1,6 @@
 package org.searchmob.engine
 
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import okhttp3.OkHttpClient
@@ -51,6 +52,9 @@ class MetaSearchResultProvider(
     // The active UI language tag (or null/empty for English), used to tailor results to that language
     // via per-engine region params. Defaults to none so callers/tests behave region-neutrally.
     private val languageProvider: suspend () -> String? = { null },
+    // Whether the media actions row + canonical-platform promotion are on. Defaults off so callers
+    // and tests behave exactly as before.
+    private val mediaActionsEnabled: suspend () -> Boolean = { false },
 ) : SearchResultProvider {
     /** Convenience constructor for a fixed registry (tests and callers without dynamic config). */
     constructor(
@@ -64,6 +68,7 @@ class MetaSearchResultProvider(
         aiSlopMode: suspend () -> String = { "off" },
         personalization: suspend () -> PersonalizationModel? = { null },
         languageProvider: suspend () -> String? = { null },
+        mediaActionsEnabled: suspend () -> Boolean = { false },
     ) : this(
         { registry },
         aggregator,
@@ -75,6 +80,7 @@ class MetaSearchResultProvider(
         aiSlopMode,
         personalization,
         languageProvider,
+        mediaActionsEnabled,
     )
 
     override suspend fun search(query: String): List<SearchResult> = searchWithCorrection(query).results
@@ -100,14 +106,33 @@ class MetaSearchResultProvider(
             // The learned model is applied only when the caller allows it (in-app always; the server
             // only for the loopback owner) and only when personalization is enabled.
             val model = if (personalize) runCatching { personalization() }.getOrNull() else null
+            val mediaOn = mediaActionsEnabled()
             val (results, upstreamRaw, engineStatus) =
-                aggregateRanked(query, vertical, rules, sortMode, slop, slopMode, model)
+                aggregateRanked(
+                    query,
+                    vertical,
+                    rules,
+                    sortMode,
+                    slop,
+                    slopMode,
+                    model,
+                    summaryDeferred = summaryDeferred.takeIf { mediaOn },
+                )
 
             val upstreamCorrection = upstreamRaw?.takeIf { !it.equals(query, ignoreCase = true) }
             val onDevice = corrector.suggest(query)
             val suggestion =
                 upstreamCorrection ?: onDevice?.corrected?.takeIf { !it.equals(query, ignoreCase = true) }
             val summary = summaryDeferred.await()
+            // The "Listen/Watch/Read/Play on" actions row for a resolved media entity (toggle on);
+            // links are built locally from the entity name.
+            val actionsRow =
+                if (mediaOn && summary != null) {
+                    MediaIntent.detectCategory(summary.description)
+                        ?.let { MediaIntent.buildActionsRow(it, summary.title, summary.url) }
+                } else {
+                    null
+                }
 
             if (results.isNotEmpty()) {
                 return@coroutineScope SearchOutcome(
@@ -115,6 +140,7 @@ class MetaSearchResultProvider(
                     didYouMean = suggestion,
                     summary = summary,
                     engineStatus = engineStatus,
+                    actionsRow = actionsRow,
                 )
             }
 
@@ -128,18 +154,26 @@ class MetaSearchResultProvider(
                     didYouMean = suggestion,
                     summary = summary,
                     engineStatus = engineStatus,
+                    actionsRow = actionsRow,
                 )
             }
             val (retryResults, _, _) =
                 aggregateRanked(autoCorrection, vertical, rules, sortMode, slop, slopMode, model)
             if (retryResults.isEmpty()) {
-                SearchOutcome(results, didYouMean = suggestion, summary = summary, engineStatus = engineStatus)
+                SearchOutcome(
+                    results,
+                    didYouMean = suggestion,
+                    summary = summary,
+                    engineStatus = engineStatus,
+                    actionsRow = actionsRow,
+                )
             } else {
                 SearchOutcome(
                     retryResults,
                     showingResultsFor = autoCorrection,
                     summary = summary,
                     engineStatus = engineStatus,
+                    actionsRow = actionsRow,
                 )
             }
         }
@@ -153,6 +187,10 @@ class MetaSearchResultProvider(
         slopDomains: Set<String>,
         slopMode: String,
         personalization: PersonalizationModel?,
+        // The contextual-summary task, already in flight, when media promotion is enabled. Awaited
+        // here so a resolved media entity's canonical platforms are lifted before the user's domain
+        // rules (pin/raise/block still win); null disables promotion.
+        summaryDeferred: Deferred<WikiSummary?>? = null,
     ): Triple<List<SearchResult>, String?, List<EngineOutcome>> {
         // Scope the query for the chosen vertical (a `site:` OR group the engines understand). The
         // original query still drives sort/summary/correction so freshness keywords are detected.
@@ -171,7 +209,7 @@ class MetaSearchResultProvider(
                 System.currentTimeMillis(),
                 publishedOf = { it.publishedMillis },
             )
-        val personalized =
+        val personalizedBase =
             if (personalization != null) {
                 Personalizer.reorder(
                     sorted,
@@ -182,6 +220,15 @@ class MetaSearchResultProvider(
                 )
             } else {
                 sorted
+            }
+        // Media promotion: for a resolved media entity, lift its canonical platforms (bounded), after
+        // relevance/personalization and before the rules pass so pin/raise/block still win.
+        val category = summaryDeferred?.await()?.let { MediaIntent.detectCategory(it.description) }
+        val personalized =
+            if (category != null) {
+                MediaIntent.promoteMedia(personalizedBase, category, urlOf = { it.url })
+            } else {
+                personalizedBase
             }
         val ranked =
             DomainRanker.apply(

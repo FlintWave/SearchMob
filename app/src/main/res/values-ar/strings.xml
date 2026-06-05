@@ -39,6 +39,10 @@
     <string name="vertical_news">أخبار</string>
     <string name="vertical_forums">منتديات</string>
     <string name="vertical_academic">أكاديمي</string>
+    <string name="media_listen_on">استمع على</string>
+    <string name="media_watch_on">شاهد الآن</string>
+    <string name="media_read_on">تابع القراءة</string>
+    <string name="media_play_on">استمر في التشغيل</string>
     <string name="search_did_you_mean">هل قصدت:</string>
     <string name="search_showing_results_for">عرض النتائج لـ</string>
     <string name="search_results_for">نتائج البحث عن %1$s</string>
@@ -133,6 +137,8 @@
     <string name="settings_section_suggestions">اقتراحات</string>
     <string name="settings_suggestions_upstream">اقتراحات مباشرة من الإنترنت</string>
     <string name="settings_suggestions_upstream_supporting">معطل افتراضيًا. عند التفعيل، يتم إرسال ما تكتبه إلى خدمة الاقتراحات الخاصة بـ DuckDuckGo عبر الوكيل الخاص للحفاظ على الخصوصية أثناء الكتابة، لتقديم اقتراحات تلقائية فورية. يؤدي تعطيل هذه الميزة إلى اقتصار الاقتراحات على سجل البحث المحلي فقط.</string>
+    <string name="settings_media_actions">روابط الوسائط للأفلام والموسيقى والكتب والألعاب</string>
+    <string name="settings_media_actions_supporting">مفعل افتراضيًا. عندما يكون البحث متعلقًا بفيلم أو موسيقي أو ألبوم أو كتاب أو لعبة، فإنه يعرض صفًا من المواقع الموثوقة لمشاهدته أو الاستماع إليه أو قراءته أو لعبه (مع إعطاء الأولوية للخيارات المجانية والمتاحة)، ويضعها في مرتبة أعلى في نتائج البحث. يستخدم فقط بيانات ويكيبيديا التي تم جلبها بالفعل؛ يتم إنشاء الروابط على جهازك.</string>
     <string name="settings_summary">ملخص ويكيبيديا لبعض عمليات البحث</string>
     <string name="settings_summary_supporting">مفعّل افتراضيًا. بالنسبة للاستعلامات المشابهة للكيانات، يعرض ملخصًا موجزًا في بطاقة أعلى النتائج المستخرجة من مقالة ويكيبيديا ذات الصلة. يضيف على الأكثر طلبًا إضافيًا واحدًا إلى ويكيبيديا (وهو بالفعل محرك بحث هنا) عبر الوكيل الخاص بالخصوصية.</string>
     <string name="settings_section_updates">تحديثات</string>

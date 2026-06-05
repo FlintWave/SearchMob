@@ -55,6 +55,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.searchmob.R
+import org.searchmob.engine.ActionsRow
+import org.searchmob.engine.MediaCategory
 import org.searchmob.engine.aggregate.EngineOutcome
 import org.searchmob.engine.aggregate.EngineStatus
 import org.searchmob.engine.rank.DomainRanker
@@ -79,6 +81,7 @@ object SearchTestTags {
     const val SCOPE = "search_scope"
     const val DID_YOU_MEAN = "search_did_you_mean"
     const val ENGINE_STATUS = "search_engine_status"
+    const val MEDIA_ACTIONS = "search_media_actions"
     const val RANK_MENU = "search_rank_menu"
 }
 
@@ -168,6 +171,7 @@ fun SearchScreen(
                         showingResultsFor = s.showingResultsFor,
                         summary = s.summary,
                         engineStatus = s.engineStatus,
+                        actionsRow = s.actionsRow,
                         onSearchCorrected = viewModel::searchCorrected,
                         onSetDomainRule = viewModel::setDomainRule,
                         onOpen = { url ->
@@ -245,6 +249,7 @@ private fun ResultsList(
     showingResultsFor: String?,
     summary: WikiSummary?,
     engineStatus: List<EngineOutcome>,
+    actionsRow: ActionsRow?,
     onSearchCorrected: (String) -> Unit,
     onSetDomainRule: (String, RankRule) -> Unit,
     onOpen: (String) -> Unit,
@@ -270,6 +275,9 @@ private fun ResultsList(
     ) {
         if (summary != null) {
             item { SummaryCard(summary = summary, onOpen = onOpen) }
+        }
+        if (actionsRow != null) {
+            item { MediaActionsRow(actionsRow, onOpen) }
         }
         if (didYouMean != null || showingResultsFor != null) {
             item {
@@ -335,6 +343,48 @@ private fun DidYouMeanBanner(
                         .testTag(SearchTestTags.DID_YOU_MEAN)
                         .padding(vertical = 8.dp),
             )
+    }
+}
+
+/**
+ * The "Listen/Watch/Read/Play on" actions row: the verb plus brand links for a resolved media entity.
+ * Each link opens a locally-built search URL in the browser. Free/open platforms (and Wikipedia) lead.
+ */
+@Composable
+private fun MediaActionsRow(
+    row: ActionsRow,
+    onOpen: (String) -> Unit,
+) {
+    val label =
+        when (row.category) {
+            MediaCategory.MUSIC -> stringResource(R.string.media_listen_on)
+            MediaCategory.FILM_TV -> stringResource(R.string.media_watch_on)
+            MediaCategory.BOOKS -> stringResource(R.string.media_read_on)
+            MediaCategory.GAMES -> stringResource(R.string.media_play_on)
+        }
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState())
+                .testTag(SearchTestTags.MEDIA_ACTIONS)
+                .padding(vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            label,
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        row.links.forEach { link ->
+            Text(
+                text = link.label,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.clickable(role = Role.Button) { onOpen(link.url) },
+            )
+        }
     }
 }
 

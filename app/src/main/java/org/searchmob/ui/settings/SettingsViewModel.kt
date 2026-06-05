@@ -253,6 +253,10 @@ class SettingsViewModel(
         viewModelScope.launch { preferences.setSummaryEnabled(enabled) }
     }
 
+    fun setMediaActionsEnabled(enabled: Boolean) {
+        viewModelScope.launch { preferences.setMediaActionsEnabled(enabled) }
+    }
+
     /** Set the AI-slop filter mode ("downrank"/"hide"/"off"). Default "downrank"; persists immediately. */
     fun setAiSlopMode(mode: String) {
         viewModelScope.launch { preferences.setAiSlopMode(mode) }

@@ -35,9 +35,14 @@
     <string name="sort_date">Fecha</string>
     <string name="sort_relevance">Relevancia</string>
     <string name="scope_all">Todos</string>
+    <string name="vertical_web">Navegador web</string>
     <string name="vertical_news">Noticias</string>
     <string name="vertical_forums">Foros</string>
     <string name="vertical_academic">Académico</string>
+    <string name="media_listen_on">Escuchar en</string>
+    <string name="media_watch_on">Ver ahora</string>
+    <string name="media_read_on">Siga leyendo</string>
+    <string name="media_play_on">Reproducir siguiente</string>
     <string name="search_did_you_mean">¿Quizás quisiste decir:</string>
     <string name="search_showing_results_for">Mostrando resultados para</string>
     <string name="search_results_for">Resultados para %1$s</string>
@@ -131,6 +136,8 @@
     <string name="settings_section_suggestions">Sugerencias</string>
     <string name="settings_suggestions_upstream">Sugerencias en tiempo real de la web</string>
     <string name="settings_suggestions_upstream_supporting">Desactivado por defecto. Cuando está activado, lo que escribe se envía al servicio de sugerencias de DuckDuckGo a través del proxy de privacidad mientras escribe, para ofrecerle autocompletado en tiempo real. Al desactivarlo, las sugerencias se limitan solo a su historial local.</string>
+    <string name="settings_media_actions">Enlaces a contenido multimedia para películas, música, libros y juegos</string>
+    <string name="settings_media_actions_supporting">Activado por defecto. Cuando una búsqueda se refiere a una película, músico, álbum, libro o juego, muestra una fila de opciones oficiales para verla, escucharla, leerla o jugarla (primero las opciones gratuitas y abiertas) y las destaca en los resultados. Utiliza únicamente la información obtenida de Wikipedia que ya aparece en el resumen; los enlaces se generan en tu dispositivo.</string>
     <string name="settings_summary">Resumen de Wikipedia para algunas búsquedas</string>
     <string name="settings_summary_supporting">Activado por defecto. Para consultas similares a las de entidades, muestra una tarjeta con un resumen breve encima de los resultados del artículo relacionado en Wikipedia. Realiza como máximo una solicitud adicional a Wikipedia (que ya funciona como motor de búsqueda aquí) a través del proxy de privacidad.</string>
     <string name="settings_section_updates">Actualizaciones</string>

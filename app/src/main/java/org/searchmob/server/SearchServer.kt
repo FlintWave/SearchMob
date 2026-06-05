@@ -72,6 +72,8 @@ import org.searchmob.data.history.HistoryEntry
 import org.searchmob.data.history.HistoryStore
 import org.searchmob.data.prefs.PersonalizationPreferences
 import org.searchmob.data.prefs.RankingPreferences
+import org.searchmob.engine.ActionsRow
+import org.searchmob.engine.MediaCategory
 import org.searchmob.engine.aggregate.EngineOutcome
 import org.searchmob.engine.aggregate.EngineStatus
 import org.searchmob.engine.rank.DomainRanker
@@ -686,6 +688,14 @@ private class ServedText(
     ) = s(R.string.search_engines_responded, "%1\$d of %2\$d engines responded", responded, total)
 
     fun engineResultCount(count: Int) = s(R.string.search_engine_result_count, "%1\$d results", count)
+
+    fun mediaLabel(category: MediaCategory) =
+        when (category) {
+            MediaCategory.MUSIC -> s(R.string.media_listen_on, "Listen on")
+            MediaCategory.FILM_TV -> s(R.string.media_watch_on, "Watch on")
+            MediaCategory.BOOKS -> s(R.string.media_read_on, "Read on")
+            MediaCategory.GAMES -> s(R.string.media_play_on, "Play on")
+        }
 }
 
 private fun HTML.renderResultsPage(
@@ -730,6 +740,7 @@ private fun HTML.renderResultsPage(
             // from a vertical that returned nothing.
             if (query.isNotBlank()) verticalBar(text, query, vertical)
             if (query.isNotBlank()) outcome.summary?.let { summaryBox(text, it) }
+            if (query.isNotBlank()) outcome.actionsRow?.let { actionsRowCard(text, it) }
             when {
                 query.isBlank() -> p("empty") { +text.enterQuery }
                 results.isEmpty() -> {
@@ -817,6 +828,26 @@ private fun FlowContent.engineStatusLine(
                         EngineStatus.FAILED -> text.engineFailed
                     }
                 li("engine engine-${outcome.status.name.lowercase()}") { +"${outcome.name} — $detail" }
+            }
+        }
+    }
+}
+
+/**
+ * The "Listen/Watch/Read/Play on" actions row for a resolved media entity: the localized verb plus
+ * brand links (free/open first, Wikipedia leading). Every link is a locally-built search URL and
+ * carries `rel=noopener noreferrer` like all result links.
+ */
+private fun FlowContent.actionsRowCard(
+    text: ServedText,
+    row: ActionsRow,
+) {
+    div(classes = "actions-row") {
+        span("alabel") { +text.mediaLabel(row.category) }
+        row.links.forEach { link ->
+            a(href = link.url, classes = "achip") {
+                attributes["rel"] = "noopener noreferrer"
+                +link.label
             }
         }
     }
@@ -1634,6 +1665,9 @@ private val PAGE_CSS =
     .engine-status summary{cursor:pointer;color:var(--muted)}
     .engine-status ul{list-style:none;margin:6px 0 0;padding:0;color:var(--muted)}
     .engine-status .engine-failed{font-weight:600}
+    .actions-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0 0 18px}
+    .actions-row .alabel{color:var(--muted);font-size:.8125rem;font-weight:600}
+    .actions-row .achip{font-size:.8125rem;padding:3px 10px;border:1px solid var(--border);border-radius:999px;text-decoration:none;color:var(--link)}
     .result{margin:0 0 26px}
     .result.is-collapsed{display:none}
     .reveal-sentinel{height:1px}

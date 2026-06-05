@@ -88,6 +88,7 @@ object SettingsTestTags {
     const val HISTORY_SWITCH = "settings_history_switch"
     const val SUGGESTIONS_UPSTREAM_SWITCH = "settings_suggestions_upstream_switch"
     const val SUMMARY_SWITCH = "settings_summary_switch"
+    const val MEDIA_ACTIONS_SWITCH = "settings_media_actions_switch"
     const val UPDATE_CHECK_SWITCH = "settings_update_check_switch"
     const val AI_SLOP_CHIPS = "settings_ai_slop_chips"
     const val PERSONALIZATION_SWITCH = "settings_personalization_switch"
@@ -288,6 +289,13 @@ fun SettingsScreen(
                 checked = prefs.summaryEnabled,
                 tag = SettingsTestTags.SUMMARY_SWITCH,
                 onCheckedChange = viewModel::setSummaryEnabled,
+            )
+            ToggleRow(
+                label = str(R.string.settings_media_actions),
+                supporting = str(R.string.settings_media_actions_supporting),
+                checked = prefs.mediaActionsEnabled,
+                tag = SettingsTestTags.MEDIA_ACTIONS_SWITCH,
+                onCheckedChange = viewModel::setMediaActionsEnabled,
             )
 
             HorizontalDivider()

@@ -39,6 +39,10 @@
     <string name="vertical_news">خبریں</string>
     <string name="vertical_forums">مباحثے</string>
     <string name="vertical_academic">تعلیمی</string>
+    <string name="media_listen_on">اس پر سنیں</string>
+    <string name="media_watch_on">یہ دیکھیں</string>
+    <string name="media_read_on">مزید پڑھیں</string>
+    <string name="media_play_on">چلانا شروع کریں</string>
     <string name="search_did_you_mean">کیا آپ یہ مراد رکھتے تھے؟</string>
     <string name="search_showing_results_for">نتائج یہاں دکھائے جا رہے ہیں</string>
     <string name="search_results_for">%1$s کے لیے نتائج</string>
@@ -132,6 +136,8 @@
     <string name="settings_section_suggestions">تجویزات</string>
     <string name="settings_suggestions_upstream">ویب سے لائیو تجاویز</string>
     <string name="settings_suggestions_upstream_supporting">افتراضاً بند ہے۔ جب یہ آن کی جاتی ہے، تو آپ جو کچھ بھی ٹائپ کرتے ہیں وہ پرائیویسی پراکسی کے ذریعے ڈک ڈک گو کی تجویز سروس کو بھیجا جاتا ہے تاکہ لائیو آٹو کمپلیٹ پیش کیا جا سکے۔ بند کرنے سے تجاویز صرف آپ کی مقامی تاریخ تک محدود رہیں گی۔</string>
+    <string name="settings_media_actions">فلموں، موسیقی، کتابوں اور گیمز کے لیے میڈیا لنکس</string>
+    <string name="settings_media_actions_supporting">یہ بطور ڈیفالٹ آن ہے۔ جب کوئی تلاش کسی فلم، موسیقار، البم، کتاب یا گیم کے بارے میں ہو، تو یہ دیکھنے، سننے، پڑھنے یا کھیلنے کے لیے قابلِ اعتماد مقامات کی ایک قطار دکھاتا ہے (پہلے مفت اور اوپن آپشنز) اور نتائج میں ان کو نمایاں کرتا ہے۔ یہ صرف ویکیپیڈیا سے حاصل کردہ خلاصہ استعمال کرتا ہے؛ لنکس آپ کے آلہ پر بنائے جاتے ہیں۔</string>
     <string name="settings_summary">بعض تلاشوں کے لیے ویکیپیڈیا کا خلاصہ</string>
     <string name="settings_summary_supporting">افتتاحاً فعال ہے۔ اگر کوئی چیز کسی مخصوص ادارے سے متعلق ہو، تو اس کے ویکیپیڈیا آرٹیکل سے حاصل نتائج کے اوپر ایک مختصر خلاصہ والا کارڈ دکھایا جائے گا۔ پرائیویسی پراکسی کے ذریعے ویکیپیڈیا (جو کہ یہاں پہلے سے موجود سرچ انجن ہے) کو زیادہ سے زیادہ ایک اضافی درخواست بھیجی جائے گی۔</string>
     <string name="settings_section_updates">تازہ ترین معلومات</string>
@@ -178,6 +184,7 @@
     <string name="setup_generic_title">کوئی بھی براؤزر (عام طریقہ)</string>
     <string name="setup_generic_step1">اوپر دی گئی ویب سائٹ کو ایک بار کھولیں۔ جب آپ اس سائٹ پر جائیں گے تو سرچ موب خود کو ایک تلاش انجن کے طور پر متعارف کرائے گا۔</string>
     <string name="setup_generic_step2">اپنے براؤزر کی سرچ انجن کی ترتیبات کھولیں۔</string>
+    <string name="setup_generic_step3">اگر یہ ظاہر ہوتا ہے تو سرچ موب کو منتخب کریں، یا نیچے دیے گئے تلاش کے سانچے کا استعمال کرتے ہوئے ایک کسٹم انجن شامل کریں (%s کو ویسا ہی رکھیں)، اور پھر اسے ڈیفالٹ کے طور پر سیٹ کریں۔</string>
     <string name="setup_firefox_title">فائر فاکس خاندان (فائر فاکس، فینیک، مل، آئرن فاکس)</string>
     <string name="setup_firefox_step1">مینو → سیٹنگز → تلاش کریں → ڈیفالٹ سرچ انجن → سرچ انجن شامل کریں۔</string>
     <string name="setup_firefox_step3">محفوظ کریں، پھر سرچ موب کو بطور ڈیفالٹ تلاش انجن مقرر کریں۔</string>
