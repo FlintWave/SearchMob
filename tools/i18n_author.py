@@ -60,7 +60,10 @@ _NO_TRANSLATE: frozenset[str] = frozenset({"app_name"})
 # Placeholders that must survive translation untouched: named `{token}` tokens and printf specs
 # including Android's positional form (`%1$s`, `%2$d`) as well as the bare `%s` / `%d`.
 _PROTECT_TOKEN = re.compile(r"\{[a-zA-Z_][a-zA-Z0-9_]*\}|%\d*\$?[sd]")
-_PLACEHOLDER = re.compile(r"\{[a-zA-Z_][a-zA-Z0-9_]*\}")
+# Validate that EVERY real placeholder survived translation: named `{token}` tokens AND printf specs
+# (`%s`, `%1$d`). Checking only braces let a dropped `%s` pass (it masks to `{pN}`, and if the model
+# drops that token the restored output silently loses the spec), which breaks the format string.
+_PLACEHOLDER = _PROTECT_TOKEN
 
 # Trailing sentence punctuation the model sometimes appends to a fragment that had none, including
 # the CJK and Arabic full stops/commas so it is stripped for those scripts too.

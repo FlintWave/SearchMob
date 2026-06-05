@@ -20,7 +20,10 @@ class StringCatalogIntegrityTest {
     private fun parse(file: File): Map<String, String> =
         stringRegex.findAll(file.readText()).associate { it.groupValues[1] to it.groupValues[2] }
 
-    private fun placeholders(value: String): List<String> = placeholderRegex.findAll(value).map { it.value }.sorted().toList()
+    private fun placeholders(value: String): List<String> =
+        placeholderRegex.findAll(value).map {
+            it.value
+        }.sorted().toList()
 
     @Test
     fun translatedCatalogsHaveNoStrayKeysAndKeepPlaceholders() {

@@ -62,20 +62,27 @@ class RegionTest {
         val adapter: (String) -> DuckDuckGoAdapter = { DuckDuckGoAdapter(baseUrl = it) }
         val client = OkHttpClient()
 
-        val es = capturePath("<html></html>") { base ->
-            adapter(base).search(SearchQuery("cats"), EngineContext(client, languageRegion = languageRegionFor("es")))
-        }
+        val es =
+            capturePath("<html></html>") { base ->
+                adapter(
+                    base,
+                ).search(SearchQuery("cats"), EngineContext(client, languageRegion = languageRegionFor("es")))
+            }
         assertTrue("expected kl param, got $es", es.contains("kl=es-es"))
 
-        val english = capturePath("<html></html>") { base ->
-            adapter(base).search(SearchQuery("cats"), EngineContext(client, languageRegion = null))
-        }
+        val english =
+            capturePath("<html></html>") { base ->
+                adapter(base).search(SearchQuery("cats"), EngineContext(client, languageRegion = null))
+            }
         assertFalse("English should be region-neutral", english.contains("kl="))
 
         // A locale with no DuckDuckGo region (Bengali) must not append an empty kl.
-        val bn = capturePath("<html></html>") { base ->
-            adapter(base).search(SearchQuery("cats"), EngineContext(client, languageRegion = languageRegionFor("bn")))
-        }
+        val bn =
+            capturePath("<html></html>") { base ->
+                adapter(
+                    base,
+                ).search(SearchQuery("cats"), EngineContext(client, languageRegion = languageRegionFor("bn")))
+            }
         assertFalse(bn.contains("kl="))
     }
 
@@ -84,16 +91,23 @@ class RegionTest {
         val adapter: (String) -> BraveApiAdapter = { BraveApiAdapter(baseUrl = it) }
         val client = OkHttpClient()
 
-        val ar = capturePath("{\"web\":{\"results\":[]}}") { base ->
-            adapter(base).search(SearchQuery("cats"), EngineContext(client, apiKey = "k", languageRegion = languageRegionFor("ar")))
-        }
+        val ar =
+            capturePath("{\"web\":{\"results\":[]}}") { base ->
+                adapter(
+                    base,
+                ).search(
+                    SearchQuery("cats"),
+                    EngineContext(client, apiKey = "k", languageRegion = languageRegionFor("ar")),
+                )
+            }
         assertTrue(ar.contains("country=SA"))
         assertTrue(ar.contains("search_lang=ar"))
         assertTrue(ar.contains("ui_lang=ar-SA"))
 
-        val english = capturePath("{\"web\":{\"results\":[]}}") { base ->
-            adapter(base).search(SearchQuery("cats"), EngineContext(client, apiKey = "k", languageRegion = null))
-        }
+        val english =
+            capturePath("{\"web\":{\"results\":[]}}") { base ->
+                adapter(base).search(SearchQuery("cats"), EngineContext(client, apiKey = "k", languageRegion = null))
+            }
         assertFalse(english.contains("country="))
         assertFalse(english.contains("search_lang="))
         assertFalse(english.contains("ui_lang="))
