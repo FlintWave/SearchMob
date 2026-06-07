@@ -527,10 +527,25 @@ private fun csvList(raw: String?): List<String> =
         .filter { it.isNotEmpty() }
         .distinct()
 
-/** Loopback names only: the served editing routes are for the machine's own browser, never the LAN. */
+/**
+ * Loopback names only: the served editing routes are for the machine's own browser, never the LAN.
+ * Accepts `localhost`, the `127.0.0.0/8` range, and IPv6 loopback in any textual form: the compressed
+ * `::1`, the expanded `0:0:0:0:0:0:0:1` (which our dual-stack `*` socket may report for a `::1`
+ * client), the IPv4-mapped `::ffff:127.0.0.1` (likewise for a `127.x` client), and either wrapped in
+ * `[...]` brackets or carrying a `%zone` suffix (as an `Origin`/Host value can be).
+ */
 internal fun isLoopbackHost(host: String): Boolean {
-    val h = host.trim().lowercase()
-    return h == "localhost" || h == "::1" || h.startsWith("127.")
+    var h = host.trim().lowercase()
+    if (h.startsWith("[") && h.endsWith("]")) h = h.substring(1, h.length - 1)
+    h = h.substringBefore('%')
+    if (h == "localhost" || h == "::1" || h.startsWith("127.")) return true
+    if (!h.contains(":")) return false
+    // IPv4-mapped IPv6 loopback, e.g. `::ffff:127.0.0.1` (an embedded `127.x` address after the colons).
+    val tail = h.substringAfterLast(':')
+    if (tail.startsWith("127.") && tail.count { it == '.' } == 3) return true
+    // Expanded / partially-collapsed pure IPv6 loopback: every hextet is zero except a trailing `1`.
+    val parts = h.split(":")
+    return parts.lastOrNull() == "1" && parts.dropLast(1).all { it.isEmpty() || it.all { c -> c == '0' } }
 }
 
 /** Query routes gated by the access token for non-loopback clients in network mode. */
@@ -571,10 +586,17 @@ internal fun hostHeaderAllowed(
 
 private fun isOwnerRequest(call: ApplicationCall): Boolean = isLoopbackHost(call.request.origin.remoteHost)
 
-/** CSRF guard: a present `Origin` must be one of our own (loopback) origins; absent is same-origin. */
+/**
+ * CSRF guard: a cross-site POST carries an `Origin` header naming a foreign host, which we reject. An
+ * absent Origin is same-origin. A hostless / opaque Origin is too: browsers serialize the page's
+ * origin as the literal `Origin: null` for our own form posts because every response sets
+ * `Referrer-Policy: no-referrer`, so `URI("null").host` is null. Treat that as same-origin (a genuine
+ * attacker page always presents a real, non-loopback host). Mirrors the desktop server, which lets an
+ * empty origin host through `host_header_allowed`.
+ */
 private fun sameOrigin(call: ApplicationCall): Boolean {
     val origin = call.request.headers["Origin"] ?: return true
-    val host = runCatching { URI(origin).host }.getOrNull() ?: return false
+    val host = runCatching { URI(origin).host }.getOrNull() ?: return true
     return isLoopbackHost(host)
 }
 

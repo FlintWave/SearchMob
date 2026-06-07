@@ -44,6 +44,13 @@ versioning (`YY.MM.VV`).
   It now keeps the full ranked set and reveals more as you scroll to the bottom, both in the app and
   on the search pages you open in a browser, with no extra request and nothing stored.
 
+### Fixed
+- **Changing the scope from the browser no longer says "Forbidden."** On a SearchMob search page in
+  your browser, applying a scope (or a per-result block/raise/lower/pin rule) submitted a form that
+  the browser labels with an opaque origin because every page is sent with a no-referrer policy. The
+  server misread that as a cross-site request and rejected it. These owner-only edits now go through,
+  while a genuine cross-site post is still blocked and the controls stay loopback-only.
+
 ## [26.06.02] - 2026-06-03
 
 ### Changed

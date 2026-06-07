@@ -3,6 +3,10 @@ package org.searchmob.server
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.runBlocking
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -97,6 +101,25 @@ class WebUiPersonalizationTest {
         return code
     }
 
+    // OkHttp variant: HttpURLConnection silently drops `Origin` (it is on its restricted-header list),
+    // so the CSRF/same-origin tests below post through OkHttp, which sends the header verbatim.
+    private fun postFormWithOrigin(
+        port: Int,
+        path: String,
+        form: String,
+        origin: String,
+    ): Int {
+        val client = OkHttpClient.Builder().followRedirects(false).build()
+        val body = form.toRequestBody("application/x-www-form-urlencoded".toMediaType())
+        val request =
+            Request.Builder()
+                .url("http://$LOOPBACK_HOST:$port$path")
+                .header("Origin", origin)
+                .post(body)
+                .build()
+        return client.newCall(request).execute().use { it.code }
+    }
+
     @Test
     fun loopbackPostSetsAndResetsADomainRule() {
         val prefs = RankingPreferences(FakeStore())
@@ -127,6 +150,41 @@ class WebUiPersonalizationTest {
             postForm(port, "/scope", "lens=Docs")
             assertEquals("Docs", runBlocking { prefs.load() }.activeLens)
             postForm(port, "/scope", "lens=")
+            assertEquals(null, runBlocking { prefs.load() }.activeLens)
+        } finally {
+            server.stop()
+        }
+    }
+
+    @Test
+    fun postScopeWithOpaqueOriginIsAllowed() {
+        // Regression: a browser sends `Origin: null` (an opaque origin) for the served scope form
+        // because every response sets `Referrer-Policy: no-referrer`. That must be treated as
+        // same-origin, not rejected with 403 (the bug this guards against).
+        val prefs = RankingPreferences(FakeStore())
+        runBlocking { prefs.save(RankingRules(lenses = listOf(Lens(name = "Docs")))) }
+        val server = SearchServer(provider = OneResultProvider(), rankingPreferences = prefs)
+        val port = server.start(freeLoopbackPort())
+        try {
+            assertEquals(200, waitForHealthz(port))
+            val code = postFormWithOrigin(port, "/scope", "lens=Docs", origin = "null")
+            assertTrue("opaque-origin POST should redirect, got $code", code in 300..399)
+            assertEquals("Docs", runBlocking { prefs.load() }.activeLens)
+        } finally {
+            server.stop()
+        }
+    }
+
+    @Test
+    fun postScopeWithForeignOriginIsForbidden() {
+        // A genuine cross-site POST carries a real, non-loopback Origin host and must be rejected.
+        val prefs = RankingPreferences(FakeStore())
+        runBlocking { prefs.save(RankingRules(lenses = listOf(Lens(name = "Docs")))) }
+        val server = SearchServer(provider = OneResultProvider(), rankingPreferences = prefs)
+        val port = server.start(freeLoopbackPort())
+        try {
+            assertEquals(200, waitForHealthz(port))
+            assertEquals(403, postFormWithOrigin(port, "/scope", "lens=Docs", origin = "http://evil.example"))
             assertEquals(null, runBlocking { prefs.load() }.activeLens)
         } finally {
             server.stop()
@@ -169,9 +227,17 @@ class WebUiPersonalizationTest {
     @Test
     fun isLoopbackHostClassifiesAddresses() {
         assertTrue(isLoopbackHost("127.0.0.1"))
+        assertTrue(isLoopbackHost("127.5.6.7"))
         assertTrue(isLoopbackHost("localhost"))
         assertTrue(isLoopbackHost("::1"))
+        // IPv6 loopback in the textual forms a dual-stack socket or an Origin/Host header can surface.
+        assertTrue(isLoopbackHost("0:0:0:0:0:0:0:1"))
+        assertTrue(isLoopbackHost("[::1]"))
+        assertTrue(isLoopbackHost("::1%eth0"))
+        assertTrue(isLoopbackHost("::ffff:127.0.0.1"))
         assertFalse(isLoopbackHost("192.168.1.20"))
         assertFalse(isLoopbackHost("evil.example"))
+        assertFalse(isLoopbackHost("::"))
+        assertFalse(isLoopbackHost("2001:db8::1"))
     }
 }
