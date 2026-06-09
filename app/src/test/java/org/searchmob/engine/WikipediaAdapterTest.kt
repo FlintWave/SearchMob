@@ -10,16 +10,17 @@ import org.junit.Test
 import org.searchmob.engine.adapters.WikipediaAdapter
 
 class WikipediaAdapterTest {
+    // OpenSearch shape: [query, titles[], snippets[], urls[]].
     private val fixture =
         """
-        {"pages":[
-          {"key":"Privacy","title":"Privacy","excerpt":"<span class=\"hl\">Privacy</span> is the ability to be let alone.","description":"d"},
-          {"key":"Internet_privacy","title":"Internet privacy","excerpt":"Internet privacy involves the right to store data.","description":"d2"}
-        ]}
+        ["privacy",
+         ["Privacy","Internet privacy"],
+         ["Privacy is the ability to be let alone.","Internet privacy involves the right to store data."],
+         ["https://en.wikipedia.org/wiki/Privacy","https://en.wikipedia.org/wiki/Internet_privacy"]]
         """.trimIndent()
 
     @Test
-    fun parsesPagesIntoNormalizedItems() {
+    fun parsesOpenSearchArrayIntoNormalizedItems() {
         val items = WikipediaAdapter().parse(fixture)
         assertEquals(2, items.size)
         assertEquals("Privacy", items[0].title)
@@ -31,7 +32,15 @@ class WikipediaAdapterTest {
     }
 
     @Test
-    fun searchHitsRestEndpointAndParses() =
+    fun nonEntityQueryContributesNothing() {
+        // OpenSearch returns empty result arrays for a query that names no article: the adapter must
+        // contribute nothing rather than fall back to noisy full-text matches.
+        val items = WikipediaAdapter().parse("""["club 541 palm springs gay",[],[],[]]""")
+        assertEquals(0, items.size)
+    }
+
+    @Test
+    fun searchHitsOpenSearchEndpointAndParses() =
         runTest {
             val server = MockWebServer()
             server.enqueue(MockResponse().setBody(fixture))
@@ -41,7 +50,9 @@ class WikipediaAdapterTest {
                 val result = adapter.search(SearchQuery("privacy"), EngineContext(OkHttpClient(), timeoutMs = 5_000))
                 assertTrue(result is EngineResult.Success)
                 assertEquals(2, (result as EngineResult.Success).items.size)
-                assertTrue(server.takeRequest().path!!.startsWith("/w/rest.php/v1/search/page?q=privacy"))
+                val path = server.takeRequest().path!!
+                assertTrue(path.startsWith("/w/api.php?action=opensearch"))
+                assertTrue(path.contains("search=privacy"))
             } finally {
                 server.shutdown()
             }

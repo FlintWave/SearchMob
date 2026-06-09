@@ -6,6 +6,15 @@ versioning (`YY.MM.VV`).
 
 ## [Unreleased]
 
+### Fixed
+- **Much better search results: Wikipedia no longer floods results with unrelated articles.** The
+  Wikipedia engine was doing a full-text search that returned ten pages matching any single word in
+  your query, so a search like "club 541 palm springs gay" came back with "Manhattan", "Ted Kennedy",
+  and Florida election pages instead of anything relevant. It now uses Wikipedia's title-matching
+  endpoint (matching the desktop app): it contributes an article only when your query actually names
+  one, and adds nothing otherwise. Entity searches (a person, place, or thing) still get the right
+  Wikipedia article, and the rest of your results are no longer drowned out.
+
 ## 26.06.03 — 2026-06-05
 
 ### Added
