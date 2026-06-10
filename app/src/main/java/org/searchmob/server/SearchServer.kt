@@ -5,6 +5,7 @@ import android.content.res.Configuration
 import android.content.res.Resources
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
+import io.ktor.http.Parameters
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.Application
 import io.ktor.server.application.ApplicationCall
@@ -421,13 +422,14 @@ fun Application.searchModule(
             val domain = params["domain"].orEmpty().trim()
             val rule = runCatching { RankRule.valueOf(params["action"].orEmpty().trim().uppercase()) }.getOrNull()
             if (domain.isNotEmpty() && rule != null) rankingPreferences!!.setDomainRule(domain, rule)
-            redirectBack(call)
+            redirectToResults(call, params)
         }
         post("/scope") {
             if (!guardMutation(call, rankingPreferences)) return@post
-            val lens = call.receiveParameters()["lens"].orEmpty().trim()
+            val params = call.receiveParameters()
+            val lens = params["lens"].orEmpty().trim()
             rankingPreferences!!.setActiveLens(lens.ifEmpty { null })
-            redirectBack(call)
+            redirectToResults(call, params)
         }
 
         // Settings page + preference / personalization writes. Owner-only (loopback): the page 404s
@@ -635,6 +637,32 @@ private suspend fun guardPrefs(
     return true
 }
 
+/**
+ * Return to the results page a mutation POST came from, rebuilt from the hidden `q`/`sort`/`vertical`
+ * fields the served scope/rule forms carry, so the new scope or rule is applied to the same search
+ * instead of dumping the owner on the home page. (Our `Referrer-Policy: no-referrer` strips the
+ * Referer, so the Referer-based [redirectBack] always fell through to "/" and the results vanished.)
+ * Falls back to [redirectBack] when there is no query - e.g. the home-page or settings scope selector,
+ * which has no results page to return to.
+ */
+private suspend fun redirectToResults(
+    call: ApplicationCall,
+    params: Parameters,
+) {
+    val query = params["q"].orEmpty().trim()
+    if (query.isEmpty()) {
+        redirectBack(call)
+        return
+    }
+    val sort = params["sort"].orEmpty().ifBlank { "fresh" }
+    val vertical = params["vertical"].orEmpty().ifBlank { "web" }
+    val target =
+        "/search?q=${URLEncoder.encode(query, "UTF-8")}" +
+            "&vertical=${URLEncoder.encode(vertical, "UTF-8")}" +
+            "&sort=${URLEncoder.encode(sort, "UTF-8")}"
+    call.respondRedirect(target, permanent = false)
+}
+
 /** Return to the page the POST came from when it is one of our own origins; else home. */
 private suspend fun redirectBack(call: ApplicationCall) {
     val target =
@@ -780,7 +808,7 @@ private fun HTML.renderResultsPage(
                     // gate the editing controls use); never shown to a LAN visitor.
                     if (editable) engineStatusLine(text, outcome.engineStatus)
                     sortBar(text, query, sortMode)
-                    if (editable) scopeBar(rules)
+                    if (editable) scopeBar(rules, query, sortMode, vertical)
                     results.forEachIndexed { index, result ->
                         // Results past the first reveal window start collapsed; the reveal script
                         // unhides them in batches on scroll. The full list is still in the DOM, so
@@ -812,7 +840,7 @@ private fun HTML.renderResultsPage(
                                     }
                                 }
                             }
-                            if (editable) rankControls(result.url, rules)
+                            if (editable) rankControls(result.url, rules, query, sortMode, vertical)
                         }
                     }
                     if (results.size > REVEAL_SIZE) {
@@ -1006,9 +1034,19 @@ private fun FlowContent.homeScopeSelect(rules: RankingRules) {
 }
 
 /** Scope (lens) selector; rendered only when the profile has at least one lens defined. */
-private fun FlowContent.scopeBar(rules: RankingRules) {
+private fun FlowContent.scopeBar(
+    rules: RankingRules,
+    query: String,
+    sortMode: String,
+    vertical: String,
+) {
     if (rules.lenses.isEmpty()) return
     form(action = "/scope", method = FormMethod.post, classes = "scopebar") {
+        // Carry the current search so the POST can land back on these results with the new scope
+        // applied, instead of the home page (our no-referrer policy strips the Referer).
+        hiddenInput(name = "q") { value = query }
+        hiddenInput(name = "sort") { value = sortMode }
+        hiddenInput(name = "vertical") { value = vertical }
         label {
             attributes["for"] = "sm-scope"
             +"Scope:"
@@ -1038,10 +1076,17 @@ private fun FlowContent.scopeBar(rules: RankingRules) {
 private fun FlowContent.rankControls(
     url: String,
     rules: RankingRules,
+    query: String,
+    sortMode: String,
+    vertical: String,
 ) {
     val domain = DomainRanker.host(url) ?: return
     val current = rules.domainRules[domain]
     form(action = "/rules/domain", method = FormMethod.post, classes = "rank") {
+        // Carry the current search so applying the rule returns to these results, not the home page.
+        hiddenInput(name = "q") { value = query }
+        hiddenInput(name = "sort") { value = sortMode }
+        hiddenInput(name = "vertical") { value = vertical }
         span("state") { +domain }
         hiddenInput(name = "domain") { value = domain }
         listOf(

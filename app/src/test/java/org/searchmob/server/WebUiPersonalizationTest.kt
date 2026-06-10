@@ -101,6 +101,24 @@ class WebUiPersonalizationTest {
         return code
     }
 
+    /** POST a form and return the (status code, Location header) without following the redirect. */
+    private fun postFormRedirect(
+        port: Int,
+        path: String,
+        form: String,
+    ): Pair<Int, String?> {
+        val c = URL("http://$LOOPBACK_HOST:$port$path").openConnection() as HttpURLConnection
+        c.requestMethod = "POST"
+        c.instanceFollowRedirects = false
+        c.doOutput = true
+        c.setRequestProperty("Content-Type", "application/x-www-form-urlencoded")
+        c.outputStream.use { it.write(form.toByteArray()) }
+        val code = c.responseCode
+        val location = c.getHeaderField("Location")
+        c.disconnect()
+        return code to location
+    }
+
     // OkHttp variant: HttpURLConnection silently drops `Origin` (it is on its restricted-header list),
     // so the CSRF/same-origin tests below post through OkHttp, which sends the header verbatim.
     private fun postFormWithOrigin(
@@ -186,6 +204,54 @@ class WebUiPersonalizationTest {
             assertEquals(200, waitForHealthz(port))
             assertEquals(403, postFormWithOrigin(port, "/scope", "lens=Docs", origin = "http://evil.example"))
             assertEquals(null, runBlocking { prefs.load() }.activeLens)
+        } finally {
+            server.stop()
+        }
+    }
+
+    @Test
+    fun scopeAndRuleMutationsRedirectBackToTheResultsPage() {
+        // Regression: applying a scope/rule from the results page must return to that search (carried
+        // via hidden q/sort/vertical fields), not dump the owner on the home page and lose the
+        // results. The Referer is stripped by our no-referrer policy, so the redirect cannot rely on
+        // it.
+        val prefs = RankingPreferences(FakeStore())
+        runBlocking { prefs.save(RankingRules(lenses = listOf(Lens(name = "Docs")))) }
+        val server = SearchServer(provider = OneResultProvider(), rankingPreferences = prefs)
+        val port = server.start(freeLoopbackPort())
+        try {
+            assertEquals(200, waitForHealthz(port))
+            val (scopeCode, scopeLoc) =
+                postFormRedirect(port, "/scope", "lens=Docs&q=privacy&sort=fresh&vertical=news")
+            assertTrue("expected a redirect, got $scopeCode", scopeCode in 300..399)
+            assertTrue("redirect should land on the search, was $scopeLoc", scopeLoc!!.startsWith("/search?q=privacy"))
+            assertTrue(scopeLoc.contains("vertical=news"))
+
+            val (ruleCode, ruleLoc) =
+                postFormRedirect(
+                    port,
+                    "/rules/domain",
+                    "domain=news.example&action=BLOCK&q=privacy&sort=fresh&vertical=web",
+                )
+            assertTrue("expected a redirect, got $ruleCode", ruleCode in 300..399)
+            assertTrue("redirect should land on the search, was $ruleLoc", ruleLoc!!.startsWith("/search?q=privacy"))
+        } finally {
+            server.stop()
+        }
+    }
+
+    @Test
+    fun scopeMutationWithoutAQueryFallsBackHome() {
+        // The home-page scope selector carries no query; it must still work (fall back to "/"), not error.
+        val prefs = RankingPreferences(FakeStore())
+        runBlocking { prefs.save(RankingRules(lenses = listOf(Lens(name = "Docs")))) }
+        val server = SearchServer(provider = OneResultProvider(), rankingPreferences = prefs)
+        val port = server.start(freeLoopbackPort())
+        try {
+            assertEquals(200, waitForHealthz(port))
+            val (code, loc) = postFormRedirect(port, "/scope", "lens=Docs")
+            assertTrue("expected a redirect, got $code", code in 300..399)
+            assertEquals("/", loc)
         } finally {
             server.stop()
         }

@@ -6,6 +6,13 @@ versioning (`YY.MM.VV`).
 
 ## [Unreleased]
 
+### Fixed
+- **Applying a scope or rule from the browser no longer throws away your results.** On a SearchMob
+  search page in your browser, changing the scope (or blocking/raising/lowering/pinning a result's
+  site) used to send you to the home page with an empty search box, losing the results you were
+  looking at. It now returns you to the same search with the new ranking applied, so you keep your
+  results instead of starting over.
+
 ## 26.06.03 — 2026-06-05
 
 ### Added
