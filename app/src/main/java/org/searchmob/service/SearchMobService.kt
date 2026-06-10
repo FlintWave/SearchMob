@@ -38,6 +38,7 @@ import org.searchmob.engine.adapters.WikipediaAdapter
 import org.searchmob.engine.http.HttpClientFactory
 import org.searchmob.engine.summary.WikiSummaryProvider
 import org.searchmob.i18n.SupportedLocales
+import org.searchmob.server.EngineCatalogEntry
 import org.searchmob.server.LocalServerState
 import org.searchmob.server.SearchServer
 import org.searchmob.server.WakeLockRequestGuard
@@ -174,6 +175,9 @@ class SearchMobService : Service() {
             accessToken = { runBlocking { preferences.networkAccessToken().ifEmpty { null } } },
             // Localizes the served chrome to the owner's chosen UI language (with RTL where needed).
             appContext = applicationContext,
+            // Backs the served Settings per-engine enable toggles (parity with the in-app Settings).
+            engineCatalog =
+                engineAdapters.map { EngineCatalogEntry(it.id, it.displayName, it.requiresApiKey) },
         )
     }
 

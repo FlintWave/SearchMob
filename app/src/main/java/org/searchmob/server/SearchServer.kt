@@ -139,6 +139,13 @@ data class RenderedResults(
     val items: List<Pair<String, String?>>,
 )
 
+/** One engine, for the owner-only served Settings engine-enable toggles. */
+data class EngineCatalogEntry(
+    val id: String,
+    val displayName: String,
+    val requiresApiKey: Boolean = false,
+)
+
 /**
  * Configures the SearchMob HTTP routes on an [Application]. Shared by the real [SearchServer] and by
  * `testApplication` tests so the HTTP contract is exercised identically. No request/access logging is
@@ -170,6 +177,9 @@ fun Application.searchModule(
     // render in English; in the app it is the application context, so each request renders in the
     // resolved UI language with the right text direction.
     appContext: Context? = null,
+    // The engine catalog (id, display name, key requirement) backing the served Settings engine
+    // toggles. Empty = no engine card (tests / callers that don't wire it).
+    engineCatalog: List<EngineCatalogEntry> = emptyList(),
     boundPort: () -> Int,
 ) {
     install(ContentNegotiation) { json() }
@@ -451,6 +461,12 @@ fun Application.searchModule(
                     updateCheckEnabled = userPreferences.updateCheckEnabled(),
                     personalizationEnabled = userPreferences.personalizationEnabled(),
                     language = userPreferences.language(),
+                    engines =
+                        userPreferences.preferences.first().let { up ->
+                            engineCatalog.map {
+                                EngineToggleView(it.id, it.displayName, it.requiresApiKey, up.isEngineEnabled(it.id))
+                            }
+                        },
                 )
             val history = historyStore?.list(System.currentTimeMillis())?.take(HISTORY_VIEW_LIMIT)
             val saved = call.request.queryParameters["saved"] == "1"
@@ -468,6 +484,16 @@ fun Application.searchModule(
             userPreferences.setHistoryEnabled(params["history_enabled"].isFormOn())
             userPreferences.setUpdateCheckEnabled(params["update_check_enabled"].isFormOn())
             userPreferences.setPersonalizationEnabled(params["personalization_enabled"].isFormOn())
+            // Per-engine enable toggles: an unchecked box is absent, so missing = disabled. Persist each
+            // against the running map so all toggles in one save stick.
+            if (engineCatalog.isNotEmpty()) {
+                var current = userPreferences.preferences.first().engineEnabled
+                engineCatalog.forEach { engine ->
+                    val enabled = params["engine_${engine.id}"].isFormOn()
+                    userPreferences.setEngineEnabled(engine.id, enabled, current)
+                    current = current + (engine.id to enabled)
+                }
+            }
             // Language: "" means follow the device language; any other value must be a shipped locale.
             params["language"]?.trim()?.let { lang ->
                 if (lang.isEmpty() || SupportedLocales.isSupported(lang)) userPreferences.setLanguage(lang)
@@ -552,6 +578,15 @@ private data class SettingsView(
     val personalizationEnabled: Boolean,
     // The owner's UI-language pref tag, or "" for follow-the-device-language.
     val language: String,
+    val engines: List<EngineToggleView> = emptyList(),
+)
+
+/** One engine row on the served Settings page: its id, display label, key requirement, and state. */
+private data class EngineToggleView(
+    val id: String,
+    val label: String,
+    val needsKey: Boolean,
+    val enabled: Boolean,
 )
 
 private val VALID_SORTS = setOf("fresh", "date", "relevance")
@@ -1354,6 +1389,15 @@ private fun HTML.renderSettingsPage(
                         prefs.personalizationEnabled,
                     )
                 }
+                if (prefs.engines.isNotEmpty()) {
+                    section("card") {
+                        h2 { +"Search engines" }
+                        prefs.engines.forEach { engine ->
+                            val note = if (engine.needsKey) " (needs an API key, set in the app)" else ""
+                            checkRow("engine_${engine.id}", engine.label + note, engine.enabled)
+                        }
+                    }
+                }
                 div("actions") { button(type = ButtonType.submit) { +"Save" } }
             }
 
@@ -2059,6 +2103,8 @@ class SearchServer(
     private val accessToken: () -> String? = { null },
     // Application context for localizing the served chrome to the chosen UI language; null = English.
     private val appContext: Context? = null,
+    // Engine catalog backing the served Settings engine-enable toggles. Empty = no engine card.
+    private val engineCatalog: List<EngineCatalogEntry> = emptyList(),
 ) {
     @Volatile
     private var server: EmbeddedServer<*, *>? = null
@@ -2102,6 +2148,7 @@ class SearchServer(
                     updateBanner,
                     token,
                     appContext = appContext,
+                    engineCatalog = engineCatalog,
                 ) { port }
             }
         engine.start(wait = false)
