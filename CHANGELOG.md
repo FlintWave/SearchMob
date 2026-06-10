@@ -12,6 +12,9 @@ versioning (`YY.MM.VV`).
   a toggle for the films/music/books/games quick links, a "save search history" toggle, and a
   "check for updates" toggle. Changing your language there also re-tailors your search results, the
   same as in the app.
+- **Result personalization controls on the browser Settings page.** The owner-only Settings page in
+  your browser can now turn the learned click-personalization on or off, and export, import, or reset
+  the model, matching the app. The model stays encrypted on your device and never leaves it.
 
 ### Fixed
 - **Much better search results: Wikipedia no longer floods results with unrelated articles.** The

@@ -449,6 +449,7 @@ fun Application.searchModule(
                     mediaActionsEnabled = userPreferences.mediaActionsEnabled(),
                     historyEnabled = userPreferences.preferences.first().historyEnabled,
                     updateCheckEnabled = userPreferences.updateCheckEnabled(),
+                    personalizationEnabled = userPreferences.personalizationEnabled(),
                     language = userPreferences.language(),
                 )
             val history = historyStore?.list(System.currentTimeMillis())?.take(HISTORY_VIEW_LIMIT)
@@ -466,6 +467,7 @@ fun Application.searchModule(
             userPreferences.setMediaActionsEnabled(params["media_actions_enabled"].isFormOn())
             userPreferences.setHistoryEnabled(params["history_enabled"].isFormOn())
             userPreferences.setUpdateCheckEnabled(params["update_check_enabled"].isFormOn())
+            userPreferences.setPersonalizationEnabled(params["personalization_enabled"].isFormOn())
             // Language: "" means follow the device language; any other value must be a shipped locale.
             params["language"]?.trim()?.let { lang ->
                 if (lang.isEmpty() || SupportedLocales.isSupported(lang)) userPreferences.setLanguage(lang)
@@ -512,6 +514,29 @@ fun Application.searchModule(
             historyStore?.clear()
             call.respondRedirect("/settings?saved=1", permanent = false)
         }
+        // Owner-only personalization (learned click model) management, mirroring the in-app controls.
+        post("/settings/personalization/reset") {
+            if (!guardPrefs(call, userPreferences)) return@post
+            personalizationPreferences?.reset()
+            call.respondRedirect("/settings?saved=1", permanent = false)
+        }
+        get("/settings/personalization/export") {
+            if (userPreferences == null || personalizationPreferences == null || !isOwnerRequest(call)) {
+                call.respondText("Not found", status = HttpStatusCode.NotFound)
+                return@get
+            }
+            call.response.headers.append(
+                "Content-Disposition",
+                "attachment; filename=\"searchmob-personalization.json\"",
+            )
+            call.respondText(personalizationPreferences.exportJson(), ContentType.Application.Json)
+        }
+        post("/settings/personalization/import") {
+            if (!guardPrefs(call, userPreferences)) return@post
+            val text = call.receiveParameters()["model"].orEmpty().take(MAX_GOGGLE_CHARS)
+            if (text.isNotBlank()) personalizationPreferences?.importJson(text)
+            call.respondRedirect("/settings?saved=1", permanent = false)
+        }
     }
 }
 
@@ -524,6 +549,7 @@ private data class SettingsView(
     val mediaActionsEnabled: Boolean,
     val historyEnabled: Boolean,
     val updateCheckEnabled: Boolean,
+    val personalizationEnabled: Boolean,
     // The owner's UI-language pref tag, or "" for follow-the-device-language.
     val language: String,
 )
@@ -1322,6 +1348,11 @@ private fun HTML.renderSettingsPage(
                         "Check for SearchMob updates (about once a day, via the privacy proxy)",
                         prefs.updateCheckEnabled,
                     )
+                    checkRow(
+                        "personalization_enabled",
+                        "Personalize ranking from my clicks (learned on-device, never shared)",
+                        prefs.personalizationEnabled,
+                    )
                 }
                 div("actions") { button(type = ButtonType.submit) { +"Save" } }
             }
@@ -1329,6 +1360,7 @@ private fun HTML.renderSettingsPage(
             domainRulesCard(rules)
             scopesCard(rules)
             gogglesCard(rules)
+            personalizationCard()
             if (history != null) historyCard(history, historyClearable)
         }
         script { unsafe { +THEME_TOGGLE_JS } }
@@ -1564,6 +1596,35 @@ private fun FlowContent.gogglesCard(rules: RankingRules) {
                 }
                 button(type = ButtonType.submit) { +"Import (append)" }
             }
+        }
+    }
+}
+
+/** Owner-only personalization (learned click model): export, reset, and import the model JSON. */
+private fun FlowContent.personalizationCard() {
+    section("card") {
+        h2 { +"Result personalization" }
+        p("hint") {
+            +"The ranking model SearchMob learns from your clicks. It is stored encrypted on this "
+            +"device and never leaves it; the format is shared with SearchMob Desktop, so you can move "
+            +"it between devices. The on/off switch is above, under Privacy & updates."
+        }
+        div("grow") {
+            a(href = "/settings/personalization/export", classes = "btn") {
+                attributes["download"] = "searchmob-personalization.json"
+                +"Export model"
+            }
+            form(action = "/settings/personalization/reset", method = FormMethod.post, classes = "personalreset") {
+                button(type = ButtonType.submit) { +"Reset model" }
+            }
+        }
+        form(action = "/settings/personalization/import", method = FormMethod.post, classes = "personalimport") {
+            textArea {
+                attributes["name"] = "model"
+                attributes["rows"] = "4"
+                attributes["placeholder"] = "Paste an exported personalization JSON to import"
+            }
+            div("grow") { button(type = ButtonType.submit) { +"Import (replace)" } }
         }
     }
 }

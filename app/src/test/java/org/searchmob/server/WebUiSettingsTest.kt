@@ -10,6 +10,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.searchmob.data.history.HistoryEntry
 import org.searchmob.data.history.InMemoryHistoryStore
+import org.searchmob.data.prefs.PersonalizationPreferences
 import org.searchmob.data.prefs.Preferences
 import org.searchmob.data.prefs.PreferencesStore
 import org.searchmob.data.prefs.RankingPreferences
@@ -103,11 +104,13 @@ class WebUiSettingsTest {
         ranking: RankingPreferences,
         prefs: PreferencesRepository,
         history: InMemoryHistoryStore = InMemoryHistoryStore(),
+        personalization: PersonalizationPreferences = PersonalizationPreferences(FakeStore()),
     ) = SearchServer(
         provider = OneResultProvider(),
         rankingPreferences = ranking,
         userPreferences = prefs,
         historyStore = history,
+        personalizationPreferences = personalization,
     )
 
     @Test
@@ -131,6 +134,9 @@ class WebUiSettingsTest {
             assertTrue(html.contains("""name="history_enabled""""))
             assertTrue(html.contains("""name="update_check_enabled""""))
             assertTrue(html.contains("""name="language""""))
+            assertTrue(html.contains("""name="personalization_enabled""""))
+            assertTrue(html.contains("Result personalization"))
+            assertTrue(html.contains("/settings/personalization/export"))
         } finally {
             server.stop()
         }
@@ -149,7 +155,8 @@ class WebUiSettingsTest {
                     port,
                     "/settings/prefs",
                     "sort_mode=date&ai_slop_mode=hide&summary_enabled=on" +
-                        "&media_actions_enabled=on&history_enabled=on&update_check_enabled=on&language=es",
+                        "&media_actions_enabled=on&history_enabled=on&update_check_enabled=on" +
+                        "&personalization_enabled=on&language=es",
                 )
             assertTrue("expected redirect, got $code", code in 300..399)
             runBlocking {
@@ -162,6 +169,7 @@ class WebUiSettingsTest {
                 assertTrue(prefs.mediaActionsEnabled())
                 assertTrue(prefs.preferences.first().historyEnabled)
                 assertTrue(prefs.updateCheckEnabled())
+                assertTrue(prefs.personalizationEnabled())
                 assertEquals("es", prefs.language())
             }
         } finally {
@@ -221,6 +229,30 @@ class WebUiSettingsTest {
             assertTrue(history.list(System.currentTimeMillis()).isNotEmpty())
             postForm(port, "/settings/history/clear", "")
             assertTrue(history.list(System.currentTimeMillis()).isEmpty())
+        } finally {
+            server.stop()
+        }
+    }
+
+    @Test
+    fun personalizationExportImportResetRoutesWork() {
+        val ranking = RankingPreferences(FakeStore())
+        val prefs = PreferencesRepository(InMemoryPreferencesStore())
+        val personalization = PersonalizationPreferences(FakeStore())
+        val server = fullServer(ranking, prefs, personalization = personalization)
+        val port = server.start(freeLoopbackPort())
+        try {
+            assertEquals(200, waitForHealthz(port))
+            // Export returns the model JSON (an empty model is still valid JSON).
+            val (code, body) = get(port, "/settings/personalization/export")
+            assertEquals(200, code)
+            assertTrue("export should be JSON, was: $body", body.trim().startsWith("{"))
+            // Re-importing that JSON is accepted (redirects back to settings).
+            val imported =
+                postForm(port, "/settings/personalization/import", "model=" + java.net.URLEncoder.encode(body, "UTF-8"))
+            assertTrue("import should redirect, got $imported", imported in 300..399)
+            // Reset is accepted too.
+            assertTrue(postForm(port, "/settings/personalization/reset", "") in 300..399)
         } finally {
             server.stop()
         }
