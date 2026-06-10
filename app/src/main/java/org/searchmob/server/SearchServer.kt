@@ -5,6 +5,7 @@ import android.content.res.Configuration
 import android.content.res.Resources
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
+import io.ktor.http.Parameters
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.Application
 import io.ktor.server.application.ApplicationCall
@@ -421,13 +422,14 @@ fun Application.searchModule(
             val domain = params["domain"].orEmpty().trim()
             val rule = runCatching { RankRule.valueOf(params["action"].orEmpty().trim().uppercase()) }.getOrNull()
             if (domain.isNotEmpty() && rule != null) rankingPreferences!!.setDomainRule(domain, rule)
-            redirectBack(call)
+            redirectToResults(call, params)
         }
         post("/scope") {
             if (!guardMutation(call, rankingPreferences)) return@post
-            val lens = call.receiveParameters()["lens"].orEmpty().trim()
+            val params = call.receiveParameters()
+            val lens = params["lens"].orEmpty().trim()
             rankingPreferences!!.setActiveLens(lens.ifEmpty { null })
-            redirectBack(call)
+            redirectToResults(call, params)
         }
 
         // Settings page + preference / personalization writes. Owner-only (loopback): the page 404s
@@ -444,6 +446,10 @@ fun Application.searchModule(
                     aiSlopMode = userPreferences.aiSlopMode(),
                     summaryEnabled = userPreferences.summaryEnabled(),
                     upstreamSuggestionsEnabled = userPreferences.upstreamSuggestionsEnabled.first(),
+                    mediaActionsEnabled = userPreferences.mediaActionsEnabled(),
+                    historyEnabled = userPreferences.preferences.first().historyEnabled,
+                    updateCheckEnabled = userPreferences.updateCheckEnabled(),
+                    language = userPreferences.language(),
                 )
             val history = historyStore?.list(System.currentTimeMillis())?.take(HISTORY_VIEW_LIMIT)
             val saved = call.request.queryParameters["saved"] == "1"
@@ -457,6 +463,13 @@ fun Application.searchModule(
             params["ai_slop_mode"]?.trim()?.takeIf { it in VALID_SLOP }?.let { userPreferences!!.setAiSlopMode(it) }
             userPreferences!!.setSummaryEnabled(params["summary_enabled"].isFormOn())
             userPreferences.setUpstreamSuggestionsEnabled(params["upstream_suggestions_enabled"].isFormOn())
+            userPreferences.setMediaActionsEnabled(params["media_actions_enabled"].isFormOn())
+            userPreferences.setHistoryEnabled(params["history_enabled"].isFormOn())
+            userPreferences.setUpdateCheckEnabled(params["update_check_enabled"].isFormOn())
+            // Language: "" means follow the device language; any other value must be a shipped locale.
+            params["language"]?.trim()?.let { lang ->
+                if (lang.isEmpty() || SupportedLocales.isSupported(lang)) userPreferences.setLanguage(lang)
+            }
             call.respondRedirect("/settings?saved=1", permanent = false)
         }
         post("/settings/lens") {
@@ -508,6 +521,11 @@ private data class SettingsView(
     val aiSlopMode: String,
     val summaryEnabled: Boolean,
     val upstreamSuggestionsEnabled: Boolean,
+    val mediaActionsEnabled: Boolean,
+    val historyEnabled: Boolean,
+    val updateCheckEnabled: Boolean,
+    // The owner's UI-language pref tag, or "" for follow-the-device-language.
+    val language: String,
 )
 
 private val VALID_SORTS = setOf("fresh", "date", "relevance")
@@ -633,6 +651,32 @@ private suspend fun guardPrefs(
         return false
     }
     return true
+}
+
+/**
+ * Return to the results page a mutation POST came from, rebuilt from the hidden `q`/`sort`/`vertical`
+ * fields the served scope/rule forms carry, so the new scope or rule is applied to the same search
+ * instead of dumping the owner on the home page. (Our `Referrer-Policy: no-referrer` strips the
+ * Referer, so the Referer-based [redirectBack] always fell through to "/" and the results vanished.)
+ * Falls back to [redirectBack] when there is no query - e.g. the home-page or settings scope selector,
+ * which has no results page to return to.
+ */
+private suspend fun redirectToResults(
+    call: ApplicationCall,
+    params: Parameters,
+) {
+    val query = params["q"].orEmpty().trim()
+    if (query.isEmpty()) {
+        redirectBack(call)
+        return
+    }
+    val sort = params["sort"].orEmpty().ifBlank { "fresh" }
+    val vertical = params["vertical"].orEmpty().ifBlank { "web" }
+    val target =
+        "/search?q=${URLEncoder.encode(query, "UTF-8")}" +
+            "&vertical=${URLEncoder.encode(vertical, "UTF-8")}" +
+            "&sort=${URLEncoder.encode(sort, "UTF-8")}"
+    call.respondRedirect(target, permanent = false)
 }
 
 /** Return to the page the POST came from when it is one of our own origins; else home. */
@@ -780,7 +824,7 @@ private fun HTML.renderResultsPage(
                     // gate the editing controls use); never shown to a LAN visitor.
                     if (editable) engineStatusLine(text, outcome.engineStatus)
                     sortBar(text, query, sortMode)
-                    if (editable) scopeBar(rules)
+                    if (editable) scopeBar(rules, query, sortMode, vertical)
                     results.forEachIndexed { index, result ->
                         // Results past the first reveal window start collapsed; the reveal script
                         // unhides them in batches on scroll. The full list is still in the DOM, so
@@ -812,7 +856,7 @@ private fun HTML.renderResultsPage(
                                     }
                                 }
                             }
-                            if (editable) rankControls(result.url, rules)
+                            if (editable) rankControls(result.url, rules, query, sortMode, vertical)
                         }
                     }
                     if (results.size > REVEAL_SIZE) {
@@ -1006,9 +1050,19 @@ private fun FlowContent.homeScopeSelect(rules: RankingRules) {
 }
 
 /** Scope (lens) selector; rendered only when the profile has at least one lens defined. */
-private fun FlowContent.scopeBar(rules: RankingRules) {
+private fun FlowContent.scopeBar(
+    rules: RankingRules,
+    query: String,
+    sortMode: String,
+    vertical: String,
+) {
     if (rules.lenses.isEmpty()) return
     form(action = "/scope", method = FormMethod.post, classes = "scopebar") {
+        // Carry the current search so the POST can land back on these results with the new scope
+        // applied, instead of the home page (our no-referrer policy strips the Referer).
+        hiddenInput(name = "q") { value = query }
+        hiddenInput(name = "sort") { value = sortMode }
+        hiddenInput(name = "vertical") { value = vertical }
         label {
             attributes["for"] = "sm-scope"
             +"Scope:"
@@ -1038,10 +1092,17 @@ private fun FlowContent.scopeBar(rules: RankingRules) {
 private fun FlowContent.rankControls(
     url: String,
     rules: RankingRules,
+    query: String,
+    sortMode: String,
+    vertical: String,
 ) {
     val domain = DomainRanker.host(url) ?: return
     val current = rules.domainRules[domain]
     form(action = "/rules/domain", method = FormMethod.post, classes = "rank") {
+        // Carry the current search so applying the rule returns to these results, not the home page.
+        hiddenInput(name = "q") { value = query }
+        hiddenInput(name = "sort") { value = sortMode }
+        hiddenInput(name = "vertical") { value = vertical }
         span("state") { +domain }
         hiddenInput(name = "domain") { value = domain }
         listOf(
@@ -1225,6 +1286,20 @@ private fun HTML.renderSettingsPage(
                         )
                         p("hint") { +"Applied on-device after your own domain rules, which always win." }
                     }
+                    checkRow(
+                        "media_actions_enabled",
+                        "Show quick links for films, music, books, and games",
+                        prefs.mediaActionsEnabled,
+                    )
+                    div("field") {
+                        label { +"Language" }
+                        selectField(
+                            "language",
+                            listOf("" to "Follow device language") +
+                                SupportedLocales.SUPPORTED.map { it.tag to it.nativeName },
+                            prefs.language,
+                        )
+                    }
                 }
                 section("card") {
                     h2 { +"Suggestions" }
@@ -1238,6 +1313,15 @@ private fun HTML.renderSettingsPage(
                         +"Upstream autocomplete sends what you type to a suggestions service; your "
                         +"on-device history suggestions are always private."
                     }
+                }
+                section("card") {
+                    h2 { +"Privacy & updates" }
+                    checkRow("history_enabled", "Save my search history (on-device, encrypted)", prefs.historyEnabled)
+                    checkRow(
+                        "update_check_enabled",
+                        "Check for SearchMob updates (about once a day, via the privacy proxy)",
+                        prefs.updateCheckEnabled,
+                    )
                 }
                 div("actions") { button(type = ButtonType.submit) { +"Save" } }
             }

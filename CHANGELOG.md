@@ -6,6 +6,13 @@ versioning (`YY.MM.VV`).
 
 ## [Unreleased]
 
+### Added
+- **More of the app's settings are now on the browser Settings page too.** The owner-only Settings
+  page you open in a browser gained the controls it was missing next to the app: a language selector,
+  a toggle for the films/music/books/games quick links, a "save search history" toggle, and a
+  "check for updates" toggle. Changing your language there also re-tailors your search results, the
+  same as in the app.
+
 ### Fixed
 - **Much better search results: Wikipedia no longer floods results with unrelated articles.** The
   Wikipedia engine was doing a full-text search that returned ten pages matching any single word in
@@ -14,6 +21,11 @@ versioning (`YY.MM.VV`).
   endpoint (matching the desktop app): it contributes an article only when your query actually names
   one, and adds nothing otherwise. Entity searches (a person, place, or thing) still get the right
   Wikipedia article, and the rest of your results are no longer drowned out.
+- **Applying a scope or rule from the browser no longer throws away your results.** On a SearchMob
+  search page in your browser, changing the scope (or blocking/raising/lowering/pinning a result's
+  site) used to send you to the home page with an empty search box, losing the results you were
+  looking at. It now returns you to the same search with the new ranking applied, so you keep your
+  results instead of starting over.
 
 ## 26.06.03 — 2026-06-05
 
