@@ -18,6 +18,9 @@ versioning (`YY.MM.VV`).
 - **Turn individual search engines on or off from the browser Settings page.** The owner-only
   Settings page now lists the search engines with a checkbox each, matching the app, so you can drop
   one you don't want without opening the app. (Bring-your-own API keys are still set in the app only.)
+- **Add a per-site rule by hand in the app Settings.** The in-app Settings now has a field to type a
+  site and block, lower, raise, or pin it directly, matching the browser Settings page, instead of
+  only being able to create rules from the menu on a result.
 
 ### Fixed
 - **Much better search results: Wikipedia no longer floods results with unrelated articles.** The

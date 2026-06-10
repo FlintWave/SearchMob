@@ -59,6 +59,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.launch
 import org.searchmob.R
 import org.searchmob.engine.rank.Lens
+import org.searchmob.engine.rank.RankRule
 import org.searchmob.engine.rank.RankingRules
 import org.searchmob.i18n.SupportedLocales
 import org.searchmob.server.LocalServerState
@@ -774,6 +775,36 @@ private fun ResultRankingSection(
                     Text(str(R.string.rank_normal))
                 }
             }
+        }
+    }
+
+    // Add a per-domain rule by hand (parity with the browser Settings add-rule form): type a site,
+    // then choose a rule. Clears the field on apply.
+    var newDomain by remember { mutableStateOf("") }
+    OutlinedTextField(
+        value = newDomain,
+        onValueChange = { newDomain = it },
+        label = { Text(str(R.string.settings_ranking_add_domain)) },
+        singleLine = true,
+        modifier = Modifier.fillMaxWidth(),
+    )
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        listOf(
+            RankRule.BLOCK to R.string.rank_block,
+            RankRule.LOWER to R.string.rank_lower,
+            RankRule.RAISE to R.string.rank_raise,
+            RankRule.PIN to R.string.rank_pin,
+        ).forEach { (rule, labelRes) ->
+            OutlinedButton(
+                enabled = newDomain.isNotBlank(),
+                onClick = {
+                    viewModel.setDomainRule(newDomain, rule)
+                    newDomain = ""
+                },
+            ) { Text(str(labelRes)) }
         }
     }
 
