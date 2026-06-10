@@ -2,6 +2,8 @@ package org.searchmob
 
 import android.app.Application
 import androidx.lifecycle.ProcessLifecycleOwner
+import coil.ImageLoader
+import coil.ImageLoaderFactory
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -12,6 +14,7 @@ import org.searchmob.data.prefs.RankingPreferences
 import org.searchmob.engine.correct.AssetDictionaryLoader
 import org.searchmob.engine.correct.OnDeviceSpellCorrector
 import org.searchmob.engine.correct.SpellCorrector
+import org.searchmob.engine.http.HttpClientFactory
 import org.searchmob.engine.rank.AiSlopBlocklistLoader
 
 /**
@@ -27,8 +30,19 @@ import org.searchmob.engine.rank.AiSlopBlocklistLoader
  * unlocks here. The lock controller is registered against the process lifecycle so the DEK is evicted
  * on background/inactivity once zero-knowledge mode lands (a no-op in Keystore mode).
  */
-class SearchMobApplication : Application() {
+class SearchMobApplication : Application(), ImageLoaderFactory {
     val storage: StorageProvider by lazy { StorageProvider.create(this) }
+
+    /**
+     * Coil image loader for the few images the app shows (today just the Wikipedia summary
+     * thumbnail). It is routed through the privacy OkHttp client (no cookies, rotating User-Agent,
+     * via the proxy interceptor) with image-appropriate timeouts, so loading a thumbnail never leaks
+     * identifying request metadata. Coil uses this for every `AsyncImage` in the app.
+     */
+    override fun newImageLoader(): ImageLoader =
+        ImageLoader.Builder(this)
+            .okHttpClient(HttpClientFactory.create(connectTimeoutMs = 5_000, readTimeoutMs = 10_000))
+            .build()
 
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 

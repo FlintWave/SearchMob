@@ -13,10 +13,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
@@ -45,6 +47,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
@@ -54,6 +58,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import coil.compose.AsyncImage
 import org.searchmob.R
 import org.searchmob.engine.ActionsRow
 import org.searchmob.engine.MediaCategory
@@ -525,24 +530,42 @@ private fun SummaryCard(
                 },
         onClick = { if (summary.url.isNotBlank()) onOpen(summary.url) },
     ) {
-        Column(
+        Row(
             modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text(text = summary.title, style = MaterialTheme.typography.titleMedium)
-            if (summary.description.isNotBlank()) {
+            // Thumbnail (when the article has one), loaded through the app's privacy-routed Coil
+            // loader. Decorative: the merged card semantics above already announce the summary.
+            if (!summary.thumbnailUrl.isNullOrBlank()) {
+                AsyncImage(
+                    model = summary.thumbnailUrl,
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier =
+                        Modifier
+                            .size(84.dp)
+                            .clip(RoundedCornerShape(8.dp)),
+                )
+            }
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                Text(text = summary.title, style = MaterialTheme.typography.titleMedium)
+                if (summary.description.isNotBlank()) {
+                    Text(
+                        text = summary.description,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Text(text = summary.extract, style = MaterialTheme.typography.bodyMedium)
                 Text(
-                    text = summary.description,
-                    style = MaterialTheme.typography.labelMedium,
+                    text = stringResource(R.string.search_summary_source),
+                    style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            Text(text = summary.extract, style = MaterialTheme.typography.bodyMedium)
-            Text(
-                text = stringResource(R.string.search_summary_source),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
         }
     }
 }
