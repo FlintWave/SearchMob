@@ -14,6 +14,13 @@ versioning (`YY.MM.VV`).
   same as in the app.
 
 ### Fixed
+- **Much better search results: Wikipedia no longer floods results with unrelated articles.** The
+  Wikipedia engine was doing a full-text search that returned ten pages matching any single word in
+  your query, so a multi-word, non-entity search came back with unrelated encyclopedia articles that
+  merely shared one word with the query, instead of anything relevant. It now uses Wikipedia's
+  title-matching endpoint (matching the desktop app): it contributes an article only when your query
+  actually names one, and adds nothing otherwise. Entity searches (a person, place, or thing) still
+  get the right Wikipedia article, and the rest of your results are no longer drowned out.
 - **Applying a scope or rule from the browser no longer throws away your results.** On a SearchMob
   search page in your browser, changing the scope (or blocking/raising/lowering/pinning a result's
   site) used to send you to the home page with an empty search box, losing the results you were
