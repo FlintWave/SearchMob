@@ -104,6 +104,26 @@ class SettingsViewModel(
         }
     }
 
+    /** Set a per-domain rule by hand from the Settings list (parity with the served add-rule form). */
+    fun setDomainRule(
+        domain: String,
+        rule: RankRule,
+    ) {
+        val prefs = rankingPreferences ?: return
+        // Accept a bare domain or a pasted URL; reduce to a bare host, mirroring the served add form.
+        val host =
+            domain.trim().lowercase()
+                .removePrefix("https://")
+                .removePrefix("http://")
+                .substringBefore("/")
+                .substringBefore("?")
+        if (host.isBlank()) return
+        viewModelScope.launch {
+            prefs.setDomainRule(host, rule)
+            mutableRankingRules.value = prefs.load()
+        }
+    }
+
     /** Create or replace a lens (matched by name). */
     fun saveLens(lens: Lens) {
         val prefs = rankingPreferences ?: return

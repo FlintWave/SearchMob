@@ -147,6 +147,7 @@
     <string name="settings_lens_include_keywords">Include keywords (comma-separated)</string>
     <string name="settings_lens_exclude_keywords">Exclude keywords (comma-separated)</string>
     <string name="settings_ranking_domains_empty">Block or boost a site from the menu on any result.</string>
+    <string name="settings_ranking_add_domain">Add a rule by site (e.g. example.com)</string>
     <string name="settings_goggles">Imported goggle rules (Brave Goggles format)</string>
     <string name="settings_goggles_import">Import goggle</string>
     <string name="settings_goggles_clear">Clear goggle</string>

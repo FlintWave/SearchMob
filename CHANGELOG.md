@@ -15,6 +15,9 @@ versioning (`YY.MM.VV`).
 - **Result personalization controls on the browser Settings page.** The owner-only Settings page in
   your browser can now turn the learned click-personalization on or off, and export, import, or reset
   the model, matching the app. The model stays encrypted on your device and never leaves it.
+- **Add a per-site rule by hand in the app Settings.** The in-app Settings now has a field to type a
+  site and block, lower, raise, or pin it directly, matching the browser Settings page, instead of
+  only being able to create rules from the menu on a result.
 
 ### Fixed
 - **Much better search results: Wikipedia no longer floods results with unrelated articles.** The
