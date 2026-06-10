@@ -6,6 +6,13 @@ versioning (`YY.MM.VV`).
 
 ## [Unreleased]
 
+### Added
+- **More of the app's settings are now on the browser Settings page too.** The owner-only Settings
+  page you open in a browser gained the controls it was missing next to the app: a language selector,
+  a toggle for the films/music/books/games quick links, a "save search history" toggle, and a
+  "check for updates" toggle. Changing your language there also re-tailors your search results, the
+  same as in the app.
+
 ### Fixed
 - **Applying a scope or rule from the browser no longer throws away your results.** On a SearchMob
   search page in your browser, changing the scope (or blocking/raising/lowering/pinning a result's
