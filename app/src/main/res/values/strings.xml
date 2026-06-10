@@ -140,6 +140,7 @@
     <string name="settings_lens_active">Active scope</string>
     <string name="settings_lens_none">None</string>
     <string name="settings_lens_add">Add scope</string>
+    <string name="settings_lens_edit">Edit</string>
     <string name="settings_lens_delete">Delete scope</string>
     <string name="settings_lens_name">Scope name</string>
     <string name="settings_lens_include_domains">Include domains (comma-separated)</string>
