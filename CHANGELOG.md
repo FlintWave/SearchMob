@@ -6,6 +6,8 @@ versioning (`YY.MM.VV`).
 
 ## [Unreleased]
 
+## 26.06.04 — 2026-06-10
+
 ### Added
 - **Edit a saved scope in the app, not just create or delete it.** Each scope in Settings now has an
   Edit button that opens the scope form pre-filled with its domains and keywords, so you can adjust
