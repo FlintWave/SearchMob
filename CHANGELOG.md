@@ -15,6 +15,9 @@ versioning (`YY.MM.VV`).
 - **Result personalization controls on the browser Settings page.** The owner-only Settings page in
   your browser can now turn the learned click-personalization on or off, and export, import, or reset
   the model, matching the app. The model stays encrypted on your device and never leaves it.
+- **Turn individual search engines on or off from the browser Settings page.** The owner-only
+  Settings page now lists the search engines with a checkbox each, matching the app, so you can drop
+  one you don't want without opening the app. (Bring-your-own API keys are still set in the app only.)
 
 ### Fixed
 - **Much better search results: Wikipedia no longer floods results with unrelated articles.** The

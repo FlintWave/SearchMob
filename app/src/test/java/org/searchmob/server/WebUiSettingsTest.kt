@@ -259,6 +259,41 @@ class WebUiSettingsTest {
     }
 
     @Test
+    fun engineTogglesRenderAndPersist() {
+        val ranking = RankingPreferences(FakeStore())
+        val prefs = PreferencesRepository(InMemoryPreferencesStore())
+        val server =
+            SearchServer(
+                provider = OneResultProvider(),
+                rankingPreferences = ranking,
+                userPreferences = prefs,
+                engineCatalog =
+                    listOf(
+                        EngineCatalogEntry("duckduckgo", "DuckDuckGo"),
+                        EngineCatalogEntry("brave", "Brave", requiresApiKey = true),
+                    ),
+            )
+        val port = server.start(freeLoopbackPort())
+        try {
+            assertEquals(200, waitForHealthz(port))
+            val (_, html) = get(port, "/settings")
+            assertTrue(html.contains("Search engines"))
+            assertTrue(html.contains("""name="engine_duckduckgo""""))
+            assertTrue(html.contains("""name="engine_brave""""))
+            assertTrue(html.contains("needs an API key"))
+            // Omitting engine_duckduckgo (an unchecked box) disables it; brave stays on.
+            postForm(port, "/settings/prefs", "sort_mode=fresh&ai_slop_mode=downrank&engine_brave=on")
+            runBlocking {
+                val up = prefs.preferences.first()
+                assertFalse(up.isEngineEnabled("duckduckgo"))
+                assertTrue(up.isEngineEnabled("brave"))
+            }
+        } finally {
+            server.stop()
+        }
+    }
+
+    @Test
     fun settingsUnavailableWithoutStores() {
         // No userPreferences wired -> the page 404s and the prefs route reports unavailable.
         val server = SearchServer(provider = OneResultProvider(), rankingPreferences = RankingPreferences(FakeStore()))
