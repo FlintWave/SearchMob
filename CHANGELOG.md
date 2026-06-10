@@ -7,6 +7,9 @@ versioning (`YY.MM.VV`).
 ## [Unreleased]
 
 ### Added
+- **Edit a saved scope in the app, not just create or delete it.** Each scope in Settings now has an
+  Edit button that opens the scope form pre-filled with its domains and keywords, so you can adjust
+  one in place. This matches the browser Settings page, where each scope was already editable.
 - **The Wikipedia summary card now shows its thumbnail in the app.** When a search shows the
   contextual Wikipedia card, the app now displays the article's thumbnail image next to it, matching
   the search pages you open in a browser. The image is fetched through the same privacy path as

@@ -691,6 +691,7 @@ private fun ResultRankingSection(
     viewModel: SettingsViewModel,
 ) {
     var showAddLens by remember { mutableStateOf(false) }
+    var editingLens by remember { mutableStateOf<Lens?>(null) }
     var showImportGoggle by remember { mutableStateOf(false) }
     var showImportRules by remember { mutableStateOf(false) }
     var showImportPersonalization by remember { mutableStateOf(false) }
@@ -753,6 +754,9 @@ private fun ResultRankingSection(
                 selected = rules.activeLens == lens.name,
                 modifier = Modifier.weight(1f),
             ) { viewModel.selectLens(lens.name) }
+            TextButton(onClick = { editingLens = lens }) {
+                Text(str(R.string.settings_lens_edit))
+            }
             TextButton(onClick = { viewModel.deleteLens(lens.name) }) {
                 Text(str(R.string.settings_lens_delete))
             }
@@ -828,12 +832,18 @@ private fun ResultRankingSection(
         OutlinedButton(onClick = { showImportRules = true }) { Text(str(R.string.settings_rules_import)) }
     }
 
-    if (showAddLens) {
+    if (showAddLens || editingLens != null) {
         AddLensDialog(
-            onDismiss = { showAddLens = false },
+            existing = editingLens,
+            onDismiss = {
+                showAddLens = false
+                editingLens = null
+            },
             onSave = {
+                // saveLens upserts by name, so editing a lens (same name) replaces it in place.
                 viewModel.saveLens(it)
                 showAddLens = false
+                editingLens = null
             },
         )
     }
@@ -905,19 +915,20 @@ private fun LensRadio(
 /** Dialog to create a lens from comma-separated domain/keyword fields. */
 @Composable
 private fun AddLensDialog(
+    existing: Lens?,
     onDismiss: () -> Unit,
     onSave: (Lens) -> Unit,
 ) {
-    var name by remember { mutableStateOf("") }
-    var includeDomains by remember { mutableStateOf("") }
-    var excludeDomains by remember { mutableStateOf("") }
-    var includeKeywords by remember { mutableStateOf("") }
-    var excludeKeywords by remember { mutableStateOf("") }
+    var name by remember { mutableStateOf(existing?.name.orEmpty()) }
+    var includeDomains by remember { mutableStateOf(existing?.includeDomains?.joinToString(", ").orEmpty()) }
+    var excludeDomains by remember { mutableStateOf(existing?.excludeDomains?.joinToString(", ").orEmpty()) }
+    var includeKeywords by remember { mutableStateOf(existing?.includeKeywords?.joinToString(", ").orEmpty()) }
+    var excludeKeywords by remember { mutableStateOf(existing?.excludeKeywords?.joinToString(", ").orEmpty()) }
 
     fun split(s: String) = s.split(",").map { it.trim() }.filter { it.isNotEmpty() }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(str(R.string.settings_lens_add)) },
+        title = { Text(str(if (existing != null) R.string.settings_lens_edit else R.string.settings_lens_add)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(
