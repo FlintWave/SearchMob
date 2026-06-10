@@ -126,6 +126,11 @@ class WebUiSettingsTest {
             assertTrue(html.contains("Scopes"))
             assertTrue(html.contains("Goggles"))
             assertTrue(html.contains("Search history"))
+            // Parity controls with the in-app Settings (added so the browser page is not behind).
+            assertTrue(html.contains("""name="media_actions_enabled""""))
+            assertTrue(html.contains("""name="history_enabled""""))
+            assertTrue(html.contains("""name="update_check_enabled""""))
+            assertTrue(html.contains("""name="language""""))
         } finally {
             server.stop()
         }
@@ -139,7 +144,13 @@ class WebUiSettingsTest {
         val port = server.start(freeLoopbackPort())
         try {
             assertEquals(200, waitForHealthz(port))
-            val code = postForm(port, "/settings/prefs", "sort_mode=date&ai_slop_mode=hide&summary_enabled=on")
+            val code =
+                postForm(
+                    port,
+                    "/settings/prefs",
+                    "sort_mode=date&ai_slop_mode=hide&summary_enabled=on" +
+                        "&media_actions_enabled=on&history_enabled=on&update_check_enabled=on&language=es",
+                )
             assertTrue("expected redirect, got $code", code in 300..399)
             runBlocking {
                 assertEquals("date", prefs.sortMode.first())
@@ -147,6 +158,11 @@ class WebUiSettingsTest {
                 assertTrue(prefs.summaryEnabled())
                 // upstream_suggestions_enabled omitted -> unchecked.
                 assertFalse(prefs.upstreamSuggestionsEnabled.first())
+                // New parity controls persist too.
+                assertTrue(prefs.mediaActionsEnabled())
+                assertTrue(prefs.preferences.first().historyEnabled)
+                assertTrue(prefs.updateCheckEnabled())
+                assertEquals("es", prefs.language())
             }
         } finally {
             server.stop()

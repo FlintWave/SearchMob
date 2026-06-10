@@ -446,6 +446,10 @@ fun Application.searchModule(
                     aiSlopMode = userPreferences.aiSlopMode(),
                     summaryEnabled = userPreferences.summaryEnabled(),
                     upstreamSuggestionsEnabled = userPreferences.upstreamSuggestionsEnabled.first(),
+                    mediaActionsEnabled = userPreferences.mediaActionsEnabled(),
+                    historyEnabled = userPreferences.preferences.first().historyEnabled,
+                    updateCheckEnabled = userPreferences.updateCheckEnabled(),
+                    language = userPreferences.language(),
                 )
             val history = historyStore?.list(System.currentTimeMillis())?.take(HISTORY_VIEW_LIMIT)
             val saved = call.request.queryParameters["saved"] == "1"
@@ -459,6 +463,13 @@ fun Application.searchModule(
             params["ai_slop_mode"]?.trim()?.takeIf { it in VALID_SLOP }?.let { userPreferences!!.setAiSlopMode(it) }
             userPreferences!!.setSummaryEnabled(params["summary_enabled"].isFormOn())
             userPreferences.setUpstreamSuggestionsEnabled(params["upstream_suggestions_enabled"].isFormOn())
+            userPreferences.setMediaActionsEnabled(params["media_actions_enabled"].isFormOn())
+            userPreferences.setHistoryEnabled(params["history_enabled"].isFormOn())
+            userPreferences.setUpdateCheckEnabled(params["update_check_enabled"].isFormOn())
+            // Language: "" means follow the device language; any other value must be a shipped locale.
+            params["language"]?.trim()?.let { lang ->
+                if (lang.isEmpty() || SupportedLocales.isSupported(lang)) userPreferences.setLanguage(lang)
+            }
             call.respondRedirect("/settings?saved=1", permanent = false)
         }
         post("/settings/lens") {
@@ -510,6 +521,11 @@ private data class SettingsView(
     val aiSlopMode: String,
     val summaryEnabled: Boolean,
     val upstreamSuggestionsEnabled: Boolean,
+    val mediaActionsEnabled: Boolean,
+    val historyEnabled: Boolean,
+    val updateCheckEnabled: Boolean,
+    // The owner's UI-language pref tag, or "" for follow-the-device-language.
+    val language: String,
 )
 
 private val VALID_SORTS = setOf("fresh", "date", "relevance")
@@ -1270,6 +1286,20 @@ private fun HTML.renderSettingsPage(
                         )
                         p("hint") { +"Applied on-device after your own domain rules, which always win." }
                     }
+                    checkRow(
+                        "media_actions_enabled",
+                        "Show quick links for films, music, books, and games",
+                        prefs.mediaActionsEnabled,
+                    )
+                    div("field") {
+                        label { +"Language" }
+                        selectField(
+                            "language",
+                            listOf("" to "Follow device language") +
+                                SupportedLocales.SUPPORTED.map { it.tag to it.nativeName },
+                            prefs.language,
+                        )
+                    }
                 }
                 section("card") {
                     h2 { +"Suggestions" }
@@ -1283,6 +1313,15 @@ private fun HTML.renderSettingsPage(
                         +"Upstream autocomplete sends what you type to a suggestions service; your "
                         +"on-device history suggestions are always private."
                     }
+                }
+                section("card") {
+                    h2 { +"Privacy & updates" }
+                    checkRow("history_enabled", "Save my search history (on-device, encrypted)", prefs.historyEnabled)
+                    checkRow(
+                        "update_check_enabled",
+                        "Check for SearchMob updates (about once a day, via the privacy proxy)",
+                        prefs.updateCheckEnabled,
+                    )
                 }
                 div("actions") { button(type = ButtonType.submit) { +"Save" } }
             }
