@@ -155,6 +155,9 @@ dependencies {
     implementation(libs.okhttp)
     implementation(libs.jsoup)
     implementation(libs.commons.codec)
+    // Compose image loading for the Wikipedia summary thumbnail, routed through the privacy OkHttp
+    // client (no cookies, rotating UA, via the proxy) configured in SearchMobApplication.
+    implementation(libs.coil.compose)
 
     // Home-screen widget (Jetpack Glance): Compose-based app widget + Material3 theming for day/night.
     implementation(libs.androidx.glance.appwidget)

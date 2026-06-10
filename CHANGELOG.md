@@ -7,6 +7,10 @@ versioning (`YY.MM.VV`).
 ## [Unreleased]
 
 ### Added
+- **The Wikipedia summary card now shows its thumbnail in the app.** When a search shows the
+  contextual Wikipedia card, the app now displays the article's thumbnail image next to it, matching
+  the search pages you open in a browser. The image is fetched through the same privacy path as
+  everything else (no cookies, no stable identifier, via the proxy).
 - **More of the app's settings are now on the browser Settings page too.** The owner-only Settings
   page you open in a browser gained the controls it was missing next to the app: a language selector,
   a toggle for the films/music/books/games quick links, a "save search history" toggle, and a
