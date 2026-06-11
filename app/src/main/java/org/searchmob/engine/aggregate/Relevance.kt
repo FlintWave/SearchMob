@@ -32,6 +32,24 @@ object Relevance {
     const val BASE = 0.5
     const val GAIN = 1.0
 
+    /**
+     * Navigational promotion: when the query, squished to one separator-free word, exactly names a
+     * result's registrable domain label (query "threejs" -> threejs.org, "node js" -> nodejs.org),
+     * that result is almost certainly the site the searcher wanted, so its final score is multiplied
+     * by this factor to float it to the top past the demotion-only relevance blend. Exact-match only
+     * and capped to short queries, so it is high precision: a long descriptive query never triggers it.
+     */
+    const val NAVIGATIONAL_BOOST = 4.0
+
+    // A navigational query is short by nature ("threejs", "node js", "khan academy"). Past this many
+    // content terms the query is descriptive, not a site name, so the boost is not considered.
+    private const val MAX_NAVIGATIONAL_TERMS = 3
+
+    // Second-level public-suffix heads (e.g. "co" in "example.co.uk") so the registrable label is the
+    // segment before them, not the suffix itself. Short, common list; a full Public Suffix List is
+    // overkill for a high-precision exact-match signal.
+    private val COMPOUND_TLD_HEADS = setOf("co", "com", "org", "net", "ac", "gov", "edu")
+
     // Conservative stopword set: function words and generic query modifiers that carry little subject
     // intent. Kept short on purpose so the actual subject of a query is never stripped. If a query is
     // nothing but stopwords, `contentTerms` falls back to all tokens so matching still works.
@@ -165,13 +183,66 @@ object Relevance {
         return content.ifEmpty { distinct.toList() }
     }
 
+    /** The query's content terms joined with no separators, lowercased ("three js" -> "threejs"). */
+    fun squishedQuery(terms: List<String>): String = terms.joinToString("").lowercase()
+
+    /**
+     * The main label of [host]: "threejs.org" -> "threejs", "docs.python.org" -> "python".
+     *
+     * Strips a leading "www." and returns the segment immediately left of the public suffix, stepping
+     * over a known second-level suffix head ("co.uk", "com.au") when present. Not a full Public Suffix
+     * List, which is overkill for an exact-match navigational signal.
+     */
+    fun registrableLabel(host: String): String {
+        val cleaned = host.lowercase().trim().removePrefix("www.")
+        val parts = cleaned.split(".").filter { it.isNotEmpty() }
+        if (parts.size < 2) return cleaned
+        if (parts.size >= 3 && parts[parts.size - 2] in COMPOUND_TLD_HEADS) return parts[parts.size - 3]
+        return parts[parts.size - 2]
+    }
+
+    /**
+     * [NAVIGATIONAL_BOOST] when the squished query exactly names [host]'s main label, else 1.0.
+     *
+     * High precision by design: only a short query (<= [MAX_NAVIGATIONAL_TERMS] content terms, at least
+     * three characters squished) whose separator-free form equals the registrable label fires, so
+     * "threejs"/"three js" promote threejs.org while a descriptive query never does.
+     */
+    fun navigationalFactor(
+        terms: List<String>,
+        host: String,
+    ): Double {
+        if (terms.isEmpty() || terms.size > MAX_NAVIGATIONAL_TERMS) return 1.0
+        val squished = squishedQuery(terms)
+        if (squished.length < 3) return 1.0
+        return if (squished == registrableLabel(host)) NAVIGATIONAL_BOOST else 1.0
+    }
+
+    /**
+     * Stemmed tokens of [text], plus adjacent-pair concatenations.
+     *
+     * A separator-split brand name in a title ("three.js" -> tokens [three, js]) is bridged by adding
+     * the concatenation "threejs" so the same word typed without the separator (the query "threejs")
+     * matches. The concatenation is run through [stem] like any token, so the trailing-`s` folding that
+     * turns the query "threejs" into "threej" also applies to the bridged "three"+"js" and they meet.
+     */
+    private fun bridgedStems(text: String): Set<String> {
+        val raw = tokens(text.lowercase())
+        val stems = raw.map { stem(it) }.toMutableSet()
+        for (i in 0 until raw.size - 1) {
+            stems.add(stem(raw[i] + raw[i + 1]))
+        }
+        return stems
+    }
+
     /**
      * How well [title]/[snippet] match [terms], in [0, 1]. Higher = better query match.
      *
      * Combines whole-word coverage (fraction of query terms present anywhere), title coverage (the same
      * but title-only, weighted equally because a title hit is a strong relevance signal), and a small
      * bonus when the terms appear as a contiguous phrase in the title. Whole-word membership (not
-     * substring) avoids false hits like the term "ai" matching inside "available".
+     * substring) avoids false hits like the term "ai" matching inside "available". Adjacent tokens are
+     * also bridged (see [bridgedStems]) so "threejs" matches a "three.js" title.
      */
     fun lexicalScore(
         title: String,
@@ -179,8 +250,8 @@ object Relevance {
         terms: List<String>,
     ): Double {
         if (terms.isEmpty()) return 0.0
-        val titleStems = tokens(title.lowercase()).map { stem(it) }.toSet()
-        val snippetStems = tokens(snippet.lowercase()).map { stem(it) }.toSet()
+        val titleStems = bridgedStems(title)
+        val snippetStems = bridgedStems(snippet)
         val stems = terms.map { stem(it) }
         val n = stems.size
         val inTitle = stems.count { it in titleStems }

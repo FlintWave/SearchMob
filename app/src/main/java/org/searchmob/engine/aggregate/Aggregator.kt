@@ -12,6 +12,7 @@ import org.searchmob.engine.EngineResult
 import org.searchmob.engine.EngineResultItem
 import org.searchmob.engine.SearchQuery
 import org.searchmob.engine.date.SnippetDateParser
+import org.searchmob.engine.rank.DomainRanker
 
 /** A merged, ranked result and the engines that contributed it. */
 data class AggregatedResult(
@@ -156,12 +157,16 @@ class Aggregator(
         return buckets.values
             .map { AggregatedResult(it.title, it.url, it.snippet, it.engines.toList(), it.score, it.publishedMillis) }
             .map {
+                // Navigational promotion: when the squished query names this result's domain (query
+                // "threejs" -> threejs.org), float it to the top past the demotion-only relevance
+                // blend, so the official site is not buried under forum posts that merely contain it.
+                val nav = Relevance.navigationalFactor(terms, DomainRanker.host(it.url) ?: "")
                 it to
                     Relevance.blendedScore(
                         it.score,
                         Relevance.lexicalScore(it.title, it.snippet, terms),
                         Relevance.languageAffinity(query, it.title, it.snippet),
-                    )
+                    ) * nav
             }
             .sortedWith(
                 compareByDescending<Pair<AggregatedResult, Double>> { it.second }

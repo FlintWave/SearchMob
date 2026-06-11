@@ -62,6 +62,25 @@ class AggregatorTest {
         }
 
     @Test
+    fun navigationalQueryPromotesOfficialSiteOverLiteralForumHits() =
+        runTest {
+            // Regression: for "threejs" the official three.js site (one engine, ranked last, dotted
+            // title) must beat single-engine forum posts that literally contain "threejs". The nav
+            // boost + separator bridging float it to the top instead of burying it.
+            val e =
+                FakeEngine(
+                    "x",
+                    listOf(
+                        item("x", "https://gamedev.net/x", 0, title = "ThreeJS - GameDev.net"),
+                        item("x", "https://stackoverflow.com/q", 1, title = "threejs on Stack Overflow"),
+                        item("x", "https://threejs.org/", 2, title = "Three.js - JavaScript 3D Library"),
+                    ),
+                )
+            val out = Aggregator().aggregate(SearchQuery("threejs"), listOf(e to ctx())).results
+            assertEquals("https://threejs.org/", out[0].url)
+        }
+
+    @Test
     fun multiEngineAgreementRanksAboveSingleAndIsDeterministic() =
         runTest {
             val a =

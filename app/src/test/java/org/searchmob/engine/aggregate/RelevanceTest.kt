@@ -99,4 +99,53 @@ class RelevanceTest {
         // A perfect lexical match in the wrong script is still demoted by the affinity factor.
         assertEquals(0.4, Relevance.blendedScore(1.0, 1.0, affinity = 0.4), 1e-9)
     }
+
+    // --- separator bridging (threejs <-> three.js) --------------------------------------------
+
+    @Test
+    fun separatorSplitBrandNameMatchesSquishedQuery() {
+        // The query "threejs" must match the official "three.js" title (tokens three + js).
+        val terms = Relevance.contentTerms("threejs")
+        assertTrue(Relevance.lexicalScore("Three.js - JavaScript 3D Library", "A 3D library", terms) >= 0.8)
+    }
+
+    @Test
+    fun bridgingDoesNotMatchUnrelatedTitle() {
+        val terms = Relevance.contentTerms("threejs")
+        assertEquals(0.0, Relevance.lexicalScore("A cooking blog about pies", "recipes", terms), 1e-9)
+    }
+
+    // --- navigational promotion ---------------------------------------------------------------
+
+    @Test
+    fun squishedQueryJoinsTermsWithoutSeparators() {
+        assertEquals("threejs", Relevance.squishedQuery(Relevance.contentTerms("three js")))
+        assertEquals("nodejs", Relevance.squishedQuery(Relevance.contentTerms("node js")))
+    }
+
+    @Test
+    fun registrableLabelStripsSuffixAndSubdomains() {
+        assertEquals("threejs", Relevance.registrableLabel("threejs.org"))
+        assertEquals("python", Relevance.registrableLabel("docs.python.org"))
+        assertEquals("nodejs", Relevance.registrableLabel("www.nodejs.org"))
+        assertEquals("example", Relevance.registrableLabel("example.co.uk"))
+    }
+
+    @Test
+    fun navigationalFactorPromotesExactDomainMatch() {
+        val boost = Relevance.NAVIGATIONAL_BOOST
+        assertEquals(boost, Relevance.navigationalFactor(Relevance.contentTerms("threejs"), "threejs.org"), 1e-9)
+        assertEquals(boost, Relevance.navigationalFactor(Relevance.contentTerms("three js"), "threejs.org"), 1e-9)
+    }
+
+    @Test
+    fun navigationalFactorNeutralForNonMatches() {
+        // A forum that merely contains the word is not the site itself.
+        assertEquals(1.0, Relevance.navigationalFactor(Relevance.contentTerms("threejs"), "gamedev.net"), 1e-9)
+        // A long descriptive query is not navigational.
+        val longQuery = Relevance.contentTerms("how to rotate a cube in threejs")
+        assertEquals(1.0, Relevance.navigationalFactor(longQuery, "threejs.org"), 1e-9)
+        // Too-short squished query never fires.
+        assertEquals(1.0, Relevance.navigationalFactor(Relevance.contentTerms("go"), "go.dev"), 1e-9)
+    }
 }
