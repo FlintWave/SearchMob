@@ -61,7 +61,7 @@ val appVersionCode =
 
 android {
     namespace = "org.searchmob"
-    compileSdk = 36
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "org.searchmob"
