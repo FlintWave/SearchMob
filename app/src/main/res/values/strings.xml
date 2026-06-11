@@ -46,6 +46,8 @@
     <string name="search_idle">Enter a query to search.</string>
     <string name="search_loading">Searching…</string>
     <string name="search_empty">No results found.</string>
+    <string name="search_no_results_scope">No results match the %1$s scope for %2$s.</string>
+    <string name="search_clear_scope">Clear scope</string>
     <string name="search_error_title">Search failed</string>
     <string name="search_retry">Retry</string>
     <string name="search_source_prefix">via</string>
