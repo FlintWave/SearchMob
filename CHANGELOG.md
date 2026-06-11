@@ -13,6 +13,10 @@ versioning (`YY.MM.VV`).
   bridges those spellings, and when your query names a result's own domain it lifts that result
   toward the top, so the official page leads instead of hiding several screens down. It is pure
   on-device string work and adds no new requests.
+- **A scope that filters out every result no longer looks like a blank page.** When you apply a
+  scope on the results page in a browser and it matches nothing, the page now tells you the scope
+  hid the results and offers a one-click "Clear scope" to bring them back, instead of an empty page
+  with no hint of what happened or how to undo it.
 
 ## 26.06.04 — 2026-06-10
 

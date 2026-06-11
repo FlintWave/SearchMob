@@ -780,6 +780,13 @@ private class ServedText(
     val fromWikipedia get() = s(R.string.search_summary_source, "From Wikipedia")
     val enterQuery get() = s(R.string.search_idle, "Enter a query to search.")
     val noResults get() = s(R.string.search_empty, "No results found.")
+    val clearScope get() = s(R.string.search_clear_scope, "Clear scope")
+
+    fun noResultsForScope(
+        scope: String,
+        query: String,
+    ) = s(R.string.search_no_results_scope, "No results match the %1\$s scope for %2\$s.", "“$scope”", "“$query”")
+
     val tagline get() = s(R.string.home_tagline, "Private, battery-friendly, on-device search.")
     val updateAction get() = s(R.string.update_banner_action, "Update")
 
@@ -872,7 +879,17 @@ private fun HTML.renderResultsPage(
                 query.isBlank() -> p("empty") { +text.enterQuery }
                 results.isEmpty() -> {
                     outcome.didYouMean?.let { didYouMeanLine(text, it) }
-                    p("empty") { +text.noResults }
+                    val activeLens = rules.activeLens
+                    if (editable && activeLens != null) {
+                        // An active scope filtered every result out. The scope bar only rendered when
+                        // there WERE results, so the owner could neither see nor clear the scope that
+                        // hid them and the page looked like a blank fresh search. Show both here.
+                        scopeBar(rules, query, sortMode, vertical)
+                        p("empty") { +text.noResultsForScope(activeLens, query) }
+                        clearScope(text, query, sortMode, vertical)
+                    } else {
+                        p("empty") { +text.noResults }
+                    }
                 }
                 else -> {
                     if (outcome.showingResultsFor != null) {
@@ -1146,6 +1163,27 @@ private fun FlowContent.scopeBar(
         }
         // JS auto-submits on change; this covers the JS-off case.
         button(type = ButtonType.submit) { +"Apply" }
+    }
+}
+
+/**
+ * A one-click "Clear scope" control: POST /scope with an empty lens, carrying the search context.
+ *
+ * Clearing the active lens and redirecting back to the same query re-runs it unfiltered, so the
+ * owner recovers the results an over-filtering scope hid without retyping anything.
+ */
+private fun FlowContent.clearScope(
+    text: ServedText,
+    query: String,
+    sortMode: String,
+    vertical: String,
+) {
+    form(action = "/scope", method = FormMethod.post, classes = "clearscope") {
+        hiddenInput(name = "q") { value = query }
+        hiddenInput(name = "sort") { value = sortMode }
+        hiddenInput(name = "vertical") { value = vertical }
+        hiddenInput(name = "lens") { value = "" }
+        button(type = ButtonType.submit) { +text.clearScope }
     }
 }
 

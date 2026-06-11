@@ -54,6 +54,31 @@ class WebUiPersonalizationTest {
             listOf(SearchResult(title = "A page", url = "https://news.example/x", snippet = "s", engine = "e"))
     }
 
+    private class EmptyResultProvider : SearchResultProvider {
+        override suspend fun search(query: String): List<SearchResult> = emptyList()
+    }
+
+    @Test
+    fun emptyResultsUnderActiveScopeShowScopeBarAndClearControl() {
+        // Regression: an active scope that hid every result used to leave a blank page with no way to
+        // see or clear the scope, since the scope bar only rendered when results existed.
+        val prefs = RankingPreferences(FakeStore())
+        runBlocking { prefs.save(RankingRules(lenses = listOf(Lens(name = "Docs")), activeLens = "Docs")) }
+        val server = SearchServer(provider = EmptyResultProvider(), rankingPreferences = prefs)
+        val port = server.start(freeLoopbackPort())
+        try {
+            assertEquals(200, waitForHealthz(port))
+            val (code, html) = get(port, "/search?q=threejs")
+            assertEquals(200, code)
+            assertTrue("scope bar should render on the empty page", html.contains("class=\"scopebar\""))
+            assertTrue("emptiness should be attributed to the scope", html.contains("No results match the"))
+            assertTrue("a clear-scope control should be offered", html.contains("class=\"clearscope\""))
+            assertTrue("clear-scope posts an empty lens to /scope", html.contains("action=\"/scope\""))
+        } finally {
+            server.stop()
+        }
+    }
+
     private fun waitForHealthz(
         port: Int,
         attempts: Int = 30,
