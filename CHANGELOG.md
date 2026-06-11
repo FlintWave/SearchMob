@@ -6,6 +6,14 @@ versioning (`YY.MM.VV`).
 
 ## [Unreleased]
 
+### Fixed
+- **Searching for a site or tool by name now surfaces its official page.** A query like a framework
+  or library name that its official site spells with a dot (for example "three.js") was scored as if
+  it did not match and sank below forum posts that happened to contain the bare word. SearchMob now
+  bridges those spellings, and when your query names a result's own domain it lifts that result
+  toward the top, so the official page leads instead of hiding several screens down. It is pure
+  on-device string work and adds no new requests.
+
 ## 26.06.04 — 2026-06-10
 
 ### Added
