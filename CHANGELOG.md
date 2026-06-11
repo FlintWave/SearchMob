@@ -6,6 +6,8 @@ versioning (`YY.MM.VV`).
 
 ## [Unreleased]
 
+## 26.06.05 — 2026-06-10
+
 ### Fixed
 - **Searching for a site or tool by name now surfaces its official page.** A query like a framework
   or library name that its official site spells with a dot (for example "three.js") was scored as if
