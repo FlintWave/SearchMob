@@ -60,6 +60,16 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x ./gradlew
 
+      # compileSdk 37 (Android 16) is new enough that the runner image may not preinstall its
+      # platform. Accept licenses and install it explicitly so the build does not depend on which
+      # SDK packages happen to be baked into ubuntu-latest. Build-tools are left to AGP's auto-
+      # download (licenses are accepted above), matching what it resolves locally.
+      - name: Install Android SDK platform 37
+        run: |
+          sdkmanager="${ANDROID_SDK_ROOT:-$ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$sdkmanager" --licenses >/dev/null 2>&1 || true
+          "$sdkmanager" "platforms;android-37.0"
+
       - name: ktlint, Android Lint, unit tests, debug assembly
         run: ./gradlew ktlintCheck lint test assembleDebug --stacktrace
 # Release signing, APK/SHA256SUMS publishing, F-Droid metadata and release-please live in

@@ -40,6 +40,14 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x ./gradlew
 
+      # compileSdk 37 (Android 16) may not be preinstalled on the runner image; install it
+      # explicitly so the release build does not depend on the baked-in SDK packages.
+      - name: Install Android SDK platform 37
+        run: |
+          sdkmanager="${ANDROID_SDK_ROOT:-$ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$sdkmanager" --licenses >/dev/null 2>&1 || true
+          "$sdkmanager" "platforms;android-37.0"
+
       - name: Decode signing keystore
         env:
           SIGNING_KEY_BASE64: ${{ secrets.SIGNING_KEY_BASE64 }}
