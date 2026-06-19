@@ -6,6 +6,8 @@ versioning (`YY.MM.VV`).
 
 ## [Unreleased]
 
+## 26.06.06 — 2026-06-19
+
 ### Fixed
 - **Searching for a site or tool by name now keeps its official page on the first screen.** Two
   ranking steps could bury the official site even after it had been ranked first: the freshness
