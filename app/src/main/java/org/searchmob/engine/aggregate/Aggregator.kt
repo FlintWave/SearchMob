@@ -20,6 +20,11 @@ data class AggregatedResult(
     val url: String,
     val snippet: String,
     val engines: List<String>,
+    /**
+     * Final ranking score: RRF fused, lexical-blended, and navigationally boosted. The freshness
+     * sort multiplies it by a recency factor, so a strong match (the official site a navigational
+     * query named) keeps its lead instead of being flattened to its list position.
+     */
     val score: Double,
     /** Best-known publication time (epoch millis), or null. Drives freshness sorting. */
     val publishedMillis: Long? = null,
@@ -155,25 +160,32 @@ class Aggregator(
         // and language-agnostic; the existing tie-breakers keep ordering deterministic. See Relevance.
         val terms = Relevance.contentTerms(query)
         return buckets.values
-            .map { AggregatedResult(it.title, it.url, it.snippet, it.engines.toList(), it.score, it.publishedMillis) }
-            .map {
+            .map { bucket ->
                 // Navigational promotion: when the squished query names this result's domain (query
                 // "threejs" -> threejs.org), float it to the top past the demotion-only relevance
                 // blend, so the official site is not buried under forum posts that merely contain it.
-                val nav = Relevance.navigationalFactor(terms, DomainRanker.host(it.url) ?: "")
-                it to
+                // The final score is stored on the result so the freshness sort scales it directly.
+                val nav = Relevance.navigationalFactor(terms, DomainRanker.host(bucket.url) ?: "")
+                val finalScore =
                     Relevance.blendedScore(
-                        it.score,
-                        Relevance.lexicalScore(it.title, it.snippet, terms),
-                        Relevance.languageAffinity(query, it.title, it.snippet),
+                        bucket.score,
+                        Relevance.lexicalScore(bucket.title, bucket.snippet, terms),
+                        Relevance.languageAffinity(query, bucket.title, bucket.snippet),
                     ) * nav
+                AggregatedResult(
+                    bucket.title,
+                    bucket.url,
+                    bucket.snippet,
+                    bucket.engines.toList(),
+                    finalScore,
+                    bucket.publishedMillis,
+                )
             }
             .sortedWith(
-                compareByDescending<Pair<AggregatedResult, Double>> { it.second }
-                    .thenBy { UrlNormalizer.normalize(it.first.url) }
-                    .thenBy { it.first.engines.joinToString(",") },
+                compareByDescending<AggregatedResult> { it.score }
+                    .thenBy { UrlNormalizer.normalize(it.url) }
+                    .thenBy { it.engines.joinToString(",") },
             )
-            .map { it.first }
     }
 
     /** A structured date from the engine wins; else parse snippet/title. Weak (bare-year) -> null. */

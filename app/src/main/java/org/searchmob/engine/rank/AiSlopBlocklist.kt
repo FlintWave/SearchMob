@@ -23,4 +23,19 @@ object AiSlopBlocklist {
         }
         return false
     }
+
+    /**
+     * The effective blocklist: [raw] minus every [allow]listed domain and any subdomain of one. The
+     * community lists include the official sites of AI companies and major dev hubs, which a search
+     * ranker must never bury, so a search for one of those names returns its real site at the top.
+     */
+    fun effectiveBlocklist(
+        raw: Set<String>,
+        allow: Set<String>,
+    ): Set<String> {
+        if (allow.isEmpty()) return raw
+        return raw.filterTo(HashSet()) { domain ->
+            allow.none { domain == it || domain.endsWith(".$it") }
+        }
+    }
 }

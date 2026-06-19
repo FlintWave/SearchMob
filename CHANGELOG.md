@@ -6,6 +6,17 @@ versioning (`YY.MM.VV`).
 
 ## [Unreleased]
 
+### Fixed
+- **Searching for a site or tool by name now keeps its official page on the first screen.** Two
+  ranking steps could bury the official site even after it had been ranked first: the freshness
+  blend was reordering by list position instead of the real relevance score, so a single dated page
+  (a news story, an encyclopedia entry) could jump ahead of the undated official homepage; and the
+  built-in low-quality filter, which is on by default, was sourced from community lists that include
+  the official sites of many well-known companies and developer hubs, so those sites were quietly
+  pushed down. Freshness now rides on top of the real score and can only reorder results of similar
+  relevance, and a curated allowlist keeps well-known destinations out of the filter. All on-device,
+  no new requests.
+
 ## 26.06.05 — 2026-06-10
 
 ### Fixed

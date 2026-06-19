@@ -1,0 +1,47 @@
+# Slop-filter allowlist: domains the AI-slop blocklist must NEVER downrank or hide.
+#
+# The bundled blocklist is merged from community "hide AI from my browser" lists (see NOTICE). Those
+# lists deliberately include the OFFICIAL sites of AI companies and major developer hubs, because
+# their goal is to keep AI tools out of a browser's results. A search engine has the opposite job:
+# when someone searches "huggingface" or "github", the official site is exactly what they want. So
+# every domain here is subtracted from the effective blocklist at load and build time, so a
+# navigational search for one of these names returns its real site at the top instead of burying it.
+#
+# Keep this list to widely-known, unambiguously-legitimate destinations. One bare registrable domain
+# per line; subdomains are covered automatically. Lines starting with "#" are comments.
+
+# AI labs and their official products / hubs
+openai.com
+anthropic.com
+claude.ai
+huggingface.co
+perplexity.ai
+mistral.ai
+cohere.com
+deepmind.com
+stability.ai
+midjourney.com
+civitai.com
+replicate.com
+character.ai
+poe.com
+runwayml.com
+leonardo.ai
+suno.com
+udio.com
+elevenlabs.io
+copilot.microsoft.com
+gemini.google.com
+
+# Developer, package, and reference hubs
+github.com
+gitlab.com
+stackoverflow.com
+stackexchange.com
+pytorch.org
+tensorflow.org
+kaggle.com
+npmjs.com
+pypi.org
+crates.io
+arxiv.org

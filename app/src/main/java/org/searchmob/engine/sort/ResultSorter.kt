@@ -34,6 +34,13 @@ object ResultSorter {
         mode: SortMode,
         query: String,
         nowMillis: Long,
+        // The aggregator's final relevance score for each item (RRF fused, lexical-blended, and
+        // navigationally boosted). The freshness blend multiplies a recency boost into THIS, so a
+        // strong match (the official site a navigational query named) keeps its lead and freshness
+        // only reorders results of comparable relevance. Defaults to 0.0 ("unscored"), in which case
+        // the blend falls back to a positional `1/(60+index)` proxy. `publishedOf` stays last so the
+        // existing trailing-lambda callers (which pass only `publishedOf`) keep working unchanged.
+        relevanceOf: (T) -> Double = { 0.0 },
         publishedOf: (T) -> Long?,
     ): List<T> {
         if (mode == SortMode.RELEVANCE || items.size < 2) return items
@@ -50,18 +57,18 @@ object ResultSorter {
         }
 
         val weight = QdfHeuristic.weightFor(query, nowMillis)
+        // Earlier this scaled a positional `1/(60+index)` proxy, which flattened every rank gap to a
+        // hair and let a single dated result leapfrog an undated #1 (a news/wiki page over the
+        // queried site itself). Scale the real score when present, else the positional proxy.
+        val hasScores = items.any { relevanceOf(it) > 0.0 }
         return items
-            .mapIndexed { index, item -> Triple(score(index, publishedOf(item), nowMillis, weight), index, item) }
+            .mapIndexed { index, item ->
+                val base = if (hasScores) relevanceOf(item) else 1.0 / (RRF_K + index)
+                Triple(base * recency(publishedOf(item), nowMillis, weight), index, item)
+            }
             .sortedWith(compareByDescending<Triple<Double, Int, T>> { it.first }.thenBy { it.second })
             .map { it.third }
     }
-
-    private fun score(
-        index: Int,
-        published: Long?,
-        nowMillis: Long,
-        weight: Double,
-    ): Double = 1.0 / (RRF_K + index) * recency(published, nowMillis, weight)
 
     private fun recency(
         published: Long?,

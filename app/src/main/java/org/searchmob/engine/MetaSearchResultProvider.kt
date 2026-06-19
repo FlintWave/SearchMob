@@ -207,6 +207,7 @@ class MetaSearchResultProvider(
                 sortMode,
                 query,
                 System.currentTimeMillis(),
+                relevanceOf = { it.score },
                 publishedOf = { it.publishedMillis },
             )
         val personalizedBase =
