@@ -14,7 +14,7 @@ import org.searchmob.engine.rank.Personalizer
  */
 class PersonalizationPreferences(private val store: PreferencesStore) {
     suspend fun load(): PersonalizationModel {
-        val raw = store.get(KEY) ?: return PersonalizationModel()
+        val raw = runCatching { store.get(KEY) }.getOrNull() ?: return PersonalizationModel()
         return Personalizer.fromJson(raw)
     }
 
