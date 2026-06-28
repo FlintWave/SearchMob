@@ -39,6 +39,26 @@ private class FakeRankingStore : PreferencesStore {
     override suspend fun clear() = map.clear()
 }
 
+/** A store that throws on every read, simulating a locked vault (DEK wiped from memory). */
+private class LockedStore : PreferencesStore {
+    private fun locked(): Nothing = error("vault is locked: DEK not present in memory")
+
+    override fun observe(): Flow<Preferences> = locked()
+
+    override suspend fun getAll(): Preferences = locked()
+
+    override suspend fun get(key: String): String? = locked()
+
+    override suspend fun put(
+        key: String,
+        value: String,
+    ) = locked()
+
+    override suspend fun remove(key: String) = locked()
+
+    override suspend fun clear() = locked()
+}
+
 class RankingPreferencesTest {
     @Test
     fun domainRuleSetAndClear() =
@@ -91,5 +111,14 @@ class RankingPreferencesTest {
         runTest {
             val prefs = RankingPreferences(FakeRankingStore())
             assertEquals(false, prefs.importJson("not json"))
+        }
+
+    @Test
+    fun loadReturnsEmptyWhenVaultIsLocked() =
+        runTest {
+            val prefs = RankingPreferences(LockedStore())
+            val rules = prefs.load()
+            assertEquals(DEFAULT_SAMPLE_LENSES, rules.lenses)
+            assertTrue(rules.domainRules.isEmpty())
         }
 }

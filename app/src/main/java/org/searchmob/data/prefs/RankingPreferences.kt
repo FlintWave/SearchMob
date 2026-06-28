@@ -16,7 +16,7 @@ import org.searchmob.engine.rank.RankingRules
  */
 class RankingPreferences(private val store: PreferencesStore) {
     suspend fun load(): RankingRules {
-        val raw = store.get(KEY) ?: return withDefaultLenses(RankingRules.EMPTY)
+        val raw = runCatching { store.get(KEY) }.getOrNull() ?: return withDefaultLenses(RankingRules.EMPTY)
         val parsed = runCatching { json.decodeFromString<RankingRules>(raw) }.getOrDefault(RankingRules.EMPTY)
         return withDefaultLenses(parsed)
     }
