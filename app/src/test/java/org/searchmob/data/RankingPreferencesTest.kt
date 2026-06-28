@@ -41,17 +41,22 @@ private class FakeRankingStore : PreferencesStore {
 
 /** A store that throws on every read, simulating a locked vault (DEK wiped from memory). */
 private class LockedStore : PreferencesStore {
-    override fun observe(): Flow<Preferences> = throw IllegalStateException("vault is locked: DEK not present in memory")
+    private fun locked(): Nothing = error("vault is locked: DEK not present in memory")
 
-    override suspend fun getAll(): Preferences = error("vault is locked: DEK not present in memory")
+    override fun observe(): Flow<Preferences> = locked()
 
-    override suspend fun get(key: String): String? = error("vault is locked: DEK not present in memory")
+    override suspend fun getAll(): Preferences = locked()
 
-    override suspend fun put(key: String, value: String) = error("vault is locked: DEK not present in memory")
+    override suspend fun get(key: String): String? = locked()
 
-    override suspend fun remove(key: String) = error("vault is locked: DEK not present in memory")
+    override suspend fun put(
+        key: String,
+        value: String,
+    ) = locked()
 
-    override suspend fun clear() = error("vault is locked: DEK not present in memory")
+    override suspend fun remove(key: String) = locked()
+
+    override suspend fun clear() = locked()
 }
 
 class RankingPreferencesTest {
