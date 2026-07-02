@@ -28,7 +28,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -48,9 +47,10 @@ fun HistoryScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
-    // Captured in composition so the toast below (an event-time callback, where composable reads are
-    // not allowed) formats with configuration-aware resources instead of querying LocalContext.
-    val resources = LocalResources.current
+    // The import toast fires in an event-time callback, where composable reads are not allowed, so
+    // the localized pattern is read here in composition and formatted with the count on completion
+    // (String.format applies the same positional %1$d substitution getString would).
+    val importedTemplate = stringResource(R.string.history_imported)
     val scope = androidx.compose.runtime.rememberCoroutineScope()
 
     val exportLauncher =
@@ -81,7 +81,7 @@ fun HistoryScreen(
                         viewModel.import(text) { count ->
                             Toast.makeText(
                                 context,
-                                resources.getString(R.string.history_imported, count),
+                                importedTemplate.format(count),
                                 Toast.LENGTH_SHORT,
                             ).show()
                         }
