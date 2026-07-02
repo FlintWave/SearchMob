@@ -10,6 +10,7 @@ import org.searchmob.engine.aggregate.EngineOutcome
 import org.searchmob.engine.correct.NoopSpellCorrector
 import org.searchmob.engine.correct.SpellCorrector
 import org.searchmob.engine.http.HttpClientFactory
+import org.searchmob.engine.query.QueryOperators
 import org.searchmob.engine.rank.DomainRanker
 import org.searchmob.engine.rank.PersonalizationModel
 import org.searchmob.engine.rank.Personalizer
@@ -27,11 +28,18 @@ import org.searchmob.server.SearchResultProvider
  * Bridges the metasearch engine to the server's [SearchResultProvider] contract, so the engine drops
  * in behind the unchanged HTTP routes.
  *
+ * The raw query is run through [QueryOperators] before anything else: Google-fu style operators
+ * (`site:`, `-exclude`, `"phrase"`, `intitle:`/`inurl:`, `filetype:`/`ext:`, `before:`/`after:`,
+ * `OR`/`|`) are split off into an operator-free `cleanText` (for relevance/correction/the contextual
+ * summary) and an `engineQuery` sent upstream; whatever no engine can be trusted to honor is enforced
+ * locally as a post-filter over the aggregated results.
+ *
  * It also surfaces a "did you mean" correction: it prefers the consensus correction the upstream
  * engines reported (parsed from the responses already fetched, no extra request) and otherwise falls
- * back to the offline [corrector]. When the original query returns results, the correction is offered
- * as a non-binding suggestion; when it returns nothing and a confident correction exists, the
- * correction is searched automatically and reported via [SearchOutcome.showingResultsFor].
+ * back to the offline [corrector] (skipped entirely for an operator-laden query, whose syntax the
+ * corrector would just mangle). When the original query returns results, the correction is offered as
+ * a non-binding suggestion; when it returns nothing and a confident correction exists, the correction
+ * is searched automatically and reported via [SearchOutcome.showingResultsFor].
  */
 class MetaSearchResultProvider(
     private val registryProvider: suspend () -> EngineRegistry,
@@ -95,8 +103,13 @@ class MetaSearchResultProvider(
         coroutineScope {
             if (query.isBlank()) return@coroutineScope SearchOutcome(emptyList())
 
-            // Fetch the contextual summary concurrently with the metasearch so it adds no latency.
-            val summaryDeferred = async { runCatching { summaryFetcher(query) }.getOrNull() }
+            // Google-fu style operators (site:/intitle:/before:/etc., see QueryOperators) are parsed
+            // once here so the operator-free text can drive anything that reasons about "what is the
+            // user asking about" rather than "how do I fetch it".
+            val parsed = QueryOperators.parse(query)
+            // Fetch the contextual summary concurrently with the metasearch so it adds no latency. Uses
+            // the operator-free text: an operator-laden query would never resolve a Wikipedia entity.
+            val summaryDeferred = async { runCatching { summaryFetcher(parsed.cleanText) }.getOrNull() }
             // An inline `+name` scope token (parsed by the route) overrides the saved active scope
             // for this one search only; the persisted selection is never written.
             val rules =
@@ -120,7 +133,12 @@ class MetaSearchResultProvider(
                 )
 
             val upstreamCorrection = upstreamRaw?.takeIf { !it.equals(query, ignoreCase = true) }
-            val onDevice = corrector.suggest(query)
+            // The on-device corrector reasons about English word spelling, not query syntax: an
+            // operator-laden query (parsed.engineQuery differing from parsed.cleanText, or any
+            // locally-enforced filter) would just get its operators mangled, so it is skipped and the
+            // suggestion relies on whatever the upstream engines themselves reported.
+            val hasOperators = parsed.engineQuery != parsed.cleanText || parsed.hasFilters
+            val onDevice = if (hasOperators) null else corrector.suggest(query)
             val suggestion =
                 upstreamCorrection ?: onDevice?.corrected?.takeIf { !it.equals(query, ignoreCase = true) }
             val summary = summaryDeferred.await()
@@ -178,7 +196,10 @@ class MetaSearchResultProvider(
             }
         }
 
-    /** Aggregate [query], sort, apply [rules] locally; return (results, correction, per-engine status). */
+    /**
+     * Aggregate [query] (parsing any Google-fu operators it contains — see [QueryOperators]), sort,
+     * apply [rules] locally; return (results, correction, per-engine status).
+     */
     private suspend fun aggregateRanked(
         query: String,
         vertical: Vertical,
@@ -192,20 +213,35 @@ class MetaSearchResultProvider(
         // rules (pin/raise/block still win); null disables promotion.
         summaryDeferred: Deferred<WikiSummary?>? = null,
     ): Triple<List<SearchResult>, String?, List<EngineOutcome>> {
-        // Scope the query for the chosen vertical (a `site:` OR group the engines understand). The
-        // original query still drives sort/summary/correction so freshness keywords are detected.
-        val scoped = Verticals.transformQuery(query, vertical)
+        val parsed = QueryOperators.parse(query)
+        // Scope the query for the chosen vertical (a `site:` OR group the engines understand), on top
+        // of the already-parsed engine query (operators forwarded as-is; intitle:/inurl: turned into a
+        // bare recall hint). The operator-free text still drives sort/summary/correction so freshness
+        // keywords are detected without a `site:` clause throwing that off.
+        val scoped = Verticals.transformQuery(parsed.engineQuery, vertical)
         // Tailor results to the active UI language (region-neutral when English/unset).
         val region = languageRegionFor(languageProvider())
         val aggregated =
-            aggregator.aggregate(SearchQuery(scoped), registryProvider().activeEngines(httpClient, region))
+            aggregator.aggregate(
+                SearchQuery(scoped, rankingTerms = parsed.cleanText),
+                registryProvider().activeEngines(httpClient, region),
+            )
+        // Operators the engines cannot be trusted to honor (intitle:/inurl:/filetype:/before:/after:/
+        // -exclusions/site: scoping) are enforced locally here, before sort/personalization/rules see
+        // the list.
+        val filtered =
+            if (parsed.hasFilters) {
+                aggregated.results.filter { parsed.matches(it.title, it.url, it.snippet, it.publishedMillis) }
+            } else {
+                aggregated.results
+            }
         // Sort first (relevance/date/freshness blend), then nudge by the owner's learned click model
         // (between sort and rules, so PIN/RAISE/BLOCK still win), then bucket by rules.
         val sorted =
             ResultSorter.sort(
-                aggregated.results,
+                filtered,
                 sortMode,
-                query,
+                parsed.cleanText,
                 System.currentTimeMillis(),
                 relevanceOf = { it.score },
                 publishedOf = { it.publishedMillis },
@@ -215,7 +251,7 @@ class MetaSearchResultProvider(
                 Personalizer.reorder(
                     sorted,
                     { DomainRanker.host(it.url) },
-                    query,
+                    parsed.cleanText,
                     personalization,
                     System.currentTimeMillis(),
                 )

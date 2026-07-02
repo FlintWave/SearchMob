@@ -10,6 +10,8 @@ enum class SearchCategory { GENERAL, }
 data class SearchQuery(
     val terms: String,
     val category: SearchCategory = SearchCategory.GENERAL,
+    /** Operator-free text used for on-device relevance ranking; defaults to [terms]. */
+    val rankingTerms: String = terms,
 )
 
 /** A normalized result from one engine, with the rank (0-based position) it held in that engine's list. */
