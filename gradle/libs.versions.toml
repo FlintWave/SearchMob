@@ -3,10 +3,14 @@ agp = "9.2.1"
 kotlin = "2.4.0"
 coreKtx = "1.19.0"
 activityCompose = "1.13.0"
-lifecycleRuntimeKtx = "2.11.0"
+# Lifecycle is pinned to the last version compatible with composeBom 2024.12.01: 2.11.0 pulls a
+# newer androidx.compose.ui/runtime transitively, splitting the Compose stack across versions and
+# breaking recomposition of preference-driven UI (theme changes stopped applying). Bump these two
+# ONLY together with composeBom (see the dependabot ignore rule).
+lifecycleRuntimeKtx = "2.10.0"
 composeBom = "2024.12.01"
 navigationCompose = "2.9.8"
-lifecycleViewmodelCompose = "2.11.0"
+lifecycleViewmodelCompose = "2.10.0"
 junit = "4.13.2"
 junitExt = "1.3.0"
 espressoCore = "3.7.0"
