@@ -39,6 +39,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
@@ -311,4 +312,4 @@ private fun hasNotificationsPermission(context: android.content.Context): Boolea
     }
 
 @Composable
-private fun str(id: Int): String = LocalContext.current.getString(id)
+private fun str(id: Int): String = stringResource(id)

@@ -51,6 +51,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -400,7 +401,6 @@ private fun MediaActionsRow(
  */
 @Composable
 private fun EngineStatusRow(engineStatus: List<EngineOutcome>) {
-    val context = LocalContext.current
     var expanded by remember(engineStatus) { mutableStateOf(false) }
     val responded = engineStatus.count { it.status != EngineStatus.FAILED }
     Column(
@@ -412,7 +412,7 @@ private fun EngineStatusRow(engineStatus: List<EngineOutcome>) {
                 .padding(vertical = 4.dp),
     ) {
         Text(
-            text = context.getString(R.string.search_engines_responded, responded, engineStatus.size),
+            text = stringResource(R.string.search_engines_responded, responded, engineStatus.size),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -421,7 +421,7 @@ private fun EngineStatusRow(engineStatus: List<EngineOutcome>) {
                 val detail =
                     when (outcome.status) {
                         EngineStatus.CONTRIBUTED ->
-                            context.getString(R.string.search_engine_result_count, outcome.count)
+                            stringResource(R.string.search_engine_result_count, outcome.count)
                         EngineStatus.EMPTY -> stringResource(R.string.engine_status_no_results)
                         EngineStatus.FAILED -> stringResource(R.string.engine_status_failed)
                     }
@@ -648,6 +648,3 @@ private fun RankMenu(onSelect: (RankRule) -> Unit) {
         }
     }
 }
-
-@Composable
-private fun stringResource(id: Int): String = LocalContext.current.getString(id)
