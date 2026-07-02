@@ -26,6 +26,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
@@ -267,10 +268,10 @@ private fun Footer(
 }
 
 @Composable
-private fun str(id: Int): String = LocalContext.current.getString(id)
+private fun str(id: Int): String = stringResource(id)
 
 @Composable
 private fun str(
     id: Int,
     vararg formatArgs: Any,
-): String = LocalContext.current.getString(id, *formatArgs)
+): String = stringResource(id, *formatArgs)

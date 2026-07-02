@@ -34,6 +34,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -347,22 +348,21 @@ private fun UpdateBanner(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            val context = LocalContext.current
             Text(
                 text =
                     if (inProgress) {
-                        context.getString(R.string.update_banner_downloading, version)
+                        stringResource(R.string.update_banner_downloading, version)
                     } else {
-                        context.getString(R.string.update_banner_available, version)
+                        stringResource(R.string.update_banner_available, version)
                     },
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.weight(1f),
             )
             Button(onClick = onUpdate, enabled = !inProgress) {
-                Text(context.getString(R.string.update_banner_action))
+                Text(stringResource(R.string.update_banner_action))
             }
             TextButton(onClick = onDismiss, enabled = !inProgress) {
-                Text(context.getString(R.string.update_banner_dismiss))
+                Text(stringResource(R.string.update_banner_dismiss))
             }
         }
     }
