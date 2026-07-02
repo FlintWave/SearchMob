@@ -105,6 +105,7 @@ import java.net.InetSocketAddress
 import java.net.ServerSocket
 import java.net.URI
 import java.net.URLEncoder
+import java.security.MessageDigest
 import java.security.SecureRandom
 import java.util.Base64
 
@@ -214,17 +215,38 @@ fun Application.searchModule(
     // Run before routing on every request: conservative security headers always, plus the Host
     // allowlist and the token gate for non-loopback clients.
     intercept(ApplicationCallPipeline.Plugins) {
-        call.response.headers.append("Referrer-Policy", "no-referrer", safeOnly = false)
+        // `same-origin`, not `no-referrer`: a same-origin request (including our OWN served forms)
+        // still carries its Referer/Origin to us, which `sameOrigin()` needs to tell a genuine
+        // same-origin POST apart from a cross-site one that forces an opaque `Origin: null` (see
+        // `sameOrigin()`'s doc comment for the attack `no-referrer` used to enable). A cross-origin
+        // navigation away from us still sends nothing, same as before, and every result/summary/action
+        // link additionally carries `rel="noreferrer"` as a second, redundant layer.
+        call.response.headers.append("Referrer-Policy", "same-origin", safeOnly = false)
+        call.response.headers.append("Content-Security-Policy", CSP, safeOnly = false)
         call.response.headers.append("X-Content-Type-Options", "nosniff", safeOnly = false)
         call.response.headers.append("X-Frame-Options", "DENY", safeOnly = false)
+        // Queries, titles, snippets, and Settings values must never persist in a browser or
+        // intermediary cache once the page is gone.
+        call.response.headers.append("Cache-Control", "no-store", safeOnly = false)
+        // We never touch the camera/location/microphone; deny every embedder (and ourselves) the asks.
+        call.response.headers.append(
+            "Permissions-Policy",
+            "camera=(), geolocation=(), microphone=()",
+            safeOnly = false,
+        )
         if (!isLoopbackHost(call.request.origin.remoteHost)) {
             val host = hostnameOnly(call.request.headers["Host"].orEmpty())
             if (host.isNotEmpty() && !hostHeaderAllowed(host, allowedHosts)) {
                 call.respondText("Bad Request: host not allowed", status = HttpStatusCode.BadRequest)
                 return@intercept finish()
             }
-            val tokenOk = !accessToken.isNullOrEmpty() && call.request.queryParameters["token"] == accessToken
-            if (call.request.path() in GATED_PATHS && !tokenOk) {
+            val presented =
+                presentedToken(
+                    call.request.queryParameters["token"],
+                    call.request.headers["Authorization"],
+                    call.request.headers["X-SearchMob-Token"],
+                )
+            if (call.request.path() in GATED_PATHS && !tokenMatches(presented, accessToken)) {
                 call.respondText("Forbidden", status = HttpStatusCode.Forbidden)
                 return@intercept finish()
             }
@@ -630,6 +652,60 @@ internal fun isLoopbackHost(host: String): Boolean {
 /** Query routes gated by the access token for non-loopback clients in network mode. */
 private val GATED_PATHS = setOf("/search", "/api/search", "/suggest")
 
+/**
+ * Content-Security-Policy sent on every response. `kotlinx.html` HTML-escapes every piece of dynamic
+ * content it renders (query text, titles, snippets, domains, settings values, ...), so the small
+ * inline theme/reveal `<script>` and `<style>` blocks this server emits are always our own source
+ * constants, never attacker- or user-controlled text - that is what makes `'unsafe-inline'` (required
+ * because those blocks and a few inline `onclick`/`onchange` handlers have no external file to point a
+ * nonce/hash-based policy at) safe to allow here. The policy's real job is defense-in-depth against
+ * everything else: `default-src 'none'` plus the narrow allowances below block any EXTERNAL script,
+ * style, object, or frame a future bug (ours or a library's) might try to load, `form-action 'self'`
+ * stops a form from ever submitting to a foreign origin, and `frame-ancestors 'none'` blocks a foreign
+ * page from framing us (belt-and-suspenders with `X-Frame-Options: DENY` for older browsers).
+ */
+private const val CSP =
+    "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src https:; " +
+        "form-action 'self'; base-uri 'none'; frame-ancestors 'none'"
+
+/**
+ * The access token presented by a caller for the network-mode gate, checked in priority order: the
+ * `?token=` query parameter (kept because an OpenSearch URL template can only carry query parameters,
+ * so a browser search-engine integration has no other way to send it), then an
+ * `Authorization: Bearer <token>` header (case-insensitive scheme, tolerant of surrounding whitespace),
+ * then a bare `X-SearchMob-Token` header. A header-carried token is preferable when the caller can
+ * manage one: unlike a query parameter it never lands in browser history, a bookmarked URL, or a
+ * `Referer` sent to some other site. Pure so the precedence is unit-testable without a running server.
+ */
+internal fun presentedToken(
+    queryParam: String?,
+    authorizationHeader: String?,
+    tokenHeader: String?,
+): String? {
+    if (queryParam != null) return queryParam
+    val header = authorizationHeader?.trim()
+    if (header != null && header.length >= 6 && header.substring(0, 6).equals("Bearer", ignoreCase = true)) {
+        val bearerToken = header.substring(6).trim()
+        if (bearerToken.isNotEmpty()) return bearerToken
+    }
+    return tokenHeader
+}
+
+/**
+ * Constant-time comparison of the [presented] token against the configured [expected] one, so a
+ * network-mode attacker probing the token cannot use response-timing differences to recover it
+ * byte-by-byte the way a naive `==` (which returns as soon as it finds a differing byte) would leak.
+ * False whenever [expected] is null/empty (no token configured - the gate never opens on a fluke
+ * empty-string match) or [presented] is null (nothing was offered).
+ */
+internal fun tokenMatches(
+    presented: String?,
+    expected: String?,
+): Boolean {
+    if (expected.isNullOrEmpty() || presented == null) return false
+    return MessageDigest.isEqual(presented.toByteArray(Charsets.UTF_8), expected.toByteArray(Charsets.UTF_8))
+}
+
 /** Strip an optional `:port` and IPv6 brackets from a Host header value; returns a bare lowercase host. */
 internal fun hostnameOnly(hostHeader: String): String {
     val value = hostHeader.trim().lowercase()
@@ -667,15 +743,24 @@ private fun isOwnerRequest(call: ApplicationCall): Boolean = isLoopbackHost(call
 
 /**
  * CSRF guard: a cross-site POST carries an `Origin` header naming a foreign host, which we reject. An
- * absent Origin is same-origin. A hostless / opaque Origin is too: browsers serialize the page's
- * origin as the literal `Origin: null` for our own form posts because every response sets
- * `Referrer-Policy: no-referrer`, so `URI("null").host` is null. Treat that as same-origin (a genuine
- * attacker page always presents a real, non-loopback host). Mirrors the desktop server, which lets an
- * empty origin host through `host_header_allowed`.
+ * absent Origin is same-origin - a non-browser caller (curl, our own tests, a legacy client) never
+ * sends one on a same-origin POST, and there is nothing here for an attacker to forge in its place.
+ *
+ * A literal `Origin: null` is NOT trusted, unlike before. This used to be treated as same-origin on
+ * the theory that our own `Referrer-Policy: no-referrer` made a browser serialize our OWN form posts'
+ * origin as that opaque value - but an attacker page can produce the exact same `Origin: null` on a
+ * genuinely cross-site POST, e.g. by setting `Referrer-Policy: no-referrer` on its own page, or by
+ * posting from a `<iframe sandbox="allow-forms">` (whose origin is opaque by construction). Either way
+ * the request reaches us indistinguishable from our own, which was a CSRF bypass: the attacker never
+ * needs to know or send a real Origin at all. We now serve `Referrer-Policy: same-origin` instead (see
+ * the header set in [searchModule]'s intercept), so OUR OWN same-origin form posts carry their real,
+ * non-null origin; only an attacker still manufactures the opaque `null` value, so it is rejected here.
+ * Anything else that fails to parse as a URI, or parses with no host at all, is rejected the same way.
  */
 private fun sameOrigin(call: ApplicationCall): Boolean {
     val origin = call.request.headers["Origin"] ?: return true
-    val host = runCatching { URI(origin).host }.getOrNull() ?: return true
+    if (origin.trim().equals("null", ignoreCase = true)) return false
+    val host = runCatching { URI(origin).host }.getOrNull() ?: return false
     return isLoopbackHost(host)
 }
 
@@ -717,8 +802,10 @@ private suspend fun guardPrefs(
 /**
  * Return to the results page a mutation POST came from, rebuilt from the hidden `q`/`sort`/`vertical`
  * fields the served scope/rule forms carry, so the new scope or rule is applied to the same search
- * instead of dumping the owner on the home page. (Our `Referrer-Policy: no-referrer` strips the
- * Referer, so the Referer-based [redirectBack] always fell through to "/" and the results vanished.)
+ * instead of dumping the owner on the home page. Deliberately independent of the Referer header: even
+ * though `Referrer-Policy: same-origin` now lets a same-origin POST carry one, a hardened browser
+ * setting or extension can still strip it, so the Referer-based [redirectBack] is not reliable enough
+ * for this, the primary path.
  * Falls back to [redirectBack] when there is no query - e.g. the home-page or settings scope selector,
  * which has no results page to return to.
  */
@@ -1137,7 +1224,8 @@ private fun FlowContent.scopeBar(
     if (rules.lenses.isEmpty()) return
     form(action = "/scope", method = FormMethod.post, classes = "scopebar") {
         // Carry the current search so the POST can land back on these results with the new scope
-        // applied, instead of the home page (our no-referrer policy strips the Referer).
+        // applied, instead of the home page (kept independent of the Referer header - see
+        // redirectToResults).
         hiddenInput(name = "q") { value = query }
         hiddenInput(name = "sort") { value = sortMode }
         hiddenInput(name = "vertical") { value = vertical }
@@ -1198,7 +1286,8 @@ private fun FlowContent.rankControls(
     val domain = DomainRanker.host(url) ?: return
     val current = rules.domainRules[domain]
     form(action = "/rules/domain", method = FormMethod.post, classes = "rank") {
-        // Carry the current search so applying the rule returns to these results, not the home page.
+        // Carry the current search so applying the rule returns to these results, not the home page
+        // (kept independent of the Referer header, which not every client sends - see redirectToResults).
         hiddenInput(name = "q") { value = query }
         hiddenInput(name = "sort") { value = sortMode }
         hiddenInput(name = "vertical") { value = vertical }
@@ -1268,8 +1357,48 @@ private fun HTML.renderHomePage(
                     attributes["hidden"] = "hidden"
                 }
             }
+            searchOperatorsHelp()
         }
         script { unsafe { +THEME_TOGGLE_JS } }
+    }
+}
+
+/**
+ * One (operator example, short description) row for [searchOperatorsHelp], in the order shown. Mirrors
+ * the Google-style query operators the search engine layer understands: `"exact phrase"`, `-term`,
+ * `site:`/`-site:`, `intitle:`, `inurl:`, `filetype:`/`ext:`, `before:`/`after:` (YYYY[-MM[-DD]]), and
+ * `OR`/`|`.
+ */
+private val OPERATOR_HELP =
+    listOf(
+        "\"exact phrase\"" to "match this exact phrase",
+        "-term" to "exclude results containing term",
+        "site:example.com" to "only results from this site",
+        "-site:example.com" to "exclude results from this site",
+        "intitle:word" to "word must appear in the title",
+        "inurl:word" to "word must appear in the URL",
+        "filetype:pdf" to "only this file type (also ext:)",
+        "before:2023-01-31" to "published before this date",
+        "after:2022" to "published on or after this date (year, year-month, or full date)",
+        "a OR b" to "match either term (also a | b)",
+    )
+
+/**
+ * Collapsed "Search operators" help card under the home search box, listing the operators above with a
+ * short example each. A native `<details>` needs no JavaScript to expand/collapse and stays reachable
+ * and operable from the keyboard. Starts collapsed so it never competes with the search box for
+ * attention. Hardcoded English, matching the existing "Scope:"/"Apply" precedent elsewhere on the
+ * served pages.
+ */
+private fun FlowContent.searchOperatorsHelp() {
+    details(classes = "ophelp") {
+        summary { +"Search operators" }
+        OPERATOR_HELP.forEach { (op, description) ->
+            div("oprow") {
+                span("code") { +op }
+                +" $description"
+            }
+        }
     }
 }
 
@@ -1876,7 +2005,7 @@ private val PAGE_CSS =
     *{box-sizing:border-box}
     html,body{margin:0;padding:0}
     html{font-size:${DEFAULT_FONT_POINT_SIZE}pt}
-    body{background:var(--bg);color:var(--fg);line-height:1.5;font-size:1rem;
+    body{background:var(--bg);color:var(--fg);line-height:1.55;font-size:1rem;
       font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
     a{color:var(--link);text-decoration:none}
     a:hover{text-decoration:underline}
@@ -1886,21 +2015,27 @@ private val PAGE_CSS =
     .updatebar{display:flex;align-items:center;gap:12px;padding:9px 18px;background:var(--accent);
       color:#fff;font-size:13px}
     .updatebar .msg{font-weight:600}
-    .updatebar .btn{margin-left:auto;background:#fff;color:var(--accent);border-radius:16px;padding:5px 14px;
-      font-weight:700;text-decoration:none;white-space:nowrap}
-    .updatebar .btn:hover{text-decoration:none;opacity:.92}
+    .updatebar .btn{margin-left:auto;background:#fff;color:var(--accent);border-radius:20px;padding:6px 16px;
+      font-weight:700;text-decoration:none;white-space:nowrap;transition:box-shadow 150ms,filter 150ms}
+    .updatebar .btn:hover{text-decoration:none;filter:brightness(.96);box-shadow:0 1px 3px rgba(0,0,0,.25)}
     .theme-toggle{margin-left:auto;background:transparent;border:1px solid var(--border);color:var(--fg);
-      border-radius:20px;padding:6px 14px;cursor:pointer;font-size:13px;white-space:nowrap}
-    .theme-toggle:hover{border-color:var(--accent);color:var(--accent)}
+      border-radius:20px;padding:6px 14px;cursor:pointer;font-size:13px;white-space:nowrap;
+      transition:background-color 150ms,border-color 150ms,color 150ms}
+    .theme-toggle:hover{border-color:var(--accent);color:var(--accent);background-color:rgba(127,127,127,.08)}
+    .theme-toggle:hover{background-color:color-mix(in srgb, var(--accent) 8%, transparent)}
     .searchbox{display:flex;align-items:stretch;background:var(--card);border:1px solid var(--border);
-      border-radius:26px;box-shadow:var(--shadow);overflow:hidden}
+      border-radius:28px;box-shadow:var(--shadow);overflow:hidden;transition:box-shadow 150ms,border-color 150ms}
+    .searchbox:hover{box-shadow:0 1px 3px rgba(0,0,0,.15),0 4px 8px rgba(0,0,0,.1)}
+    .searchbox:focus-within{border-color:var(--accent);box-shadow:0 2px 6px rgba(0,0,0,.18),0 6px 14px rgba(0,0,0,.12)}
     .searchbox input[type=text]{flex:1;min-width:0;border:0;outline:0;background:transparent;color:var(--fg);
       font-size:1rem;padding:13px 18px}
     .searchbox input[type=submit]{border:0;background:var(--accent);color:#fff;padding:0 22px;cursor:pointer;
-      font-size:.9375rem;font-weight:600}
+      font-size:.9375rem;font-weight:600;transition:filter 150ms}
     .searchbox input[type=submit]:hover{filter:brightness(1.07)}
     .searchbox select{border:0;border-left:1px solid var(--border);background:transparent;color:var(--fg);
-      font-size:.875rem;padding:0 12px;outline:0;max-width:190px;cursor:pointer}
+      font-size:.875rem;padding:0 12px;outline:0;max-width:190px;cursor:pointer;transition:background-color 150ms}
+    .searchbox select:hover{background-color:rgba(127,127,127,.06)}
+    .searchbox select:hover{background-color:color-mix(in srgb, var(--fg) 6%, transparent)}
     .home{max-width:600px;margin:0 auto;padding:13vh 20px 0;text-align:center}
     .home .brand{font-size:3rem;font-weight:800;color:var(--accent);letter-spacing:-1.5px}
     .home .tagline{color:var(--muted);margin:8px 0 28px;font-size:.9375rem}
@@ -1908,6 +2043,18 @@ private val PAGE_CSS =
     .topbar .searchbox{flex:1;max-width:620px}
     .topbar .searchbox input[type=text]{padding:9px 16px}
     .topbar .searchbox input[type=submit]{padding:0 16px}
+    .ophelp{max-width:560px;margin:14px auto 0;text-align:left;border:1px solid var(--border);
+      border-radius:16px;background:var(--card);padding:0 16px}
+    .ophelp summary{cursor:pointer;padding:10px 0;font-size:.8125rem;font-weight:600;color:var(--muted);
+      list-style:none}
+    .ophelp summary::-webkit-details-marker{display:none}
+    .ophelp summary::before{content:'▸ ';display:inline-block;transition:transform 150ms}
+    .ophelp[open] summary::before{transform:rotate(90deg)}
+    .ophelp .oprow{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px;padding:6px 0;
+      border-top:1px solid var(--border);font-size:.8125rem;color:var(--muted)}
+    .ophelp .oprow:first-of-type{border-top:0}
+    .ophelp .code{font-family:ui-monospace,monospace;background:var(--chip-bg);color:var(--chip-fg);
+      padding:2px 7px;border-radius:8px;font-size:.75rem;white-space:nowrap}
     .results{max-width:660px;margin:0 auto;padding:18px 20px 64px}
     .results .meta{color:var(--muted);font-size:.8125rem;margin:2px 0 20px}
     .engine-status{margin:-12px 0 16px}
@@ -1916,82 +2063,113 @@ private val PAGE_CSS =
     .engine-status .engine-failed{font-weight:600}
     .actions-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0 0 18px}
     .actions-row .alabel{color:var(--muted);font-size:.8125rem;font-weight:600}
-    .actions-row .achip{font-size:.8125rem;padding:3px 10px;border:1px solid var(--border);border-radius:999px;text-decoration:none;color:var(--link)}
-    .result{margin:0 0 26px}
+    .actions-row .achip{font-size:.8125rem;padding:5px 12px;border:1px solid var(--border);border-radius:8px;
+      text-decoration:none;color:var(--link);transition:background-color 150ms,border-color 150ms}
+    .actions-row .achip:hover{text-decoration:none;border-color:var(--accent);background-color:rgba(127,127,127,.06)}
+    .actions-row .achip:hover{background-color:color-mix(in srgb, var(--accent) 8%, transparent)}
+    .result{margin:0 -14px 4px;padding:12px 14px;border-radius:16px;transition:background-color 150ms}
+    .result:hover{background-color:rgba(127,127,127,.05)}
+    .result:hover{background-color:color-mix(in srgb, var(--accent) 4%, transparent)}
     .result.is-collapsed{display:none}
     .reveal-sentinel{height:1px}
     .result .url{color:var(--url);font-size:.8125rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .result .title{display:block;font-size:1.25rem;line-height:1.3;margin:1px 0 3px}
-    .result .snippet{margin:2px 0 7px;color:var(--snippet);font-size:.875rem}
+    .result .title{display:block;font-size:1.25rem;line-height:1.35;margin:2px 0 4px;font-weight:500}
+    .result .snippet{margin:2px 0 8px;color:var(--snippet);font-size:.875rem;line-height:1.5}
     .engines{display:flex;flex-wrap:wrap;gap:6px}
-    .chip{background:var(--chip-bg);color:var(--chip-fg);font-size:11px;padding:2px 9px;border-radius:10px}
+    .chip{background:var(--chip-bg);color:var(--chip-fg);font-size:.6875rem;padding:3px 10px;border-radius:8px;
+      font-weight:500;letter-spacing:.01em}
     .empty{color:var(--muted);text-align:center;padding:48px 0}
-    .summary{display:flex;gap:14px;border:1px solid var(--border);border-radius:12px;background:var(--card);padding:14px 16px;margin:0 0 22px;box-shadow:var(--shadow)}
+    .summary{display:flex;gap:14px;border:1px solid var(--border);border-radius:16px;background:var(--card);
+      padding:16px 18px;margin:0 0 22px;box-shadow:var(--shadow);transition:box-shadow 150ms}
+    .summary:hover{box-shadow:0 2px 6px rgba(0,0,0,.14)}
     .summary .sbody{flex:1;min-width:0}
-    .summary .stitle{font-size:17px;font-weight:600;margin:0}
+    .summary .stitle{font-size:1.0625rem;font-weight:600;margin:0;line-height:1.35}
     .summary .stitle a{color:var(--fg)}
-    .summary .sdesc{color:var(--muted);font-size:12px;margin:1px 0 6px}
-    .summary .sextract{font-size:14px;margin:0 0 6px;line-height:1.45}
-    .summary .ssource{font-size:12px}
-    .summary img{width:84px;height:84px;object-fit:cover;border-radius:8px;flex:none}
+    .summary .sdesc{color:var(--muted);font-size:.75rem;margin:2px 0 6px}
+    .summary .sextract{font-size:.875rem;margin:0 0 6px;line-height:1.5}
+    .summary .ssource{font-size:.75rem}
+    .summary img{width:84px;height:84px;object-fit:cover;border-radius:12px;flex:none}
     @media (max-width:560px){.summary img{display:none}}
     .verticalbar{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 16px}
-    .verticalbar .chip{font-size:13px;padding:5px 14px;border:1px solid var(--border);border-radius:16px;color:var(--fg);background:var(--card)}
-    .verticalbar .chip.active{background:#c7d0ff;color:#0a1a5c;border-color:#c7d0ff;font-weight:600}
+    .verticalbar .chip{font-size:.8125rem;padding:6px 16px;border:1px solid var(--border);border-radius:16px;
+      color:var(--fg);background:var(--card);transition:background-color 150ms,border-color 150ms}
     .verticalbar .chip:hover{text-decoration:none;border-color:var(--accent)}
-    a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+    .verticalbar .chip:hover{background-color:color-mix(in srgb, var(--accent) 8%, transparent)}
+    .verticalbar .chip.active{background:var(--chip-bg);color:var(--fg);border-color:var(--accent);font-weight:600}
+    .verticalbar .chip.active{background:color-mix(in srgb, var(--accent) 22%, var(--card));color:var(--fg);
+      border-color:var(--accent);font-weight:600}
+    a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,
+    summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
     @media(prefers-reduced-motion:reduce){.topbar{backdrop-filter:none}*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
     .scopebar{display:flex;align-items:center;gap:8px;margin:0 0 18px;font-size:13px;color:var(--muted)}
-    .scopebar select{font-size:13px;padding:3px 6px;border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--fg)}
+    .scopebar select{font-size:13px;padding:5px 10px;border:1px solid var(--border);border-radius:10px;
+      background:var(--card);color:var(--fg);transition:border-color 150ms}
+    .scopebar select:hover{border-color:var(--accent)}
     .rank{display:flex;flex-wrap:wrap;gap:6px;margin-top:5px;align-items:center}
     .rank .state{font-size:11px;color:var(--muted);margin-right:2px}
-    .rank button{font-size:11px;padding:2px 9px;border:1px solid var(--border);border-radius:10px;background:var(--card);color:var(--muted);cursor:pointer}
+    .rank button{font-size:11px;padding:3px 11px;border:1px solid var(--border);border-radius:10px;
+      background:var(--card);color:var(--muted);cursor:pointer;transition:background-color 150ms,border-color 150ms,color 150ms}
     .rank button:hover{border-color:var(--accent);color:var(--fg)}
+    .rank button:hover{background-color:color-mix(in srgb, var(--accent) 8%, transparent)}
     .rank button.on{background:var(--accent);color:#fff;border-color:var(--accent)}
-    .settings-link{margin-left:auto;border:1px solid var(--border);color:var(--fg);border-radius:20px;padding:6px 14px;font-size:13px;text-decoration:none;white-space:nowrap}
+    .settings-link{margin-left:auto;border:1px solid var(--border);color:var(--fg);border-radius:20px;
+      padding:6px 14px;font-size:13px;text-decoration:none;white-space:nowrap;transition:border-color 150ms,color 150ms}
     .settings-link:hover{border-color:var(--accent);color:var(--accent)}
     .settings-link+.theme-toggle{margin-left:0}
     .topbar .spacer{margin-left:auto}
     .settings{max-width:680px;margin:0 auto;padding:24px 18px 60px}
     .settings h1{font-size:1.5rem;margin:8px 0 18px}
-    .settings .saved{color:#fff;background:var(--accent);display:inline-block;border-radius:6px;padding:4px 12px;font-size:13px;margin:0 0 16px}
-    .settings .card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin:0 0 16px}
+    .settings .saved{color:#fff;background:var(--accent);display:inline-block;border-radius:8px;padding:5px 14px;
+      font-size:13px;margin:0 0 16px}
+    .settings .card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:18px 20px;
+      margin:0 0 16px;box-shadow:var(--shadow)}
     .settings .card h2{font-size:.9375rem;margin:0 0 14px;color:var(--accent)}
     .settings .card h3.sub{font-size:13px;margin:16px 0 8px;color:var(--muted)}
     .settings .field{margin:0 0 14px}
     .settings .field>label{display:block;font-size:.8125rem;margin:0 0 6px;font-weight:600}
-    .settings select{width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--fg);font-size:.875rem}
+    .settings select{width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:12px;
+      background:var(--bg);color:var(--fg);font-size:.875rem;transition:border-color 150ms}
+    .settings select:hover{border-color:var(--accent)}
     .settings .checkrow{display:flex;align-items:center;gap:9px;font-size:.875rem;margin:0 0 10px;cursor:pointer}
     .settings .hint{font-size:.75rem;color:var(--muted);margin:6px 0 0}
     .settings .sizerow{display:flex;align-items:center;gap:10px}
-    .settings .sizerow button{width:40px;height:40px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--fg);font-size:1rem;cursor:pointer}
+    .settings .sizerow button{width:40px;height:40px;border:1px solid var(--border);border-radius:12px;
+      background:var(--bg);color:var(--fg);font-size:1rem;cursor:pointer;transition:border-color 150ms,color 150ms,box-shadow 150ms}
     .settings .sizerow button:hover{border-color:var(--accent);color:var(--accent)}
+    .settings .sizerow button:hover{box-shadow:0 0 0 4px color-mix(in srgb, var(--accent) 10%, transparent)}
     .settings .sizerow .sizeval{font-size:.875rem;color:var(--muted);min-width:54px}
-    .settings .hint .code{background:var(--chip-bg);color:var(--chip-fg);padding:1px 5px;border-radius:5px;font-size:12px}
+    .settings .hint .code{background:var(--chip-bg);color:var(--chip-fg);padding:2px 6px;border-radius:6px;font-size:12px}
     .settings .actions{margin-top:6px}
-    .settings .actions button{background:var(--accent);color:#fff;border:0;border-radius:22px;padding:10px 26px;font-size:15px;font-weight:600;cursor:pointer}
+    .settings .actions button{background:var(--accent);color:#fff;border:0;border-radius:24px;padding:11px 28px;
+      font-size:15px;font-weight:600;cursor:pointer;transition:box-shadow 150ms,filter 150ms}
+    .settings .actions button:hover{box-shadow:0 1px 3px rgba(0,0,0,.2),0 4px 10px rgba(0,0,0,.12)}
     .settings .rulelist,.settings .gogglelist,.settings .histlist{list-style:none;margin:0 0 14px;padding:0;font-size:13px}
     .settings .rulelist li{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 0;border-bottom:1px solid var(--border)}
     .settings .rulelist .dom{font-weight:600;word-break:break-all}
     .settings .rulelist .rank{margin-left:auto}
     .settings .addrule{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-    .settings .addrule input[type=text]{flex:1;min-width:140px;padding:8px 11px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--fg);font-size:14px}
+    .settings .addrule input[type=text]{flex:1;min-width:140px;padding:9px 12px;border:1px solid var(--border);
+      border-radius:12px;background:var(--bg);color:var(--fg);font-size:14px;transition:border-color 150ms}
+    .settings .addrule input[type=text]:hover{border-color:var(--accent)}
     .settings .addrule select{width:auto;min-width:110px}
-    .settings .addrule button,.settings .lensform button,.settings .lensdel button,.settings .goggleimport button,.settings .goggleclear button,.settings .histclear button{background:var(--accent);color:#fff;border:0;border-radius:18px;padding:8px 18px;font-size:13px;font-weight:600;cursor:pointer}
+    .settings .addrule button,.settings .lensform button,.settings .lensdel button,.settings .goggleimport button,.settings .goggleclear button,.settings .histclear button{background:var(--accent);color:#fff;border:0;border-radius:20px;padding:9px 20px;font-size:13px;font-weight:600;cursor:pointer;transition:filter 150ms}
+    .settings .addrule button:hover,.settings .lensform button:hover,.settings .goggleimport button:hover{filter:brightness(1.06)}
     .settings .lensitem{display:flex;gap:10px;align-items:flex-start;padding:10px 0;border-bottom:1px solid var(--border)}
     .settings .lensform{flex:1;display:flex;flex-direction:column;gap:8px}
     .settings .lensform .lname{font-weight:600}
-    .settings .lensform input[type=text]{width:100%;padding:8px 11px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--fg);font-size:14px}
+    .settings .lensform input[type=text]{width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:12px;background:var(--bg);color:var(--fg);font-size:14px}
     .settings .lensform .lf{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--muted)}
     .settings .lensform button{align-self:flex-start}
-    .settings .lensdel button,.settings .goggleclear button,.settings .histclear button{background:transparent;color:var(--muted);border:1px solid var(--border)}
+    .settings .lensdel button,.settings .goggleclear button,.settings .histclear button{background:transparent;color:var(--muted);border:1px solid var(--border);transition:background-color 150ms,border-color 150ms,color 150ms}
     .settings .lensdel button:hover,.settings .goggleclear button:hover,.settings .histclear button:hover{border-color:#d33;color:#d33}
+    .settings .lensdel button:hover,.settings .goggleclear button:hover,.settings .histclear button:hover{background-color:color-mix(in srgb, #d33 8%, transparent)}
     .settings .gogglelist li{display:flex;gap:8px;align-items:center;padding:5px 0;border-bottom:1px solid var(--border)}
     .settings .gogglelist .site{font-weight:600;word-break:break-all}
     .settings .gogglelist .act{margin-left:auto;font-size:11px;color:var(--muted)}
     .settings .histlist li{padding:4px 0;border-bottom:1px solid var(--border);word-break:break-word}
     .settings .goggleimport{display:flex;flex-direction:column;gap:8px}
-    .settings textarea{width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--fg);font-size:13px;font-family:ui-monospace,monospace;resize:vertical}
+    .settings textarea{width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:12px;background:var(--bg);color:var(--fg);font-size:13px;font-family:ui-monospace,monospace;resize:vertical;transition:border-color 150ms}
+    .settings textarea:hover{border-color:var(--accent)}
     .settings .goggleimport .grow{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
     .settings .goggleclear,.settings .histclear{margin:0 0 8px}
     @media (max-width:560px){.topbar .logo{display:none}}

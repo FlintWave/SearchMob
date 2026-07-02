@@ -200,19 +200,23 @@ class WebUiPersonalizationTest {
     }
 
     @Test
-    fun postScopeWithOpaqueOriginIsAllowed() {
-        // Regression: a browser sends `Origin: null` (an opaque origin) for the served scope form
-        // because every response sets `Referrer-Policy: no-referrer`. That must be treated as
-        // same-origin, not rejected with 403 (the bug this guards against).
+    fun postScopeWithOpaqueOriginIsForbidden() {
+        // Regression, reversed: `Origin: null` (an opaque origin) used to be treated as same-origin on
+        // the theory that our own `Referrer-Policy: no-referrer` made a browser serialize our OWN
+        // form posts that way. But an attacker page can force the exact same opaque `Origin: null`
+        // onto a genuinely cross-site POST (e.g. by setting `Referrer-Policy: no-referrer` on its own
+        // page, or posting from a sandboxed iframe), which made that a CSRF bypass. We now serve
+        // `Referrer-Policy: same-origin` instead, so our own same-origin posts carry a real, non-null
+        // origin, and an opaque `Origin: null` is rejected as cross-site. See SearchServerSecurityTest
+        // for the same regression exercised via `testApplication`.
         val prefs = RankingPreferences(FakeStore())
         runBlocking { prefs.save(RankingRules(lenses = listOf(Lens(name = "Docs")))) }
         val server = SearchServer(provider = OneResultProvider(), rankingPreferences = prefs)
         val port = server.start(freeLoopbackPort())
         try {
             assertEquals(200, waitForHealthz(port))
-            val code = postFormWithOrigin(port, "/scope", "lens=Docs", origin = "null")
-            assertTrue("opaque-origin POST should redirect, got $code", code in 300..399)
-            assertEquals("Docs", runBlocking { prefs.load() }.activeLens)
+            assertEquals(403, postFormWithOrigin(port, "/scope", "lens=Docs", origin = "null"))
+            assertEquals(null, runBlocking { prefs.load() }.activeLens)
         } finally {
             server.stop()
         }
@@ -238,8 +242,8 @@ class WebUiPersonalizationTest {
     fun scopeAndRuleMutationsRedirectBackToTheResultsPage() {
         // Regression: applying a scope/rule from the results page must return to that search (carried
         // via hidden q/sort/vertical fields), not dump the owner on the home page and lose the
-        // results. The Referer is stripped by our no-referrer policy, so the redirect cannot rely on
-        // it.
+        // results. The redirect deliberately does not rely on the Referer header - see
+        // `redirectToResults`'s doc comment for why.
         val prefs = RankingPreferences(FakeStore())
         runBlocking { prefs.save(RankingRules(lenses = listOf(Lens(name = "Docs")))) }
         val server = SearchServer(provider = OneResultProvider(), rankingPreferences = prefs)

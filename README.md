@@ -27,6 +27,11 @@ so those engines see no cookies/identifier from you, and keeps anything it store
   Marginalia, Mwmbl, and Wikipedia** (plus optional bring-your-own **Brave**, **Mojeek**, and **Kagi**
   API keys), then de-duplicated and re-ranked. The app proxies the requests: upstream engines see no
   cookies, no referrer, no user/device identifier, and a rotated User-Agent. It **never scrapes Google**.
+- **Search operators.** The query syntax you already know: `"exact phrase"`, `-term`, `site:` /
+  `-site:`, `intitle:`, `inurl:`, `filetype:` (or `ext:`), `before:` / `after:` dates, and `OR`.
+  Operators the upstream engines understand are forwarded to them; all structural filters are also
+  enforced on-device over the merged results, so they work consistently across every engine. The
+  served home page has a collapsible cheat sheet.
 - **Typo and "similar sounding" tolerance.** A misspelled query surfaces a "Did you mean" suggestion,
   from the engines' own correction when offered, otherwise from a fully on-device corrector (phonetic +
   edit-distance over a bundled dictionary, enriched by your own history). No new outbound calls.
