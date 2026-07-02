@@ -33,6 +33,10 @@ updates:
       - dependency-name: "*"
         update-types:
           - version-update:semver-major
+      # androidx.lifecycle 2.11+ drags a newer androidx.compose.ui/runtime onto the classpath than
+      # composeBom pins, splitting the Compose stack across versions (broke theme switching in
+      # 26.07.01). Hold lifecycle here until it is bumped together with the Compose BOM, manually.
+      - dependency-name: "androidx.lifecycle:*"
     groups:
       gradle-minor-patch:
         update-types:

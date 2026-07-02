@@ -6,6 +6,16 @@ versioning (`YY.MM.VV`).
 
 ## [Unreleased]
 
+## 26.07.02 — 2026-07-02
+
+### Fixed
+- **Theme changes apply again.** 26.07.01's AndroidX Lifecycle 2.11 update pulled a newer Compose
+  UI/runtime onto the classpath than the pinned Compose BOM provides, splitting the Compose stack
+  across versions and breaking recomposition of preference-driven UI — selecting a theme (or theme
+  mode) in Settings persisted but never repainted the app. Lifecycle is pinned back to 2.10.0, the
+  last version aligned with the BOM, and is now held by the dependency bot until it can be bumped
+  together with the Compose BOM.
+
 ## 26.07.01 — 2026-07-02
 
 ### Added
