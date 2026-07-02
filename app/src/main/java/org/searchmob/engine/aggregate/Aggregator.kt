@@ -97,7 +97,10 @@ class Aggregator(
                     else -> EngineOutcome(adapter.id, EngineStatus.FAILED)
                 }
             }
-        val results = rank(successes.flatMap { it.items }, query.terms)
+        // rankingTerms is the operator-free text (site:/filetype:/etc. clauses stripped, see
+        // QueryOperators) so a scoping clause never pollutes lexical relevance; the correction check
+        // still compares against the full terms actually sent upstream.
+        val results = rank(successes.flatMap { it.items }, query.rankingTerms)
         return AggregationResult(results, consensusCorrection(query.terms, successes), engineStatus)
     }
 
