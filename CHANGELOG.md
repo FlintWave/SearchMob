@@ -6,6 +6,35 @@ versioning (`YY.MM.VV`).
 
 ## [Unreleased]
 
+## 26.07.01 — 2026-07-02
+
+### Added
+- **Google-style search operators.** `"exact phrase"`, `-term`, `site:` / `-site:`, `intitle:`,
+  `inurl:`, `filetype:` (or `ext:`), `before:` / `after:` dates, and `OR`. Operators the upstream
+  engines understand are forwarded to them, and every structural filter is also enforced on-device
+  over the merged results, so they behave consistently across engines — in the app and on the served
+  page. The served home page gains a collapsible operator cheat sheet, and relevance ranking no
+  longer lets scoping clauses (like the verticals' internal `site:` groups) pollute the match score.
+
+### Security
+- **Cross-site request forgery fix for the served pages.** A literal `Origin: null` — which an
+  attacker page can forge on a cross-site POST — was treated as same-origin; it is now rejected, and
+  the server sends `Referrer-Policy: same-origin` so its own forms carry a real origin (cross-origin
+  navigation still leaks nothing).
+- Every served response now carries `Content-Security-Policy`, `Cache-Control: no-store`, and
+  `Permissions-Policy` headers, so queries never persist in browser caches and no external
+  script/style/frame can ever load.
+- The network-mode access token is compared in constant time and can be sent via
+  `Authorization: Bearer` or `X-SearchMob-Token` headers instead of only the `?token=` query
+  parameter (which stays for OpenSearch templates but leaks into browser history).
+
+### Changed
+- **The served pages are restyled to Material 3**: elevated search bar with focus states, rounded
+  cards, pill buttons, chip state layers, and theme-derived colors in every palette.
+- Dependency refresh: AndroidX Lifecycle 2.11, Ktor 3.5.1, Gradle 9.6.1, and updated CI actions;
+  in-app string reads now go through Compose's configuration-aware resource APIs, so they update
+  correctly on language changes.
+
 ## 26.06.06 — 2026-06-19
 
 ### Fixed
