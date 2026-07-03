@@ -15,6 +15,11 @@ versioning (`YY.MM.VV`).
   mode) in Settings persisted but never repainted the app. Lifecycle is pinned back to 2.10.0, the
   last version aligned with the BOM, and is now held by the dependency bot until it can be bumped
   together with the Compose BOM.
+- **Picking a theme now takes effect immediately.** Material You (on by default) overrides the two
+  named-theme slots, so choosing a theme from the dropdowns persisted but changed nothing until you
+  found the toggle. Selecting a theme now switches Material You off in the same step, since picking
+  one is an explicit choice to use it; re-enabling Material You afterwards still works and keeps
+  the chosen slots.
 
 ## 26.07.01 — 2026-07-02
 
