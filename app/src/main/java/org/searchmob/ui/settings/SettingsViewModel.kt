@@ -227,14 +227,28 @@ class SettingsViewModel(
         viewModelScope.launch { preferences.setDynamicColor(enabled) }
     }
 
-    /** Set the named theme for the light slot (light-mode themes only). Persists immediately. */
+    /**
+     * Set the named theme for the light slot (light-mode themes only). Persists immediately.
+     * Picking a theme is an explicit choice to use it, so Material You (which overrides the named
+     * themes while it is on) is switched off in the same edit; otherwise the pick appears to do
+     * nothing until the user finds the toggle.
+     */
     fun setLightTheme(themeId: String) {
-        viewModelScope.launch { preferences.setLightTheme(themeId) }
+        viewModelScope.launch {
+            preferences.setDynamicColor(false)
+            preferences.setLightTheme(themeId)
+        }
     }
 
-    /** Set the named theme for the dark slot (dark-mode themes only). Persists immediately. */
+    /**
+     * Set the named theme for the dark slot (dark-mode themes only). Persists immediately.
+     * Switches Material You off for the same reason as [setLightTheme].
+     */
     fun setDarkTheme(themeId: String) {
-        viewModelScope.launch { preferences.setDarkTheme(themeId) }
+        viewModelScope.launch {
+            preferences.setDynamicColor(false)
+            preferences.setDarkTheme(themeId)
+        }
     }
 
     /** Set the base UI font size in points; clamped to the supported range by the repository. */
