@@ -31,7 +31,8 @@ object Bangs {
         val terms: String,
     )
 
-    @Suppress("ktlint:standard:max-line-length") // one bang per line beats wrapped URL templates
+    // One bang per line beats wrapped URL templates, so both the length and wrapping rules yield.
+    @Suppress("ktlint:standard:max-line-length", "ktlint:standard:argument-list-wrapping")
     val ALL: List<Bang> =
         listOf(
             Bang("w", "Wikipedia", "https://en.wikipedia.org/wiki/Special:Search?search={q}", "https://en.wikipedia.org"),

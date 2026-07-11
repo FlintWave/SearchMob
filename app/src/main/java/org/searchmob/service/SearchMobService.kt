@@ -40,8 +40,8 @@ import org.searchmob.engine.summary.WikiSummaryProvider
 import org.searchmob.i18n.SupportedLocales
 import org.searchmob.server.EngineCatalogEntry
 import org.searchmob.server.LocalServerState
-import org.searchmob.server.ThumbnailProxy
 import org.searchmob.server.SearchServer
+import org.searchmob.server.ThumbnailProxy
 import org.searchmob.server.WakeLockRequestGuard
 import org.searchmob.server.suggest.CompositeSuggestionsProvider
 import org.searchmob.server.suggest.HistorySuggestionsProvider

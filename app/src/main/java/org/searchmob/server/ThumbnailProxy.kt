@@ -21,7 +21,7 @@ data class ProxiedImage(
  * cookies) and re-serves it from the loopback origin.
  *
  * Strictly scoped against SSRF: only https URLs on the Wikimedia upload host are ever fetched, only
- * `image/*` responses are re-served, and the body is size-capped. Anything else yields null and the
+ * image content types are re-served, and the body is size-capped. Anything else yields null and the
  * card simply renders without a picture.
  */
 object ThumbnailProxy {

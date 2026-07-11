@@ -137,6 +137,7 @@ object UnitConverter {
                 "f" -> celsius * 9.0 / 5.0 + 32.0
                 else -> celsius + 273.15
             }
+
         fun label(symbol: String) =
             when (symbol) {
                 "c" -> "°C"

@@ -76,11 +76,11 @@ import org.searchmob.data.prefs.PersonalizationPreferences
 import org.searchmob.data.prefs.RankingPreferences
 import org.searchmob.engine.ActionsRow
 import org.searchmob.engine.MediaCategory
+import org.searchmob.engine.aggregate.EngineOutcome
+import org.searchmob.engine.aggregate.EngineStatus
 import org.searchmob.engine.bang.Bangs
 import org.searchmob.engine.instant.InstantAnswer
 import org.searchmob.engine.instant.InstantAnswers
-import org.searchmob.engine.aggregate.EngineOutcome
-import org.searchmob.engine.aggregate.EngineStatus
 import org.searchmob.engine.rank.DomainRanker
 import org.searchmob.engine.rank.Goggles
 import org.searchmob.engine.rank.Lens
