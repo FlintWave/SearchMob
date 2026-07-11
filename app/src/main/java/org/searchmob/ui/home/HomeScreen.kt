@@ -24,6 +24,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -32,6 +33,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.searchmob.R
 import org.searchmob.service.BatteryOptimization
@@ -122,6 +126,20 @@ private fun ServiceCard() {
 private fun BatteryCard() {
     val context = LocalContext.current
     var exempt by remember { mutableStateOf(runCatching { BatteryOptimization.isExempt(context) }.getOrDefault(false)) }
+    // The exemption is granted in a SYSTEM dialog with no result callback, so re-read the state on
+    // every ON_RESUME — exactly when the user lands back here from that dialog — rather than
+    // synchronously after startActivity (which always reads the stale pre-grant value).
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer =
+            LifecycleEventObserver { _, event ->
+                if (event == Lifecycle.Event.ON_RESUME) {
+                    exempt = runCatching { BatteryOptimization.isExempt(context) }.getOrDefault(false)
+                }
+            }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -131,8 +149,9 @@ private fun BatteryCard() {
             Text(text = if (exempt) str(R.string.battery_exempt) else str(R.string.battery_not_exempt))
             if (!exempt) {
                 Button(onClick = {
-                    context.startActivity(BatteryOptimization.requestExemptionIntent(context))
-                    exempt = runCatching { BatteryOptimization.isExempt(context) }.getOrDefault(false)
+                    // Guarded: some OEM builds ship without the request-exemption settings activity.
+                    // The ON_RESUME observer above reflects the outcome once the user returns.
+                    runCatching { context.startActivity(BatteryOptimization.requestExemptionIntent(context)) }
                 }) {
                     Text(str(R.string.battery_allow))
                 }
@@ -152,7 +171,8 @@ private fun OemGuidanceCard() {
         ) {
             Text(text = str(R.string.oem_guidance_warning), style = MaterialTheme.typography.bodyMedium)
             OutlinedButton(onClick = {
-                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(guidance.url)))
+                // Guarded: a device without any browser must not crash on the external open.
+                runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(guidance.url))) }
             }) {
                 Text(str(R.string.oem_guidance_button))
             }

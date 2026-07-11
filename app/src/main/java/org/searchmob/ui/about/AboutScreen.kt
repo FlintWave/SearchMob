@@ -59,12 +59,13 @@ fun AboutScreen(
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
+    // The opens are guarded: a device without any browser must not crash the About screen.
     AboutScreenContent(
         version = AppVersion.of(context),
         onBack = onBack,
-        onOpenRepo = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(REPO_URL))) },
-        onOpenDesktop = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(DESKTOP_URL))) },
-        onReportBug = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(BUG_URL))) },
+        onOpenRepo = { runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(REPO_URL))) } },
+        onOpenDesktop = { runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(DESKTOP_URL))) } },
+        onReportBug = { runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(BUG_URL))) } },
         modifier = modifier,
     )
 }

@@ -2,6 +2,7 @@ package org.searchmob.ui.search
 
 import org.searchmob.engine.ActionsRow
 import org.searchmob.engine.aggregate.EngineOutcome
+import org.searchmob.engine.instant.InstantAnswer
 import org.searchmob.engine.summary.WikiSummary
 import org.searchmob.server.SearchResult
 
@@ -37,5 +38,7 @@ sealed interface SearchUiState {
         val engineStatus: List<EngineOutcome> = emptyList(),
         // The "Listen/Watch/Read/Play on" actions row for a resolved media entity, or null.
         val actionsRow: ActionsRow? = null,
+        // On-device instant answer (calculator / unit / base conversion), or null for most queries.
+        val instantAnswer: InstantAnswer? = null,
     ) : SearchUiState
 }

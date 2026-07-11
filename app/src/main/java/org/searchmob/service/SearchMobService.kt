@@ -41,6 +41,7 @@ import org.searchmob.i18n.SupportedLocales
 import org.searchmob.server.EngineCatalogEntry
 import org.searchmob.server.LocalServerState
 import org.searchmob.server.SearchServer
+import org.searchmob.server.ThumbnailProxy
 import org.searchmob.server.WakeLockRequestGuard
 import org.searchmob.server.suggest.CompositeSuggestionsProvider
 import org.searchmob.server.suggest.HistorySuggestionsProvider
@@ -178,7 +179,16 @@ class SearchMobService : Service() {
             // Backs the served Settings per-engine enable toggles (parity with the in-app Settings).
             engineCatalog =
                 engineAdapters.map { EngineCatalogEntry(it.id, it.displayName, it.requiresApiKey) },
+            // Serves the Wikipedia summary thumbnail from loopback via the privacy-proxied client,
+            // so the user's browser never fetches it from Wikimedia directly (IP + entity leak).
+            imageProxy = { url -> ThumbnailProxy.fetch(thumbnailClient, url) },
         )
+    }
+
+    // Privacy-proxied client for the summary-thumbnail proxy; short timeouts so a slow image can
+    // never hold a page render's /img request open long.
+    private val thumbnailClient by lazy {
+        HttpClientFactory.create(connectTimeoutMs = 3_000, readTimeoutMs = 3_000, callTimeoutMs = 5_000)
     }
 
     // Single contextual-summary provider (its own privacy HTTP client), reused across queries.

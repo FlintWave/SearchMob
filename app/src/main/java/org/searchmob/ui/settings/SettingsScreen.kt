@@ -364,13 +364,16 @@ fun SettingsScreen(
             // --- Device setup guidance (from add-foreground-service) ---
             SectionTitle(str(R.string.settings_section_device))
             OutlinedButton(onClick = {
-                context.startActivity(BatteryOptimization.requestExemptionIntent(context))
+                // Guarded: some OEM builds ship without the request-exemption settings activity, and
+                // a missing handler must not crash Settings.
+                runCatching { context.startActivity(BatteryOptimization.requestExemptionIntent(context)) }
             }) {
                 Text(str(R.string.battery_allow))
             }
             OutlinedButton(onClick = {
                 val guidance = OemGuidance.forManufacturer(Build.MANUFACTURER)
-                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(guidance.url)))
+                // Guarded: a device without any browser must not crash on the external open.
+                runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(guidance.url))) }
             }) {
                 Text(str(R.string.oem_guidance_button))
             }

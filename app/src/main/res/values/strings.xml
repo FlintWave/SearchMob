@@ -126,6 +126,7 @@
     <string name="history_export">Export</string>
     <string name="history_import">Import</string>
     <string name="history_imported">Imported %1$d entries</string>
+    <string name="history_import_failed">Import failed: not a valid history export</string>
     <string name="settings_zk_setup">Set up zero-knowledge passphrase</string>
     <string name="settings_zk_title">Zero-knowledge encryption</string>
     <string name="settings_zk_warning">Your data is encrypted with a passphrase only you know. If you lose this passphrase, your stored data is permanently unrecoverable. There is no reset or recovery.</string>

@@ -8,35 +8,37 @@ import org.searchmob.ui.settings.SettingsViewModel
 
 /**
  * Builds the UI ViewModels from a single [AppDependencies] graph so the search and settings surfaces
- * share the same preference state, engine state, and stores. The [SearchViewModel] is wired to the
- * [SettingsViewModel.recordQuery] recorder so query recording is gated on the history toggle.
+ * share the same preference state, engine state, and stores.
+ *
+ * Every [create] call constructs a FRESH instance. The nav host scopes each ViewModel to its
+ * destination's NavBackStackEntry, so a cached instance would come back with a cleared (dead)
+ * viewModelScope on the next visit and silently stop persisting anything. Query recording is wired
+ * to the application-scoped [AppDependencies.recordQuery] rather than any ViewModel, so history
+ * keeps working (and stays gated on the history toggle) no matter which screens are alive.
  */
 class SearchMobViewModelFactory(
     private val deps: AppDependencies,
 ) : ViewModelProvider.Factory {
-    private val settingsViewModel: SettingsViewModel by lazy {
-        SettingsViewModel(
-            preferences = deps.preferencesRepository,
-            historyStore = deps.historyStore,
-            engineCatalog = deps.engineCatalog,
-            engineEnabledSink = deps.engineEnabled,
-            apiKeysSink = deps.apiKeys,
-            engineConfig = deps.engineConfig,
-            rankingPreferences = deps.rankingPreferences,
-            personalizationPreferences = deps.personalizationPreferences,
-        )
-    }
-
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T =
         when {
-            modelClass.isAssignableFrom(SettingsViewModel::class.java) -> settingsViewModel as T
+            modelClass.isAssignableFrom(SettingsViewModel::class.java) ->
+                SettingsViewModel(
+                    preferences = deps.preferencesRepository,
+                    historyStore = deps.historyStore,
+                    engineCatalog = deps.engineCatalog,
+                    engineEnabledSink = deps.engineEnabled,
+                    apiKeysSink = deps.apiKeys,
+                    engineConfig = deps.engineConfig,
+                    rankingPreferences = deps.rankingPreferences,
+                    personalizationPreferences = deps.personalizationPreferences,
+                ) as T
             modelClass.isAssignableFrom(HistoryViewModel::class.java) ->
                 HistoryViewModel(historyStore = deps.historyStore) as T
             modelClass.isAssignableFrom(SearchViewModel::class.java) ->
                 SearchViewModel(
                     repository = deps.searchRepository,
-                    onRecordQuery = { settingsViewModel.recordQuery(it) },
+                    onRecordQuery = deps::recordQuery,
                     rankingPreferences = deps.rankingPreferences,
                     preferences = deps.preferencesRepository,
                     personalizationPreferences = deps.personalizationPreferences,

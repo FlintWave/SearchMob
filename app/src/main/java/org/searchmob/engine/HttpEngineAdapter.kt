@@ -5,6 +5,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import okhttp3.Request
 import org.searchmob.engine.http.Politeness
+import org.searchmob.engine.http.UserAgents
 
 /** Hard cap on how many bytes of an upstream body are read; a larger body is treated as a failure. */
 const val MAX_RESPONSE_BYTES = 2L * 1024 * 1024
@@ -36,7 +37,13 @@ abstract class HttpEngineAdapter : EngineAdapter {
     ): EngineResult =
         withContext(Dispatchers.IO) {
             try {
-                val request = buildRequest(query, ctx)
+                // One User-Agent per logical search, reused verbatim by any 429/503 retry below: a
+                // retry that shows up seconds later from the same IP with a different identity is a
+                // classic bot signature. The PrivacyInterceptor respects a pre-set UA.
+                val request =
+                    buildRequest(query, ctx).newBuilder()
+                        .header("User-Agent", UserAgents.random())
+                        .build()
                 ctx.politeness?.acquire(request.url.host)
                 executeWithBackoff(ctx, request)
             } catch (e: Exception) {

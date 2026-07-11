@@ -51,4 +51,24 @@ class VerticalsTest {
         assertEquals(SortMode.RELEVANCE, Verticals.defaultSort(Vertical.FORUMS))
         assertEquals(SortMode.RELEVANCE, Verticals.defaultSort(Vertical.ACADEMIC))
     }
+
+    @Test
+    fun strip_scope_clause_round_trips_transform_query() {
+        val scoped = Verticals.transformQuery("climate change", Vertical.NEWS)
+        assertEquals("climate change", Verticals.stripScopeClause(scoped, Vertical.NEWS))
+    }
+
+    @Test
+    fun strip_scope_clause_cleans_an_upstream_correction_echo() {
+        // An engine's "did you mean" echoes the full query it was sent, scope clause included.
+        val scoped = Verticals.transformQuery("climmate chnage", Vertical.NEWS)
+        val corrected = scoped.replace("climmate chnage", "climate change")
+        assertEquals("climate change", Verticals.stripScopeClause(corrected, Vertical.NEWS))
+    }
+
+    @Test
+    fun strip_scope_clause_leaves_unscoped_text_alone() {
+        assertEquals("plain query", Verticals.stripScopeClause("plain query", Vertical.NEWS))
+        assertEquals("plain query", Verticals.stripScopeClause("plain query", Vertical.WEB))
+    }
 }

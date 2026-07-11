@@ -65,4 +65,20 @@ class DataStorePreferencesStore(context: Context) : PreferencesStore {
     ) {
         dataStore.edit { it[stringPreferencesKey(key)] = Json.encodeToString(value) }
     }
+
+    override suspend fun updateBooleanMap(
+        key: String,
+        transform: (Map<String, Boolean>) -> Map<String, Boolean>,
+    ) {
+        // edit() serializes writers and hands the transform a freshly-read snapshot, so decoding the
+        // current map and persisting the transformed one is one atomic transaction: a concurrent
+        // update cannot slip in between (unlike composing setBooleanMap over an observed value).
+        dataStore.edit { prefs ->
+            val current =
+                prefs[stringPreferencesKey(key)]
+                    ?.let { runCatching { Json.decodeFromString<Map<String, Boolean>>(it) }.getOrNull() }
+                    ?: emptyMap()
+            prefs[stringPreferencesKey(key)] = Json.encodeToString(transform(current))
+        }
+    }
 }

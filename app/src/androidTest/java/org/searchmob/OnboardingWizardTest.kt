@@ -9,6 +9,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
+import org.searchmob.ui.onboarding.OnboardingStep
 import org.searchmob.ui.onboarding.OnboardingTestTags
 import org.searchmob.ui.onboarding.OnboardingWizard
 
@@ -59,8 +60,9 @@ class OnboardingWizardTest {
     fun finish_completesOnLastPage() {
         var completed = false
         wizard(onComplete = { completed = true })
-        // WELCOME -> PERMISSIONS -> DEFAULT_SEARCH -> PRIVACY (last).
-        repeat(3) {
+        // Page through every step to the last one (PERSONALIZE at the time of writing); deriving the
+        // click count from the step list keeps this test honest when the wizard gains a page.
+        repeat(OnboardingStep.entries.lastIndex) {
             composeTestRule.onNodeWithTag(OnboardingTestTags.NEXT).performClick()
             composeTestRule.waitForIdle()
         }

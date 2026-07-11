@@ -21,6 +21,7 @@ import io.ktor.server.plugins.origin
 import io.ktor.server.request.path
 import io.ktor.server.request.receiveParameters
 import io.ktor.server.response.respond
+import io.ktor.server.response.respondBytes
 import io.ktor.server.response.respondRedirect
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.get
@@ -77,6 +78,9 @@ import org.searchmob.engine.ActionsRow
 import org.searchmob.engine.MediaCategory
 import org.searchmob.engine.aggregate.EngineOutcome
 import org.searchmob.engine.aggregate.EngineStatus
+import org.searchmob.engine.bang.Bangs
+import org.searchmob.engine.instant.InstantAnswer
+import org.searchmob.engine.instant.InstantAnswers
 import org.searchmob.engine.rank.DomainRanker
 import org.searchmob.engine.rank.Goggles
 import org.searchmob.engine.rank.Lens
@@ -108,6 +112,7 @@ import java.net.URLEncoder
 import java.security.MessageDigest
 import java.security.SecureRandom
 import java.util.Base64
+import java.util.Locale
 
 const val LOOPBACK_HOST = "127.0.0.1"
 
@@ -181,6 +186,10 @@ fun Application.searchModule(
     // The engine catalog (id, display name, key requirement) backing the served Settings engine
     // toggles. Empty = no engine card (tests / callers that don't wire it).
     engineCatalog: List<EngineCatalogEntry> = emptyList(),
+    // Server-side fetcher behind the `/img` thumbnail proxy (see ThumbnailProxy). Null (tests /
+    // callers that don't wire it) disables the proxy and the summary card renders without an image,
+    // never falling back to a direct third-party fetch from the user's browser.
+    imageProxy: (suspend (String) -> ProxiedImage?)? = null,
     boundPort: () -> Int,
 ) {
     install(ContentNegotiation) { json() }
@@ -306,6 +315,15 @@ fun Application.searchModule(
         }
         get("/search") {
             val rawQuery = call.request.queryParameters["q"].orEmpty().take(MAX_QUERY_LENGTH)
+            // DuckDuckGo-style !bangs jump straight to the named site's own search, resolved from the
+            // on-device table before any engine is contacted (the terms never enter the fan-out).
+            // Only an exact known tag triggers, so a query like `!important css` is never hijacked.
+            Bangs.resolve(rawQuery)?.let { redirect ->
+                if (isSafeHttpUrl(redirect.url)) {
+                    call.respondRedirect(redirect.url, permanent = false)
+                    return@get
+                }
+            }
             val vertical = Vertical.fromValue(call.request.queryParameters["vertical"])
             // An explicit `?sort=` wins; absent it, the vertical picks the sensible default sort.
             val sortParam = call.request.queryParameters["sort"]
@@ -315,6 +333,7 @@ fun Application.searchModule(
             // without persisting it. The engines, summary, and correction run on the cleaned query;
             // the original text is echoed in the box so the token round-trips on a re-search.
             val (query, scope) = ScopeToken.parse(rawQuery, rules)
+            val startedAtNanos = System.nanoTime()
             val outcome =
                 if (query.isBlank()) {
                     SearchOutcome(
@@ -327,6 +346,11 @@ fun Application.searchModule(
                         provider.searchWithCorrection(query, sortMode, vertical, owner, scope)
                     }
                 }
+            // Elapsed wall time for the meta line ("N results · 0.8 s"), computed locally and never
+            // recorded anywhere. Instant answers (calculator/conversions) are pure on-device string
+            // work over the query - no network, no storage.
+            val tookMs = (System.nanoTime() - startedAtNanos) / 1_000_000
+            val instantAnswer = if (query.isBlank()) null else InstantAnswers.answer(query)
             // Only the loopback owner gets the editing controls; a network visitor sees a read-only
             // page, because the mutation routes below are loopback-only.
             val editable = rankingPreferences != null && isOwnerRequest(call)
@@ -355,8 +379,33 @@ fun Application.searchModule(
                     link,
                     linkBuilder,
                     banner,
+                    instantAnswer,
+                    tookMs.takeIf { query.isNotBlank() },
+                    proxyThumbnails = imageProxy != null,
+                    explicitSort = sortParam?.let { sortMode.value },
                 )
             }
+        }
+        // Loopback re-serve of the Wikipedia summary thumbnail (see ThumbnailProxy): the browser asks
+        // US for the image, and the app fetches it through the privacy-proxied HTTP stack, so the
+        // user's IP and the searched entity's name never reach Wikimedia from the browser.
+        get("/img") {
+            val target = call.request.queryParameters["u"].orEmpty()
+            val proxy = imageProxy
+            val image =
+                if (proxy != null && ThumbnailProxy.isAllowed(target)) {
+                    runCatching { guard.aroundRequest { proxy(target) } }.getOrNull()
+                } else {
+                    null
+                }
+            if (image == null) {
+                call.respondText("not found", status = HttpStatusCode.NotFound)
+            } else {
+                call.respondBytes(image.bytes, ContentType.parse(image.contentType))
+            }
+        }
+        get("/favicon.ico") {
+            call.respondBytes(FAVICON_SVG.toByteArray(Charsets.UTF_8), ContentType("image", "svg+xml"))
         }
         get("/api/search") {
             val rawQuery = call.request.queryParameters["q"].orEmpty().take(MAX_QUERY_LENGTH)
@@ -441,8 +490,20 @@ fun Application.searchModule(
             )
         }
         get("/opensearch.xml") {
+            // A network-mode visitor's browser must template ITS route to us (the LAN/Tailscale host
+            // it fetched this from), not our loopback address, or "add search engine" silently breaks
+            // off-device. The Host header has already passed the DNS-rebind allowlist above. The
+            // access token is deliberately NOT embedded: the descriptor is unauthenticated, so a
+            // token in it would hand access to anyone on the network who can fetch this file.
+            val requestHost = call.request.headers["Host"].orEmpty()
+            val origin =
+                if (!isLoopbackHost(call.request.origin.remoteHost) && requestHost.isNotBlank()) {
+                    "http://$requestHost"
+                } else {
+                    "http://$LOOPBACK_HOST:${boundPort()}"
+                }
             call.respondText(
-                openSearchDescriptor(boundPort()),
+                openSearchDescriptorForOrigin(origin),
                 ContentType("application", "opensearchdescription+xml"),
             )
         }
@@ -506,15 +567,10 @@ fun Application.searchModule(
             userPreferences.setHistoryEnabled(params["history_enabled"].isFormOn())
             userPreferences.setUpdateCheckEnabled(params["update_check_enabled"].isFormOn())
             userPreferences.setPersonalizationEnabled(params["personalization_enabled"].isFormOn())
-            // Per-engine enable toggles: an unchecked box is absent, so missing = disabled. Persist each
-            // against the running map so all toggles in one save stick.
-            if (engineCatalog.isNotEmpty()) {
-                var current = userPreferences.preferences.first().engineEnabled
-                engineCatalog.forEach { engine ->
-                    val enabled = params["engine_${engine.id}"].isFormOn()
-                    userPreferences.setEngineEnabled(engine.id, enabled, current)
-                    current = current + (engine.id to enabled)
-                }
+            // Per-engine enable toggles: an unchecked box is absent, so missing = disabled. Each write
+            // is an atomic single-key update inside the store, so all toggles in one save stick.
+            engineCatalog.forEach { engine ->
+                userPreferences.setEngineEnabled(engine.id, params["engine_${engine.id}"].isFormOn())
             }
             // Language: "" means follow the device language; any other value must be a shipped locale.
             params["language"]?.trim()?.let { lang ->
@@ -650,7 +706,7 @@ internal fun isLoopbackHost(host: String): Boolean {
 }
 
 /** Query routes gated by the access token for non-loopback clients in network mode. */
-private val GATED_PATHS = setOf("/search", "/api/search", "/suggest")
+private val GATED_PATHS = setOf("/search", "/api/search", "/suggest", "/img")
 
 /**
  * Content-Security-Policy sent on every response. `kotlinx.html` HTML-escapes every piece of dynamic
@@ -665,8 +721,8 @@ private val GATED_PATHS = setOf("/search", "/api/search", "/suggest")
  * page from framing us (belt-and-suspenders with `X-Frame-Options: DENY` for older browsers).
  */
 private const val CSP =
-    "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src https:; " +
-        "form-action 'self'; base-uri 'none'; frame-ancestors 'none'"
+    "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src 'self' data:; " +
+        "connect-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'"
 
 /**
  * The access token presented by a caller for the network-mode gate, checked in priority order: the
@@ -933,6 +989,16 @@ private fun HTML.renderResultsPage(
     linkBuilder: ((Int, String) -> String)? = null,
     // Owner-only "update available" banner (version, releaseUrl), or null.
     updateBanner: Pair<String, String>? = null,
+    // On-device instant answer (calculator / unit / base conversion), or null for most queries.
+    instantAnswer: InstantAnswer? = null,
+    // Wall time the search took, for the meta line; null hides the timing (blank query).
+    tookMs: Long? = null,
+    // Whether the `/img` proxy is wired; when false the summary card renders without a thumbnail
+    // rather than ever pointing the browser at a third-party image host.
+    proxyThumbnails: Boolean = false,
+    // The sort the user explicitly chose via `?sort=` (already validated), or null when the page is
+    // on the saved/vertical default. Carried across the vertical tabs only when explicit.
+    explicitSort: String? = null,
 ) {
     attributes["lang"] = text.tag
     if (text.rtl) attributes["dir"] = "rtl"
@@ -951,6 +1017,9 @@ private fun HTML.renderResultsPage(
                     attributes["autocomplete"] = "off"
                     attributes["spellcheck"] = "false"
                 }
+                // A new query typed here stays in the current category (News/Forums/...), matching
+                // the tabbed behavior every commercial engine has; Web omits it as the default.
+                if (vertical != "web") hiddenInput(name = "vertical") { value = vertical }
                 submitInput { value = text.searchButton }
             }
             settingsLink(text, settingsLink)
@@ -959,13 +1028,17 @@ private fun HTML.renderResultsPage(
         div("results") {
             // Category tabs render whenever there is a query, so the user can switch verticals even
             // from a vertical that returned nothing.
-            if (query.isNotBlank()) verticalBar(text, query, vertical)
-            if (query.isNotBlank()) outcome.summary?.let { summaryBox(text, it) }
+            if (query.isNotBlank()) verticalBar(text, query, vertical, explicitSort)
+            if (query.isNotBlank()) instantAnswer?.let { instantAnswerCard(it) }
+            if (query.isNotBlank()) outcome.summary?.let { summaryBox(text, it, proxyThumbnails) }
             if (query.isNotBlank()) outcome.actionsRow?.let { actionsRowCard(text, it) }
             when {
                 query.isBlank() -> p("empty") { +text.enterQuery }
                 results.isEmpty() -> {
-                    outcome.didYouMean?.let { didYouMeanLine(text, it) }
+                    outcome.didYouMean?.let { didYouMeanLine(text, it, sortMode, vertical) }
+                    // The diagnostic that matters MOST when a page comes back empty: whether the
+                    // engines failed (network trouble) or genuinely found nothing. Owner-only.
+                    if (editable) engineStatusLine(text, outcome.engineStatus)
                     val activeLens = rules.activeLens
                     if (editable && activeLens != null) {
                         // An active scope filtered every result out. The scope bar only rendered when
@@ -979,16 +1052,18 @@ private fun HTML.renderResultsPage(
                     }
                 }
                 else -> {
-                    if (outcome.showingResultsFor != null) {
-                        p("meta") { +text.showingResultsFor(outcome.showingResultsFor) }
-                    } else {
-                        p("meta") { +text.resultsFor(query) }
-                    }
-                    outcome.didYouMean?.let { didYouMeanLine(text, it) }
+                    val heading =
+                        if (outcome.showingResultsFor != null) {
+                            text.showingResultsFor(outcome.showingResultsFor)
+                        } else {
+                            text.resultsFor(query)
+                        }
+                    p("meta") { +metaLine(heading, text, results.size, tookMs) }
+                    outcome.didYouMean?.let { didYouMeanLine(text, it, sortMode, vertical) }
                     // Per-engine status is diagnostic and owner-only (`editable` is the loopback-owner
                     // gate the editing controls use); never shown to a LAN visitor.
                     if (editable) engineStatusLine(text, outcome.engineStatus)
-                    sortBar(text, query, sortMode)
+                    sortBar(text, query, sortMode, vertical)
                     if (editable) scopeBar(rules, query, sortMode, vertical)
                     results.forEachIndexed { index, result ->
                         // Results past the first reveal window start collapsed; the reveal script
@@ -1034,6 +1109,37 @@ private fun HTML.renderResultsPage(
         // batch as the sentinel scrolls into view. No new request, nothing stored, JS-off shows all.
         if (results.size > REVEAL_SIZE) script { unsafe { +REVEAL_JS } }
         script { unsafe { +THEME_TOGGLE_JS } }
+        script { unsafe { +SUGGEST_JS } }
+        script { unsafe { +SHORTCUT_JS } }
+    }
+}
+
+/**
+ * The results-page meta line: the localized "Results for X" heading plus the merged result count and
+ * elapsed seconds ("Results for “x” · 12 results · 0.8 s"), the at-a-glance breadth/speed feedback
+ * every commercial engine shows. Locale.ROOT keeps the decimal point stable in any UI language.
+ */
+private fun metaLine(
+    heading: String,
+    text: ServedText,
+    count: Int,
+    tookMs: Long?,
+): String =
+    buildString {
+        append(heading)
+        append(" · ").append(text.engineResultCount(count))
+        if (tookMs != null) append(" · ").append(String.format(Locale.ROOT, "%.1f s", tookMs / 1000.0))
+    }
+
+/**
+ * The on-device instant answer (calculator / unit / base conversion / percentage): the computed
+ * result large, the normalized input above it, styled like a knowledge card. Pure local computation;
+ * rendering it never adds a request anywhere.
+ */
+private fun FlowContent.instantAnswerCard(answer: InstantAnswer) {
+    div("instant") {
+        p("iexpr") { +answer.expression }
+        p("ival") { +answer.result }
     }
 }
 
@@ -1084,25 +1190,40 @@ private fun FlowContent.actionsRowCard(
     }
 }
 
-/** A "Did you mean: <correction>" line linking to a fresh search for the correction. */
+/**
+ * A "Did you mean: <correction>" line linking to a fresh search for the correction. The link keeps
+ * the current sort and vertical so accepting a correction does not silently reset the user's view.
+ */
 private fun FlowContent.didYouMeanLine(
     text: ServedText,
     correction: String,
+    sortMode: String,
+    vertical: String,
 ) {
     p("didyoumean") {
         +"${text.didYouMean} "
-        a(href = "/search?q=${URLEncoder.encode(correction, "UTF-8")}") { +correction }
+        val href =
+            "/search?q=${URLEncoder.encode(correction, "UTF-8")}" +
+                "&vertical=${URLEncoder.encode(vertical, "UTF-8")}&sort=${URLEncoder.encode(sortMode, "UTF-8")}"
+        a(href = href) { +correction }
     }
 }
 
-/** A knowledge-panel-style Wikipedia summary card shown above the results. */
+/**
+ * A knowledge-panel-style Wikipedia summary card shown above the results. The thumbnail is served
+ * through the loopback `/img` proxy (never a direct third-party fetch from the browser); when the
+ * proxy is not wired the card renders text-only.
+ */
 private fun FlowContent.summaryBox(
     text: ServedText,
     summary: WikiSummary,
+    proxyThumbnails: Boolean = false,
 ) {
     div("summary") {
-        if (summary.thumbnailUrl != null && isSafeHttpUrl(summary.thumbnailUrl)) {
-            img(src = summary.thumbnailUrl, alt = "") { attributes["loading"] = "lazy" }
+        if (proxyThumbnails && summary.thumbnailUrl != null && ThumbnailProxy.isAllowed(summary.thumbnailUrl)) {
+            img(src = "/img?u=${URLEncoder.encode(summary.thumbnailUrl, "UTF-8")}", alt = "") {
+                attributes["loading"] = "lazy"
+            }
         }
         div("sbody") {
             p("stitle") {
@@ -1122,14 +1243,20 @@ private fun FlowContent.summaryBox(
     }
 }
 
-/** Result sort selector. GET so the choice is bookmarkable; carries the query in a hidden field. */
+/**
+ * Result sort selector. GET so the choice is bookmarkable; carries the query AND the current vertical
+ * in hidden fields - without the vertical, changing the sort on the News tab silently dropped the
+ * user back to the Web results.
+ */
 private fun FlowContent.sortBar(
     text: ServedText,
     query: String,
     sortMode: String,
+    vertical: String,
 ) {
     form(action = "/search", method = FormMethod.get, classes = "scopebar") {
         hiddenInput(name = "q") { value = query }
+        if (vertical != "web") hiddenInput(name = "vertical") { value = vertical }
         label {
             attributes["for"] = "sm-sort"
             +text.sortLabel
@@ -1151,21 +1278,24 @@ private fun FlowContent.sortBar(
 }
 
 /**
- * Category tabs (Web / News / Forums / Academic) as GET links carrying the current query. Each link
- * re-runs the search scoped to that vertical; the active one is marked so CSS can style it.
+ * Category tabs (Web / News / Forums / Academic) as GET links carrying the current query. A sort the
+ * user explicitly chose ([explicitSort] non-null) is carried across tabs so it is not silently reset;
+ * otherwise each vertical keeps its own sensible default sort.
  */
 private fun FlowContent.verticalBar(
     text: ServedText,
     query: String,
     vertical: String,
+    explicitSort: String?,
 ) {
     val encoded = URLEncoder.encode(query, "UTF-8")
+    val sortSuffix = explicitSort?.let { "&sort=${URLEncoder.encode(it, "UTF-8")}" }.orEmpty()
     nav("verticalbar") {
         attributes["aria-label"] = "Search categories"
         text.verticals.forEach { (value, lbl) ->
             val isActive = value == vertical
             val classes = if (isActive) "chip active" else "chip"
-            a(href = "/search?q=$encoded&vertical=$value", classes = classes) {
+            a(href = "/search?q=$encoded&vertical=$value$sortSuffix", classes = classes) {
                 // aria-current marks the active category for assistive tech (not by color alone).
                 if (isActive) attributes["aria-current"] = "page"
                 +lbl
@@ -1360,6 +1490,8 @@ private fun HTML.renderHomePage(
             searchOperatorsHelp()
         }
         script { unsafe { +THEME_TOGGLE_JS } }
+        script { unsafe { +SUGGEST_JS } }
+        script { unsafe { +SHORTCUT_JS } }
     }
 }
 
@@ -1381,6 +1513,8 @@ private val OPERATOR_HELP =
         "before:2023-01-31" to "published before this date",
         "after:2022" to "published on or after this date (year, year-month, or full date)",
         "a OR b" to "match either term (also a | b)",
+        "!w query" to "jump to a site's own search (!w Wikipedia, !gh GitHub, !yt YouTube, ...)",
+        "2+2, 10 km to mi" to "instant answers: calculator, unit and number-base conversion",
     )
 
 /**
@@ -1868,11 +2002,12 @@ private fun FlowContent.historyCard(
     }
 }
 
-/** Shared <head>: meta, title, OpenSearch link, styles, and the pre-paint theme restore. */
+/** Shared <head>: meta, title, icon, OpenSearch link, styles, and the pre-paint theme restore. */
 private fun HEAD.pageHead(titleText: String) {
     meta(charset = "utf-8")
     meta(name = "viewport", content = "width=device-width, initial-scale=1")
     title { +titleText }
+    link(rel = "icon", href = FAVICON_DATA_URI) { attributes["type"] = "image/svg+xml" }
     openSearchLink()
     style {
         unsafe {
@@ -1937,8 +2072,10 @@ fun suggestionsJson(
     }.toString()
 
 /** Spec-compliant OpenSearch descriptor whose URL templates target the actual bound loopback origin. */
-fun openSearchDescriptor(port: Int): String {
-    val origin = "http://$LOOPBACK_HOST:$port"
+fun openSearchDescriptor(port: Int): String = openSearchDescriptorForOrigin("http://$LOOPBACK_HOST:$port")
+
+/** [openSearchDescriptor] against an explicit origin (a network-mode visitor's route to this server). */
+fun openSearchDescriptorForOrigin(origin: String): String {
     return """<?xml version="1.0" encoding="UTF-8"?>
 <OpenSearchDescription xmlns="http://a9.com/-/spec/opensearch/1.1/">
   <ShortName>SearchMob</ShortName>
@@ -2024,7 +2161,19 @@ private val PAGE_CSS =
     .theme-toggle:hover{border-color:var(--accent);color:var(--accent);background-color:rgba(127,127,127,.08)}
     .theme-toggle:hover{background-color:color-mix(in srgb, var(--accent) 8%, transparent)}
     .searchbox{display:flex;align-items:stretch;background:var(--card);border:1px solid var(--border);
-      border-radius:28px;box-shadow:var(--shadow);overflow:hidden;transition:box-shadow 150ms,border-color 150ms}
+      border-radius:28px;box-shadow:var(--shadow);transition:box-shadow 150ms,border-color 150ms;
+      position:relative}
+    .searchbox>input[type=text]{border-radius:28px 0 0 28px}
+    .searchbox>input[type=submit]{border-radius:0 28px 28px 0}
+    .suggest{position:absolute;top:calc(100% + 6px);left:0;right:0;margin:0;padding:6px 0;list-style:none;
+      background:var(--card);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow);
+      z-index:20;max-height:60vh;overflow-y:auto;text-align:left}
+    .suggest li{padding:8px 18px;cursor:pointer;font-size:.9375rem;color:var(--fg)}
+    .suggest li.on,.suggest li:hover{background:color-mix(in srgb, var(--accent) 10%, transparent)}
+    .instant{border:1px solid var(--border);border-radius:16px;background:var(--card);box-shadow:var(--shadow);
+      padding:16px 20px;margin:0 0 22px}
+    .instant .iexpr{margin:0;color:var(--muted);font-size:.8125rem}
+    .instant .ival{margin:4px 0 0;font-size:1.75rem;font-weight:600;overflow-wrap:anywhere}
     .searchbox:hover{box-shadow:0 1px 3px rgba(0,0,0,.15),0 4px 8px rgba(0,0,0,.1)}
     .searchbox:focus-within{border-color:var(--accent);box-shadow:0 2px 6px rgba(0,0,0,.18),0 6px 14px rgba(0,0,0,.12)}
     .searchbox input[type=text]{flex:1;min-width:0;border:0;outline:0;background:transparent;color:var(--fg);
@@ -2239,6 +2388,98 @@ private val THEME_CONTROLS_JS =
         "if(inc)inc.addEventListener('click',function(){step(1);});" +
         "})();"
 
+// The tab icon: a simple magnifier on the accent blue, self-contained (no asset pipeline, no extra
+// request beyond the cached data URI / the tiny /favicon.ico route). Kept minimal so the data URI
+// stays short.
+private const val FAVICON_SVG =
+    """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">""" +
+        """<rect width="32" height="32" rx="7" fill="#1a73e8"/>""" +
+        """<circle cx="14" cy="14" r="6.5" fill="none" stroke="#fff" stroke-width="3"/>""" +
+        """<line x1="19" y1="19" x2="25" y2="25" stroke="#fff" stroke-width="3" stroke-linecap="round"/>""" +
+        """</svg>"""
+
+// The same SVG as a data URI for <link rel=icon> (CSP allows img-src data:). '#' must be escaped.
+private val FAVICON_DATA_URI = "data:image/svg+xml," + FAVICON_SVG.replace("#", "%23").replace("\"", "'")
+
+// Search-as-you-type: a dropdown under the page's own search box, fed by the local /suggest endpoint
+// (history + the opt-in upstream source, both already gated server-side). Debounced, aborts stale
+// fetches, full keyboard support (arrows/Enter/Escape) with ARIA listbox semantics. Same-origin only
+// (CSP connect-src 'self'), so nothing new ever leaves the device from the page itself.
+@Suppress("ktlint:standard:max-line-length")
+private val SUGGEST_JS =
+    """
+    (function(){
+      var input=document.querySelector('.searchbox input[name=q]');
+      if(!input||!window.fetch)return;
+      var box=input.closest('.searchbox');if(!box)return;
+      var list=document.createElement('ul');
+      list.className='suggest';list.id='sm-suggest';list.setAttribute('role','listbox');list.hidden=true;
+      box.appendChild(list);
+      input.setAttribute('role','combobox');input.setAttribute('aria-expanded','false');
+      input.setAttribute('aria-autocomplete','list');input.setAttribute('aria-controls','sm-suggest');
+      var items=[],active=-1,timer=null,ctrl=null,lastShown='';
+      function close(){list.hidden=true;input.setAttribute('aria-expanded','false');items=[];active=-1;list.innerHTML='';}
+      function pick(i){if(i<0||i>=items.length)return;input.value=items[i];close();input.form.submit();}
+      function render(sugs){
+        list.innerHTML='';items=sugs;active=-1;
+        if(!sugs.length){close();return;}
+        sugs.forEach(function(s,i){
+          var li=document.createElement('li');
+          li.textContent=s;li.setAttribute('role','option');li.id='sm-sg-'+i;
+          li.addEventListener('mousedown',function(e){e.preventDefault();pick(i);});
+          list.appendChild(li);
+        });
+        list.hidden=false;input.setAttribute('aria-expanded','true');
+      }
+      function mark(){
+        for(var i=0;i<list.children.length;i++){list.children[i].classList.toggle('on',i===active);}
+        input.setAttribute('aria-activedescendant',active>=0?'sm-sg-'+active:'');
+      }
+      function ask(){
+        var q=input.value.trim();
+        if(!q){close();return;}
+        if(ctrl)ctrl.abort();
+        ctrl=new AbortController();
+        fetch('/suggest?q='+encodeURIComponent(q),{signal:ctrl.signal})
+          .then(function(r){return r.json();})
+          .then(function(d){
+            if(input.value.trim()!==q)return;
+            lastShown=q;render((d&&d[1])||[]);
+          }).catch(function(){});
+      }
+      input.addEventListener('input',function(){
+        if(timer)clearTimeout(timer);
+        timer=setTimeout(ask,150);
+      });
+      input.addEventListener('keydown',function(e){
+        if(list.hidden){
+          if(e.key==='ArrowDown'&&input.value.trim()&&lastShown===input.value.trim()){ask();}
+          return;
+        }
+        if(e.key==='ArrowDown'){e.preventDefault();active=(active+1)%items.length;mark();}
+        else if(e.key==='ArrowUp'){e.preventDefault();active=(active-1+items.length)%items.length;mark();}
+        else if(e.key==='Enter'){if(active>=0){e.preventDefault();pick(active);}else{close();}}
+        else if(e.key==='Escape'){close();}
+      });
+      input.addEventListener('blur',function(){setTimeout(close,120);});
+    })();
+    """.trimIndent()
+
+// "/" focuses the search box from anywhere on the page (unless already typing somewhere), the
+// muscle-memory shortcut every major engine supports.
+private val SHORTCUT_JS =
+    """
+    (function(){
+      document.addEventListener('keydown',function(e){
+        if(e.key!=='/'||e.ctrlKey||e.metaKey||e.altKey)return;
+        var t=e.target;var tag=t&&t.tagName;
+        if(tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT'||(t&&t.isContentEditable))return;
+        var input=document.querySelector('.searchbox input[name=q]');
+        if(input){e.preventDefault();input.focus();input.select();}
+      });
+    })();
+    """.trimIndent()
+
 // How many results the served page shows before infinite scroll reveals the rest. Matches the GUI
 // reveal window and the desktop served page.
 private const val REVEAL_SIZE = 10
@@ -2321,6 +2562,8 @@ class SearchServer(
     private val appContext: Context? = null,
     // Engine catalog backing the served Settings engine-enable toggles. Empty = no engine card.
     private val engineCatalog: List<EngineCatalogEntry> = emptyList(),
+    // Server-side thumbnail fetcher for the `/img` proxy; null renders summary cards text-only.
+    private val imageProxy: (suspend (String) -> ProxiedImage?)? = null,
 ) {
     @Volatile
     private var server: EmbeddedServer<*, *>? = null
@@ -2365,6 +2608,7 @@ class SearchServer(
                     token,
                     appContext = appContext,
                     engineCatalog = engineCatalog,
+                    imageProxy = imageProxy,
                 ) { port }
             }
         engine.start(wait = false)

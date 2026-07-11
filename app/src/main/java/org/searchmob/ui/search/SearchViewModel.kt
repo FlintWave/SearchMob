@@ -2,6 +2,7 @@ package org.searchmob.ui.search
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -13,6 +14,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.searchmob.data.prefs.PersonalizationPreferences
 import org.searchmob.data.prefs.RankingPreferences
+import org.searchmob.engine.instant.InstantAnswer
+import org.searchmob.engine.instant.InstantAnswers
 import org.searchmob.engine.rank.DomainRanker
 import org.searchmob.engine.rank.Personalizer
 import org.searchmob.engine.rank.RankRule
@@ -190,6 +193,9 @@ class SearchViewModel(
         lastDispatched = terms
         inFlight?.cancel()
         mutableState.value = SearchUiState.Loading
+        // On-device instant answer (calculator / conversions): pure string work, computed up front so
+        // the card shows even if every engine later fails or returns nothing.
+        val instantAnswer: InstantAnswer? = InstantAnswers.answer(terms)
         inFlight =
             viewModelScope.launch {
                 val outcome =
@@ -198,15 +204,20 @@ class SearchViewModel(
                             repository.searchWithCorrection(terms, mutableSortMode.value, mutableVertical.value)
                         }
                     }
+                // A cancelled dispatch (a newer query superseded this one) must propagate, not fall
+                // into onFailure: the plain assignment below still runs in a cancelled coroutine, so
+                // swallowing it here would overwrite the NEW search's Loading state with a bogus
+                // "StandaloneCoroutine was cancelled" error flash.
+                outcome.exceptionOrNull()?.let { if (it is CancellationException) throw it }
                 mutableState.value =
                     outcome.fold(
                         onSuccess = { result ->
-                            if (result.results.isEmpty() && result.didYouMean == null) {
+                            if (result.results.isEmpty() && result.didYouMean == null && instantAnswer == null) {
                                 SearchUiState.Empty
                             } else if (result.results.isEmpty()) {
-                                // No results, but the corrector has a suggestion: keep it visible
-                                // (a Results state with an empty list) instead of dropping it to the
-                                // bare Empty state, mirroring the desktop "No results / did you mean".
+                                // No results, but there is a correction or an instant answer to show:
+                                // keep it visible (a Results state with an empty list) instead of
+                                // dropping to the bare Empty state.
                                 SearchUiState.Results(
                                     results = emptyList(),
                                     didYouMean = result.didYouMean,
@@ -214,6 +225,7 @@ class SearchViewModel(
                                     summary = result.summary,
                                     engineStatus = result.engineStatus,
                                     actionsRow = result.actionsRow,
+                                    instantAnswer = instantAnswer,
                                 )
                             } else {
                                 // Record the query actually answered (the correction when we auto-searched
@@ -227,6 +239,7 @@ class SearchViewModel(
                                     summary = result.summary,
                                     engineStatus = result.engineStatus,
                                     actionsRow = result.actionsRow,
+                                    instantAnswer = instantAnswer,
                                 )
                             }
                         },

@@ -88,6 +88,21 @@ object Verticals {
     }
 
     /**
+     * Remove [vertical]'s scoping clause from [text] when present. An upstream engine's spelling
+     * correction echoes the whole query it was sent - including the `(site:... OR ...)` clause
+     * [transformQuery] appended - so without this the clause leaks into the "did you mean" line and
+     * gets appended a second time when the correction is auto-searched.
+     */
+    fun stripScopeClause(
+        text: String,
+        vertical: Vertical,
+    ): String {
+        val sites = SITES[vertical] ?: return text
+        val clause = "(" + sites.joinToString(" OR ") { "site:$it" } + ")"
+        return text.replace(clause, "", ignoreCase = true).trim().replace(Regex("\\s{2,}"), " ")
+    }
+
+    /**
      * The sort to use when the user has not explicitly chosen one. News is time-sensitive, so it
      * defaults to the freshness+relevance blend; forums and academic favor relevance (an old but
      * highly relevant thread or paper is usually what is wanted). Web keeps the global default.

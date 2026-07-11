@@ -3,6 +3,7 @@ package org.searchmob.ui.onboarding
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
@@ -29,10 +30,13 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.Saver
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -43,6 +47,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import kotlinx.coroutines.launch
 import org.searchmob.R
 import org.searchmob.service.BatteryOptimization
@@ -58,6 +65,17 @@ object OnboardingTestTags {
     const val PRIVACY_SETTINGS = "onboarding_privacy_settings"
     const val PERSONALIZE_SWITCH = "onboarding_personalize_switch"
 }
+
+/**
+ * Persists [OnboardingProgress] across configuration changes / process death as its page index. The
+ * restored index is clamped into the current step range so a stale saved value (e.g. from a build
+ * that had more steps) can never trip the wrapper's range check while restoring.
+ */
+private val onboardingProgressSaver: Saver<OnboardingProgress, Int> =
+    Saver(
+        save = { it.index },
+        restore = { OnboardingProgress(it.coerceIn(0, OnboardingStep.entries.lastIndex)) },
+    )
 
 /**
  * First-run wizard host. A skippable pager over [OnboardingStep] with Back/Next/Finish controls.
@@ -79,7 +97,11 @@ fun OnboardingWizard(
     onSetPersonalization: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
-    var progress by remember { mutableStateOf(OnboardingProgress()) }
+    // Saveable so a rotation (or process death) resumes the wizard on the same page rather than
+    // snapping back to Welcome; persisted as the page index via [onboardingProgressSaver].
+    var progress by rememberSaveable(stateSaver = onboardingProgressSaver) {
+        mutableStateOf(OnboardingProgress())
+    }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val clipboard = LocalClipboardManager.current
@@ -88,6 +110,10 @@ fun OnboardingWizard(
         clipboard.setText(AnnotatedString(value))
         scope.launch { snackbarHostState.showSnackbar(copiedMessage) }
     }
+
+    // Gesture/system back pages backwards through the wizard instead of exiting the app mid-setup.
+    // Disabled on the first page so back there keeps its default behavior (leaving the app).
+    BackHandler(enabled = !progress.isFirst) { progress = progress.back() }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -204,9 +230,23 @@ private fun PermissionsPage() {
         },
     )
 
-    // Battery-optimization exemption.
+    // Battery-optimization exemption. The grant happens in a SYSTEM dialog with no result callback,
+    // so re-read the state on every ON_RESUME — exactly when the user lands back here from that
+    // dialog — rather than synchronously after startActivity (which fires before the dialog is even
+    // shown, so it always reads the stale pre-grant value).
     var batteryExempt by remember {
         mutableStateOf(runCatching { BatteryOptimization.isExempt(context) }.getOrDefault(false))
+    }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer =
+            LifecycleEventObserver { _, event ->
+                if (event == Lifecycle.Event.ON_RESUME) {
+                    batteryExempt = runCatching { BatteryOptimization.isExempt(context) }.getOrDefault(false)
+                }
+            }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
     PermissionCard(
         label = str(R.string.onboarding_battery_label),
@@ -215,8 +255,10 @@ private fun PermissionsPage() {
         grantedText = str(R.string.onboarding_battery_granted),
         grantTag = OnboardingTestTags.BATTERY_GRANT,
         onGrant = {
-            context.startActivity(BatteryOptimization.requestExemptionIntent(context))
-            batteryExempt = runCatching { BatteryOptimization.isExempt(context) }.getOrDefault(false)
+            // Guarded: some OEM builds ship without the request-exemption settings activity, and a
+            // missing handler must not crash onboarding. The ON_RESUME observer above reflects the
+            // outcome once the user returns.
+            runCatching { context.startActivity(BatteryOptimization.requestExemptionIntent(context)) }
         },
     )
 }

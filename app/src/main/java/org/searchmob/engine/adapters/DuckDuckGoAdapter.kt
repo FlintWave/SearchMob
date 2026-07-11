@@ -64,10 +64,18 @@ class DuckDuckGoAdapter(
         )
     }
 
-    /** DuckDuckGo wraps result links as `//duckduckgo.com/l/?uddg=<encoded-url>&rut=...`. */
+    /**
+     * DuckDuckGo wraps result links as `//duckduckgo.com/l/?uddg=<encoded-url>&rut=...`. The endpoint
+     * intermittently serves DIRECT hrefs instead (they A/B the no-JS page), so when there is no
+     * `uddg=` marker a plain absolute http(s) href is used verbatim rather than dropping the result -
+     * previously that variant silently produced zero results from a perfectly good page.
+     */
     private fun decodeRedirect(href: String): String? {
         val marker = href.indexOf("uddg=")
-        if (marker < 0) return null
+        if (marker < 0) {
+            val direct = href.trim()
+            return direct.takeIf { it.startsWith("https://") || it.startsWith("http://") }
+        }
         val encoded = href.substring(marker + "uddg=".length).substringBefore("&")
         return try {
             URLDecoder.decode(encoded, "UTF-8").takeIf { it.isNotBlank() }

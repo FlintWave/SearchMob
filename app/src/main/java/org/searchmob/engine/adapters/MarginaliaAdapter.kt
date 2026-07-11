@@ -23,6 +23,10 @@ class MarginaliaAdapter(
     override val displayName = "Marginalia"
     override val categories = setOf(SearchCategory.GENERAL)
 
+    // Keyword index with no `site:`/`OR` syntax: it gets the operator-free query, and any site
+    // constraint is enforced locally over the merged results.
+    override val supportsSiteOperators = false
+
     override fun buildRequest(
         query: SearchQuery,
         ctx: EngineContext,
@@ -31,7 +35,7 @@ class MarginaliaAdapter(
             baseUrl.toHttpUrl().newBuilder()
                 .addPathSegment("public")
                 .addPathSegment("search")
-                .addPathSegment(query.terms)
+                .addPathSegment(query.unscopedTerms)
                 .build()
         return Request.Builder().url(url).get().build()
     }

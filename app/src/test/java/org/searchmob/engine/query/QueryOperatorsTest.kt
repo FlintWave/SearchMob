@@ -167,6 +167,14 @@ class QueryOperatorsTest {
     }
 
     @Test
+    fun singleDigitMonthAndDayAreAccepted() {
+        // Rejecting `after:2024-3-1` would keep the whole token as literal upstream query text.
+        assertEquals(epochMillisOf(2024, 3, 1), QueryOperators.parse("after:2024-3-1").afterMillis)
+        assertEquals(epochMillisOf(2024, 3), QueryOperators.parse("after:2024-3").afterMillis)
+        assertEquals(epochMillisOf(2024, 3, 1), QueryOperators.parse("before:2024/3/1").beforeMillis)
+    }
+
+    @Test
     fun dateOperatorsAreDroppedFromCleanTextAndEngineQuery() {
         val p = QueryOperators.parse("news after:2023 before:2024")
         assertEquals("news", p.cleanText)

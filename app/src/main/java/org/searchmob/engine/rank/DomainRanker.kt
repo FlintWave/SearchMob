@@ -77,7 +77,13 @@ object DomainRanker {
         slopMode: String,
     ): RankRule {
         if (host == null) return RankRule.NORMAL
-        rules.domainRules.entries.firstOrNull { domainMatch(it.key, host) }?.let { return it.value }
+        // Most-specific rule wins, not map-iteration-order: with {"example.com": LOWER,
+        // "docs.example.com": PIN} a docs.example.com result must honor the subdomain's PIN, so the
+        // longest matching rule key (the deepest domain) is chosen.
+        rules.domainRules.entries
+            .filter { domainMatch(it.key, host) }
+            .maxByOrNull { it.key.length }
+            ?.let { return it.value }
         val actions = rules.goggles.filter { Goggles.matches(it.site, host) }.map { it.action }.toSet()
         when {
             RankRule.BLOCK in actions -> return RankRule.BLOCK

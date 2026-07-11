@@ -168,7 +168,7 @@ class PreferencesRepositoryTest {
     fun engineToggle_roundTrips() =
         runTest {
             val r = repo()
-            r.setEngineEnabled("mojeek", enabled = false, current = emptyMap())
+            r.setEngineEnabled("mojeek", enabled = false)
             val prefs = r.preferences.first()
             assertFalse(prefs.isEngineEnabled("mojeek"))
             assertTrue(prefs.isEngineEnabled("duckduckgo"))

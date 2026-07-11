@@ -149,6 +149,10 @@ class Aggregator(
                 bucket.engines.add(item.engineId)
                 bucket.score += contribution
                 if (bucket.snippet.isBlank() && item.snippet.isNotBlank()) bucket.snippet = item.snippet
+                // Backfill a blank title the same way: an empty first-seen title would otherwise stick,
+                // render blank, and zero out the title-coverage relevance signal for a result several
+                // engines actually agree on.
+                if (bucket.title.isBlank() && item.title.isNotBlank()) bucket.title = item.title
                 // Keep the newest known date when several engines surface the same URL.
                 val candidate = publishedOf(item, nowMillis)
                 if (candidate != null && (bucket.publishedMillis == null || candidate > bucket.publishedMillis!!)) {
@@ -202,7 +206,7 @@ class Aggregator(
     }
 
     private class MutableBucket(
-        val title: String,
+        var title: String,
         val url: String,
         var snippet: String,
         val engines: LinkedHashSet<String>,

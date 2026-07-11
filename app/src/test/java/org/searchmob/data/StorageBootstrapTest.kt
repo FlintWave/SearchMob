@@ -196,4 +196,44 @@ class StorageBootstrapTest {
     fun warningStringStatesUnrecoverable() {
         assertTrue(ZERO_KNOWLEDGE_UNRECOVERABLE_WARNING.contains("UNRECOVERABLE"))
     }
+
+    @Test
+    fun corruptMetadataFailsClosedAndNeverRekeys() {
+        // A present-but-unreadable metadata file (truncated write, flipped byte) must NOT be treated
+        // as first run: re-keying would overwrite the only copy of the wrapped DEK and permanently
+        // destroy every encrypted store. Bootstrap stays locked and the corrupt file is untouched.
+        val file = File(tmp.newFolder(), BootstrapMetadataStore.FILE_NAME)
+        file.writeText("""{"wrappedDekBase64":"AA=""") // torn JSON
+        val meta = BootstrapMetadataStore(file)
+        val sut = bootstrap(meta)
+
+        assertFalse(sut.bootstrap())
+        assertFalse(sut.isUnlocked)
+        assertEquals("""{"wrappedDekBase64":"AA=""", file.readText())
+    }
+
+    @Test
+    fun metadataWriteReplacesAtomicallyLeavingNoScratchFile() {
+        val meta = store()
+        val sut = bootstrap(meta)
+        assertTrue(sut.bootstrap())
+        val first = meta.read()!!
+
+        // A later rewrite (mode switch) replaces the file wholesale and leaves no .tmp sibling.
+        sut.enableZeroKnowledge("pass".toCharArray(), warningConfirmed = true)
+        val second = meta.read()!!
+        assertEquals(WrapMode.PASSPHRASE, second.mode)
+        assertTrue(second.wrappedDekBase64 != first.wrappedDekBase64)
+        val folder = File(checkNotNull(metaFileOf(meta)).parent!!)
+        assertTrue(folder.listFiles()!!.none { it.name.endsWith(".tmp") })
+    }
+
+    // Reflection-free way to find the metadata file: the store was built from a temp folder with the
+    // canonical file name, so locate it under the TemporaryFolder root.
+    private fun metaFileOf(
+        @Suppress("UNUSED_PARAMETER") store: BootstrapMetadataStore,
+    ): File? =
+        tmp.root
+            .walkTopDown()
+            .firstOrNull { it.isFile && it.name == BootstrapMetadataStore.FILE_NAME }
 }
