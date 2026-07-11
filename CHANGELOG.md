@@ -6,6 +6,66 @@ versioning (`YY.MM.VV`).
 
 ## [Unreleased]
 
+## 26.07.03 — 2026-07-11
+
+### Added
+- **Instant answers, computed entirely on-device.** A calculator (`2+2`, `sqrt(9)*3`), unit
+  conversions (`10 km to miles`, `72 f to c`), number-base conversions (`0xff in decimal`), and
+  percentages (`15% of 80`) now show an answer card above the results, both in the app and on the
+  served pages. Date- and phone-number-shaped input (`2020-2021`, `555-1234`) is guarded so the
+  card never mis-fires, and nothing leaves the device.
+- **!bangs.** `!w`, `!gh`, `!yt`, `!osm` and friends jump straight to that site's own search,
+  resolved from a curated on-device table. Bang terms never enter the metasearch fan-out, and
+  unknown tags (`!important css`) are left alone rather than hijacked.
+- **Search-as-you-type on the served pages.** A keyboard-navigable suggestions dropdown (ARIA
+  listbox) over the existing `/suggest` endpoint — debounced, same-origin only, and stale fetches
+  are aborted. Pressing `/` focuses the search box.
+- The served results page shows the **result count and elapsed time**, serves a **favicon**, and
+  the topbar links, sort selector, and did-you-mean link now **carry the active vertical and sort**
+  instead of silently resetting them. The engine-status diagnostic also renders on empty result
+  pages, exactly when it is needed most.
+
+### Security
+- **Wikipedia summary thumbnails no longer leak searches to Wikimedia.** The browser used to fetch
+  the thumbnail from Wikimedia directly, revealing the user's IP plus the searched entity via the
+  image filename. Thumbnails are now re-served through a loopback `/img` proxy scoped to
+  `upload.wikimedia.org` (image-only, size-capped), and the served pages' CSP tightens from
+  `img-src https:` to `img-src 'self' data:` (plus `connect-src 'self'` for the suggestions
+  dropdown).
+- **One User-Agent per logical search.** A 429 retry no longer switches browser identities seconds
+  apart from the same IP; the UA pool is refreshed, and per-host politeness spacing is now
+  process-wide and thread-safe (it was previously rebuilt per search, so it never actually
+  applied).
+- `WikiSummaryProvider` body reads are size-capped like every other fetch, and the OpenSearch
+  descriptor now uses the request Host for network-mode visitors — without embedding the access
+  token — so browser search integration works off-device.
+
+### Fixed
+- **Encrypted data can no longer be silently destroyed.** The bootstrap metadata file (the only
+  copy of the wrapped key that unlocks preferences, API keys, and history) is now written
+  atomically, and a present-but-corrupt file fails closed instead of quietly re-keying — which
+  previously wiped all encrypted data unrecoverably.
+- **Settings no longer goes permanently dead after backing out once.** ViewModels are created
+  fresh per screen entry; the stale-instance bug also silently stopped history recording.
+- A byte-trickling upstream can no longer hold a search open for minutes (whole-call HTTP
+  timeout), and cancelled searches no longer flash a raw error.
+- Vertical scoping no longer poisons engines that lack `site:`/`OR` syntax (Wikipedia, Marginalia,
+  and Mwmbl now get the clean query while constraints stay locally enforced), and upstream spelling
+  corrections no longer leak or double the vertical's `site:` clause.
+- Ranking and parsing fixes: http/https and mobile-host variants dedup into one result, blank
+  titles backfill from other engines, domain rules resolve most-specific-first, day-first slash
+  dates and `after:2024-3-1` parse, DuckDuckGo's direct-href A/B variant parses instead of
+  yielding zero results, and the spell corrector no longer silently rewrites brand names
+  ("spotify" stays "spotify").
+- App polish: onboarding survives rotation, handles system back, and routes "Open privacy
+  settings" correctly; battery-exemption cards refresh on resume; the widget deeplink no longer
+  re-fires on rotation; engine toggles are transactional; update-banner dismissal survives
+  rotation; APK staging is off the main thread; all outbound `startActivity` calls are guarded;
+  result cards show the source host; and the search field auto-focuses when opened idle.
+
+### Changed
+- Dependency updates: androidx.sqlite 2.7.0.
+
 ## 26.07.02 — 2026-07-02
 
 ### Fixed
