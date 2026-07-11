@@ -30,6 +30,27 @@ class UrlNormalizerTest {
     }
 
     @Test
+    fun httpAndHttpsCollapseToSameKey() {
+        // Engines disagree on the scheme for the same page; both must merge into one RRF bucket.
+        assertEquals(
+            UrlNormalizer.normalize("https://example.com/article"),
+            UrlNormalizer.normalize("http://example.com/article"),
+        )
+    }
+
+    @Test
+    fun mobileSubdomainCollapsesToCanonicalHost() {
+        assertEquals(
+            UrlNormalizer.normalize("https://en.wikipedia.org/wiki/Privacy"),
+            UrlNormalizer.normalize("https://en.m.wikipedia.org/wiki/Privacy"),
+        )
+        assertEquals(
+            UrlNormalizer.normalize("https://example.com/page"),
+            UrlNormalizer.normalize("https://m.example.com/page"),
+        )
+    }
+
+    @Test
     fun stripTrackingRemovesTrackersButKeepsTheRestForDisplay() {
         // Host case, www, trailing slash, fragment, and the surviving param order are all kept.
         assertEquals(

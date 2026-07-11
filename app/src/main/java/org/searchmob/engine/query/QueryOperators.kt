@@ -141,9 +141,12 @@ data class ParsedQuery(
 object QueryOperators {
     private val RECOGNIZED_OPS = setOf("site", "intitle", "inurl", "filetype", "ext", "before", "after")
     private val YEAR = Regex("^(\\d{4})$")
-    private val YEAR_MONTH = Regex("^(\\d{4})-(\\d{2})$")
-    private val FULL_DASH = Regex("^(\\d{4})-(\\d{2})-(\\d{2})$")
-    private val FULL_SLASH = Regex("^(\\d{4})/(\\d{2})/(\\d{2})$")
+
+    // Month/day accept one or two digits: rejecting `after:2024-3-1` outright would keep the whole
+    // token as literal upstream query text (see applyOperator), actively harming results.
+    private val YEAR_MONTH = Regex("^(\\d{4})-(\\d{1,2})$")
+    private val FULL_DASH = Regex("^(\\d{4})-(\\d{1,2})-(\\d{1,2})$")
+    private val FULL_SLASH = Regex("^(\\d{4})/(\\d{1,2})/(\\d{1,2})$")
 
     fun parse(raw: String): ParsedQuery {
         val acc = Accumulator()

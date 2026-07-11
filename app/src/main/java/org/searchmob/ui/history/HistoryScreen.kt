@@ -48,9 +48,11 @@ fun HistoryScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
     // The import toast fires in an event-time callback, where composable reads are not allowed, so
-    // the localized pattern is read here in composition and formatted with the count on completion
-    // (String.format applies the same positional %1$d substitution getString would).
+    // the localized strings are read here in composition; the success pattern is formatted with the
+    // count on completion (String.format applies the same positional %1$d substitution getString
+    // would).
     val importedTemplate = stringResource(R.string.history_imported)
+    val importFailedMessage = stringResource(R.string.history_import_failed)
     val scope = androidx.compose.runtime.rememberCoroutineScope()
 
     val exportLauncher =
@@ -78,10 +80,12 @@ fun HistoryScreen(
                             }.getOrNull()
                         }
                     if (text != null) {
+                        // A null count means the file was not a parseable history export; surface
+                        // that as an error rather than a misleading "Imported 0 entries".
                         viewModel.import(text) { count ->
                             Toast.makeText(
                                 context,
-                                importedTemplate.format(count),
+                                if (count == null) importFailedMessage else importedTemplate.format(count),
                                 Toast.LENGTH_SHORT,
                             ).show()
                         }

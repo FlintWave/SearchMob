@@ -26,4 +26,23 @@ class DuckDuckGoAdapterTest {
         assertTrue(items.none { it.url.contains("capterra.com") })
         assertTrue(items.all { it.url.startsWith("http") && it.title.isNotBlank() })
     }
+
+    @Test
+    fun directHrefVariantIsKeptVerbatim() {
+        // DuckDuckGo intermittently serves direct hrefs (no uddg= redirect) on the no-JS endpoint;
+        // those results must be used as-is, not silently dropped.
+        val html =
+            """
+            <div class="result web-result">
+              <a class="result__a" href="https://example.com/direct">Direct result</a>
+              <div class="result__snippet">Snippet.</div>
+            </div>
+            <div class="result web-result">
+              <a class="result__a" href="relative/link">Bad relative link</a>
+            </div>
+            """.trimIndent()
+        val items = DuckDuckGoAdapter().parse(html)
+        assertEquals(1, items.size)
+        assertEquals("https://example.com/direct", items.first().url)
+    }
 }

@@ -33,9 +33,12 @@ interface HistoryDao {
      * most-recent first, capped to [limit]. Used to power local search suggestions. The
      * most-recent ordering groups by query and ranks each distinct query by its newest occurrence,
      * so a query typed twice is not duplicated and surfaces at its latest position.
+     *
+     * The caller passes [prefix] already escaped (see `SqlCipherHistoryStore.escapeLike`): a literal
+     * `%`/`_` typed by the user must match itself, not act as a LIKE wildcard.
      */
     @Query(
-        "SELECT query FROM history WHERE timestampMs >= :cutoffMs AND query LIKE :prefix || '%' " +
+        "SELECT query FROM history WHERE timestampMs >= :cutoffMs AND query LIKE :prefix || '%' ESCAPE '\\' " +
             "COLLATE NOCASE GROUP BY query COLLATE NOCASE ORDER BY MAX(timestampMs) DESC LIMIT :limit",
     )
     fun suggestSince(

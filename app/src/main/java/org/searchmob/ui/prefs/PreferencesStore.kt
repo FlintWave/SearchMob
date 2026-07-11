@@ -52,4 +52,17 @@ interface PreferencesStore {
         key: String,
         value: Map<String, Boolean>,
     )
+
+    /**
+     * Atomically read-modify-write a string->boolean map preference. [transform] receives the map
+     * currently PERSISTED for [key] (empty when unset; defaults are a read-time concern) and returns
+     * the full map to persist. Implementations must apply the whole call as one transaction so two
+     * concurrent single-key updates never lose each other's writes — composing [setBooleanMap] over a
+     * snapshot read (e.g. a stateIn mirror that is stale until the write round-trips) cannot give
+     * that guarantee.
+     */
+    suspend fun updateBooleanMap(
+        key: String,
+        transform: (Map<String, Boolean>) -> Map<String, Boolean>,
+    )
 }

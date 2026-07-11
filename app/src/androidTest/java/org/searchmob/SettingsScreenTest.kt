@@ -80,9 +80,11 @@ class SettingsScreenTest {
     fun historyOff_storeNothing_recordingIsNoOp() {
         val history = InMemoryHistoryStore()
         val deps = AppDependencies(historyStore = history)
-        val viewModel = setSettings(deps)
-        // History defaults off; recording a query must persist nothing.
-        viewModel.recordQuery("secret query")
+        setSettings(deps)
+        // History defaults off; recording a query (the application-scoped recorder the search flow
+        // is wired to) must persist nothing.
+        deps.recordQuery("secret query")
+        composeTestRule.waitForIdle()
         assertTrue(history.list(System.currentTimeMillis()).isEmpty())
     }
 

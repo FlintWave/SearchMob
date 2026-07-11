@@ -67,25 +67,27 @@ class HistoryViewModel(
 
     /**
      * Merge entries from an exported JSON document into the store and report how many were added.
-     * Requires history to be enabled (the store's add is a no-op while off), keeping store-nothing intact.
+     * A document that does not parse as a history export reports null (distinct from a genuinely
+     * empty export, which reports 0) so the UI can surface an error instead of a misleading
+     * "Imported 0 entries". Requires history to be enabled (the store's add is a no-op while off),
+     * keeping store-nothing intact.
      */
     fun import(
         text: String,
-        onDone: (Int) -> Unit,
+        onDone: (Int?) -> Unit,
     ) {
         viewModelScope.launch {
             val added =
                 withContext(ioDispatcher) {
-                    val entries =
-                        runCatching { json.decodeFromString<List<HistoryEntry>>(text) }.getOrDefault(emptyList())
-                    var count = 0
-                    if (historyStore.enabled) {
-                        entries.forEach {
-                            historyStore.add(it)
-                            count++
+                    val entries = runCatching { json.decodeFromString<List<HistoryEntry>>(text) }.getOrNull()
+                    when {
+                        entries == null -> null // Unparseable: not a history export.
+                        !historyStore.enabled -> 0
+                        else -> {
+                            entries.forEach { historyStore.add(it) }
+                            entries.size
                         }
                     }
-                    count
                 }
             refresh()
             onDone(added)

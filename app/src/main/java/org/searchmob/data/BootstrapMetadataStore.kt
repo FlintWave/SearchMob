@@ -3,6 +3,7 @@ package org.searchmob.data
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.io.File
+import java.io.FileOutputStream
 
 /**
  * Persists [BootstrapMetadata] as an UNENCRYPTED JSON file in app-internal storage. This is
@@ -22,7 +23,21 @@ class BootstrapMetadataStore(private val file: File) {
 
     fun write(metadata: BootstrapMetadata) {
         file.parentFile?.mkdirs()
-        file.writeText(json.encodeToString(metadata))
+        // Atomic replace, not an in-place truncate-and-write: this file holds the ONLY copy of the
+        // wrapped DEK, so a crash or power loss mid-write must leave either the old blob or the new
+        // one, never a torn file. Write to a scratch sibling, fsync it, then rename over the target
+        // (a same-directory rename is atomic on the filesystems Android uses).
+        val scratch = File(file.parentFile, file.name + ".tmp")
+        FileOutputStream(scratch).use { out ->
+            out.write(json.encodeToString(metadata).toByteArray(Charsets.UTF_8))
+            out.fd.sync()
+        }
+        if (!scratch.renameTo(file)) {
+            // Rename can fail if the target is on another mount (never the case here) - fall back to
+            // a delete+rename so the write still lands rather than silently keeping stale metadata.
+            file.delete()
+            check(scratch.renameTo(file)) { "Failed to persist bootstrap metadata" }
+        }
     }
 
     fun delete() {

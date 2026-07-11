@@ -21,7 +21,9 @@ class EngineRegistry(
     private val configs: Map<String, EngineConfig> =
         adapters.associate { it.id to EngineConfig(it.id, enabled = !it.requiresApiKey) },
     private val timeoutMs: Long = 5_000L,
-    private val politeness: Politeness = Politeness(),
+    // The PROCESS-WIDE politeness limiter by default: registries are rebuilt per search, so per-host
+    // request spacing must outlive any single registry to actually space consecutive searches.
+    private val politeness: Politeness = Politeness.SHARED,
 ) {
     init {
         require(adapters.none { it.id.equals("google", ignoreCase = true) }) {

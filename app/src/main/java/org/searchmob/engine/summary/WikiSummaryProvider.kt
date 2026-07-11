@@ -78,10 +78,23 @@ class WikiSummaryProvider(
         withContext(Dispatchers.IO) {
             runCatching {
                 httpClient.newCall(Request.Builder().url(url).get().build()).execute().use { resp ->
-                    if (!resp.isSuccessful) null else resp.body?.string()
+                    if (!resp.isSuccessful) null else readBoundedBody(resp)
                 }
             }.getOrNull()
         }
+
+    /**
+     * Reads at most [MAX_RESPONSE_BYTES][org.searchmob.engine.MAX_RESPONSE_BYTES] of the body,
+     * mirroring `HttpEngineAdapter`: this is the one fetch path that previously buffered an unbounded
+     * body, and a summary endpoint has no business returning megabytes.
+     */
+    private fun readBoundedBody(response: okhttp3.Response): String? {
+        val body = response.body ?: return null
+        val source = body.source()
+        if (source.request(org.searchmob.engine.MAX_RESPONSE_BYTES + 1)) return null
+        val charset = body.contentType()?.charset() ?: Charsets.UTF_8
+        return source.buffer.readString(charset)
+    }
 
     private fun enc(value: String): String = URLEncoder.encode(value, "UTF-8")
 

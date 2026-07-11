@@ -34,7 +34,9 @@ class MediaIntentTest {
         assertEquals("Wikipedia", row.links[0].label)
         assertEquals("https://en.wikipedia.org/wiki/The_Cure", row.links[0].url)
         assertEquals("Bandcamp", row.links[1].label) // free/open first
-        assertTrue(row.links.any { it.url.contains("The+Cure") }) // entity name URL-encoded
+        // %20, never '+': several templates put the name in the URL path, where '+' is a literal.
+        assertTrue(row.links.any { it.url.contains("The%20Cure") })
+        assertTrue(row.links.none { it.url.contains("The+Cure") })
         assertEquals(1, row.links.count { it.label == "Wikipedia" })
     }
 

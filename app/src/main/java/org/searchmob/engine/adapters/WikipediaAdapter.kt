@@ -27,12 +27,16 @@ class WikipediaAdapter(
     override val displayName = "Wikipedia"
     override val categories = setOf(SearchCategory.GENERAL)
 
+    // Title index: a `(site:... OR ...)` clause would be matched as literal title text and kill every
+    // hit, so this engine receives the operator-free query and site: is enforced locally instead.
+    override val supportsSiteOperators = false
+
     override fun buildRequest(
         query: SearchQuery,
         ctx: EngineContext,
     ): Request {
         val url =
-            "$baseUrl/w/api.php?action=opensearch&format=json&search=${enc(query.terms)}&limit=$LIMIT"
+            "$baseUrl/w/api.php?action=opensearch&format=json&search=${enc(query.unscopedTerms)}&limit=$LIMIT"
         return Request.Builder().url(url).get().build()
     }
 

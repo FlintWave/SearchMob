@@ -274,11 +274,16 @@ class PreferencesRepository(
 
     suspend fun setHistoryEnabled(enabled: Boolean) = store.setBoolean(PreferenceKeys.HISTORY_ENABLED, enabled)
 
+    /**
+     * Enable/disable a single engine. Applied as an atomic read-modify-write inside the store so two
+     * quick toggles can never lose each other: composing a whole-map write over a snapshot (e.g. a
+     * stateIn mirror that is stale until the previous write round-trips) drops the earlier toggle,
+     * and toggling before the mirror's first emission would wipe every saved toggle.
+     */
     suspend fun setEngineEnabled(
         engineId: String,
         enabled: Boolean,
-        current: Map<String, Boolean>,
     ) {
-        store.setBooleanMap(PreferenceKeys.ENGINE_ENABLED, current + (engineId to enabled))
+        store.updateBooleanMap(PreferenceKeys.ENGINE_ENABLED) { it + (engineId to enabled) }
     }
 }

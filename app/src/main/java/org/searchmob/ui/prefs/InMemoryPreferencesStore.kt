@@ -3,6 +3,7 @@ package org.searchmob.ui.prefs
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.update
 
 /**
  * In-memory default [PreferencesStore]. Values live for the process lifetime only; nothing is written
@@ -67,5 +68,14 @@ class InMemoryPreferencesStore : PreferencesStore {
         value: Map<String, Boolean>,
     ) {
         mapFlow(key).value = value
+    }
+
+    override suspend fun updateBooleanMap(
+        key: String,
+        transform: (Map<String, Boolean>) -> Map<String, Boolean>,
+    ) {
+        // MutableStateFlow.update is a compare-and-set loop over the stored value itself, giving the
+        // same lost-update-free semantics the persistent store provides via its edit transaction.
+        mapFlow(key).update(transform)
     }
 }

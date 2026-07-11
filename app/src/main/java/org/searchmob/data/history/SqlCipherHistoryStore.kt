@@ -81,9 +81,16 @@ class SqlCipherHistoryStore(
         return runCatching {
             val dao = database().historyDao()
             sweep(dao, nowMs)
-            dao.suggestSince(prefix, nowMs - ttlMs, limit)
+            dao.suggestSince(escapeLike(prefix), nowMs - ttlMs, limit)
         }.getOrDefault(emptyList())
     }
+
+    /** Escape LIKE wildcards in user input so typing `100%` matches `100%…`, not every `100…`. */
+    private fun escapeLike(prefix: String): String =
+        prefix
+            .replace("\\", "\\\\")
+            .replace("%", "\\%")
+            .replace("_", "\\_")
 
     @Synchronized
     override fun clear() {

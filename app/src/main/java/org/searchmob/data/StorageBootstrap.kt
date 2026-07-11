@@ -65,6 +65,11 @@ class StorageBootstrap(
     fun bootstrap(): Boolean {
         val existing = metadataStore.read()
         if (existing == null) {
+            // FAIL CLOSED on a present-but-unreadable file: it still holds the only copy of the
+            // wrapped DEK, and treating corruption as first-run would silently generate a NEW key,
+            // overwrite that blob, and permanently destroy every encrypted store keyed to the old
+            // one. Staying locked keeps the data recoverable (e.g. by restoring the file).
+            if (metadataStore.exists()) return false
             firstRun()
             return true
         }

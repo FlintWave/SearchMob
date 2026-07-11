@@ -30,6 +30,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -101,7 +102,13 @@ class MainActivity : ComponentActivity() {
         // Load persisted (encrypted) BYO API keys into the engine registry's runtime cache.
         lifecycleScope.launch { withContext(Dispatchers.IO) { deps.hydrateApiKeys() } }
 
-        if (SearchDeepLink.shouldOpenSearch(intent)) openSearchToken = System.nanoTime()
+        // Only a genuinely fresh launch consumes the launch intent's deep link: on recreation
+        // (rotation, theme change) the OS redelivers the same intent, and re-arming the token there
+        // would yank the user back to Search from wherever they were. New taps while the activity is
+        // alive arrive via onNewIntent, which re-arms the token as before.
+        if (savedInstanceState == null && SearchDeepLink.shouldOpenSearch(intent)) {
+            openSearchToken = System.nanoTime()
+        }
 
         // Launch-time update check: lifecycle-scoped, off the main thread, and fully fail-soft. It only
         // does anything when the preference is on and the once-a-day throttle is due, so it is safe to
@@ -125,16 +132,30 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             // Ask for notification permission on Android 13+ so the service notification is visible.
+            // Deferred until onboarding is complete (mirroring SearchMobApp's wizard gate): the wizard
+            // has its own user-initiated permission step, and an auto-prompt on top of it would show
+            // two competing dialogs on first run. Asked at most once per launch — the saveable flag
+            // survives recreation, so a rotation while the permission is still ungranted never
+            // re-fires the dialog.
             val notifPermission =
                 rememberLauncherForActivityResult(
                     ActivityResultContracts.RequestPermission(),
                 ) { /* result handled by the OS; the service runs regardless */ }
+            val onboardingCompleted: Boolean? by deps.preferencesRepository.onboardingCompleted
+                .collectAsStateWithLifecycle(initialValue = null)
+            val onboardingVersion: Int? by deps.preferencesRepository.onboardingVersion
+                .collectAsStateWithLifecycle(initialValue = null)
+            var notifPromptRequested by rememberSaveable { mutableStateOf(false) }
+            val onboardingDone = onboardingCompleted == true && (onboardingVersion ?: 0) >= ONBOARDING_VERSION
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
                 ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) !=
                 PackageManager.PERMISSION_GRANTED
             ) {
-                LaunchedEffect(Unit) {
-                    notifPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+                LaunchedEffect(onboardingDone) {
+                    if (onboardingDone && !notifPromptRequested) {
+                        notifPromptRequested = true
+                        notifPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    }
                 }
             }
 
@@ -168,8 +189,11 @@ class MainActivity : ComponentActivity() {
             when (result) {
                 is UpdateFlow.Result.Installable -> {
                     UpdateNotifier.cancel(this@MainActivity)
-                    runCatching { UpdateInstaller.installApk(this@MainActivity, result.file) }
-                        .onFailure { openUrl(fallback) }
+                    // Staging the APK into the installer session copies the whole file (blocking
+                    // I/O), so keep it off the main thread like the download above.
+                    withContext(Dispatchers.IO) {
+                        runCatching { UpdateInstaller.installApk(this@MainActivity, result.file) }
+                    }.onFailure { openUrl(fallback) }
                 }
                 is UpdateFlow.Result.OpenPage -> openUrl(result.url)
                 is UpdateFlow.Result.Failed -> {
@@ -246,7 +270,8 @@ fun SearchMobApp(
         .collectAsStateWithLifecycle(initialValue = "")
     val pendingUrl: String by deps.preferencesRepository.pendingUpdateUrl
         .collectAsStateWithLifecycle(initialValue = "")
-    var updateDismissed by remember { mutableStateOf(false) }
+    // Saveable so a dismissed banner stays dismissed across rotation instead of reappearing.
+    var updateDismissed by rememberSaveable { mutableStateOf(false) }
     val showUpdateBanner =
         !updateDismissed &&
             pendingVersion.isNotBlank() &&
@@ -279,6 +304,20 @@ fun SearchMobApp(
         }
     }
 
+    // "Open privacy settings" from the wizard: completing onboarding swaps the wizard for the nav
+    // host, so the navigation must wait for that composition. The pending flag (saveable, so a
+    // rotation mid-handoff still routes) lands the user on Settings — where the history /
+    // zero-knowledge privacy controls actually live — instead of stranding them on Home.
+    var pendingPrivacySettingsNav by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(pendingPrivacySettingsNav, showOnboarding) {
+        if (pendingPrivacySettingsNav && showOnboarding == false) {
+            navController.navigate(Routes.SETTINGS) {
+                launchSingleTop = true
+            }
+            pendingPrivacySettingsNav = false
+        }
+    }
+
     LocalizedApp(languageTag = prefs.language) {
         SearchMobTheme(
             themeMode = prefs.themeMode,
@@ -304,11 +343,18 @@ fun SearchMobApp(
                         OnboardingWizard(
                             port = port,
                             onComplete = { completeOnboarding() },
-                            onOpenUrl = { url -> context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) },
+                            // Guarded: a device without any browser must not crash the wizard.
+                            onOpenUrl = { url ->
+                                runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
+                            },
                             onStartService = { ServiceController.start(context) },
-                            // Finishing the wizard hands off to the main app, where the history /
-                            // zero-knowledge privacy controls live in Settings.
-                            onOpenPrivacySettings = { completeOnboarding() },
+                            // Finishing the wizard hands off to the main app AND routes to Settings
+                            // (via the pending flag above), where the history / zero-knowledge
+                            // privacy controls live.
+                            onOpenPrivacySettings = {
+                                pendingPrivacySettingsNav = true
+                                completeOnboarding()
+                            },
                             personalizationEnabled = personalizationEnabled,
                             onSetPersonalization = {
                                 scope.launch { deps.preferencesRepository.setPersonalizationEnabled(it) }

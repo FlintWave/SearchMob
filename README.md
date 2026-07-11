@@ -8,8 +8,9 @@
 SearchMob gives you the experience of running your own [SearXNG](https://searxng.org) instance, but
 as a native Android app that runs entirely on your phone, with **no SearchMob servers and no
 telemetry of any kind**. It aggregates results from several search engines, acts as a privacy proxy
-so those engines see no cookies/identifier from you, and keeps anything it stores encrypted at rest
-(with an optional zero-knowledge mode).
+so those engines see no cookies/identifier from you (even the Wikipedia summary card's thumbnail is
+re-served through the proxy, so your browser never contacts a third party), and keeps anything it
+stores encrypted at rest (with an optional zero-knowledge mode).
 
 > **Status:** released and verified on Android 15. Grab the current version from the
 > [Releases](https://github.com/FlintWave/SearchMob/releases/latest) page. Ongoing work and design
@@ -32,6 +33,14 @@ so those engines see no cookies/identifier from you, and keeps anything it store
   Operators the upstream engines understand are forwarded to them; all structural filters are also
   enforced on-device over the merged results, so they work consistently across every engine. The
   served home page has a collapsible cheat sheet.
+- **Instant answers and !bangs, all on-device.** A calculator (`2+2`, `sqrt(9)*3`), unit conversions
+  (`10 km to miles`, `72 f to c`), number-base conversions (`0xff in decimal`), and percentages
+  (`15% of 80`) are answered instantly from pure local computation — no request leaves the device.
+  DuckDuckGo-style bangs (`!w`, `!gh`, `!yt`, `!osm`, ...) jump straight to that site's own search,
+  resolved from a curated on-device table, so the terms never even enter the metasearch fan-out.
+- **Search-as-you-type.** The served pages have an autocomplete dropdown (keyboard-navigable) fed by
+  the same local suggestions endpoint browsers use: your on-device history plus the optional opt-in
+  upstream source. Press `/` anywhere on a served page to focus the search box.
 - **Typo and "similar sounding" tolerance.** A misspelled query surfaces a "Did you mean" suggestion,
   from the engines' own correction when offered, otherwise from a fully on-device corrector (phonetic +
   edit-distance over a bundled dictionary, enriched by your own history). No new outbound calls.

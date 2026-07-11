@@ -12,7 +12,6 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import org.searchmob.data.history.HistoryEntry
 import org.searchmob.data.history.HistoryStore
 import org.searchmob.data.prefs.EngineConfigPreferences
 import org.searchmob.data.prefs.RankingPreferences
@@ -265,9 +264,7 @@ class SettingsViewModel(
         engineId: String,
         enabled: Boolean,
     ) {
-        viewModelScope.launch {
-            preferences.setEngineEnabled(engineId, enabled, preferencesState.value.engineEnabled)
-        }
+        viewModelScope.launch { preferences.setEngineEnabled(engineId, enabled) }
     }
 
     fun setHistoryEnabled(enabled: Boolean) {
@@ -337,15 +334,6 @@ class SettingsViewModel(
     fun clearHistory() {
         // The SQLCipher-backed store touches the database, which must not run on the main thread.
         viewModelScope.launch(Dispatchers.IO) { historyStore.clear() }
-    }
-
-    /**
-     * Record a query if history is enabled. Wired into the search flow as the recorder callback. Runs
-     * off the main thread because the encrypted store performs Room/SQLCipher I/O.
-     */
-    fun recordQuery(query: String) {
-        val entry = HistoryEntry(query, System.currentTimeMillis())
-        viewModelScope.launch(Dispatchers.IO) { historyStore.add(entry) }
     }
 
     /**

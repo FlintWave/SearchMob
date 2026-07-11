@@ -12,6 +12,14 @@ data class SearchQuery(
     val category: SearchCategory = SearchCategory.GENERAL,
     /** Operator-free text used for on-device relevance ranking; defaults to [terms]. */
     val rankingTerms: String = terms,
+    /**
+     * The query for engines that do NOT understand `site:`/`OR` operator syntax (see
+     * [EngineAdapter.supportsSiteOperators]); defaults to [terms]. Title/keyword indexes like
+     * Wikipedia, Marginalia, and Mwmbl would otherwise receive a vertical's `(site:a OR site:b ...)`
+     * clause as literal query text and match nothing; they get this plain text instead, and any
+     * `site:` constraint is still enforced locally over the merged results.
+     */
+    val unscopedTerms: String = terms,
 )
 
 /** A normalized result from one engine, with the rank (0-based position) it held in that engine's list. */
@@ -65,6 +73,13 @@ interface EngineAdapter {
 
     /** Engine ids this adapter replaces when active (e.g. a keyed API superseding its free scraper). */
     val supersedes: Set<String> get() = emptySet()
+
+    /**
+     * Whether this engine's own index understands `site:` operators and `OR` groups. Engines that do
+     * not (title/keyword indexes) should query with [SearchQuery.unscopedTerms], the operator-free
+     * text; the constraint is then enforced locally over the merged results.
+     */
+    val supportsSiteOperators: Boolean get() = true
 
     suspend fun search(
         query: SearchQuery,

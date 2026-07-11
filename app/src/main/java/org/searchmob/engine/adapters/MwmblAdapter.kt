@@ -23,11 +23,15 @@ class MwmblAdapter(
     override val displayName = "Mwmbl"
     override val categories = setOf(SearchCategory.GENERAL)
 
+    // Keyword index with no `site:`/`OR` syntax: it gets the operator-free query, and any site
+    // constraint is enforced locally over the merged results.
+    override val supportsSiteOperators = false
+
     override fun buildRequest(
         query: SearchQuery,
         ctx: EngineContext,
     ): Request {
-        val url = "$baseUrl/search/?s=${URLEncoder.encode(query.terms, "UTF-8")}"
+        val url = "$baseUrl/search/?s=${URLEncoder.encode(query.unscopedTerms, "UTF-8")}"
         return Request.Builder().url(url).get().build()
     }
 

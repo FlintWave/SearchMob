@@ -13,6 +13,7 @@ object HttpClientFactory {
     fun create(
         connectTimeoutMs: Long = 5_000,
         readTimeoutMs: Long = 5_000,
+        callTimeoutMs: Long = 8_000,
     ): OkHttpClient =
         OkHttpClient.Builder()
             .cookieJar(CookieJar.NO_COOKIES)
@@ -21,6 +22,10 @@ object HttpClientFactory {
             .followSslRedirects(false)
             .connectTimeout(connectTimeoutMs, TimeUnit.MILLISECONDS)
             .readTimeout(readTimeoutMs, TimeUnit.MILLISECONDS)
+            // A whole-call deadline. The per-read timeout above resets on every packet, so a server
+            // that trickles bytes (or a slow 2 MB body) could otherwise hold a search open for minutes:
+            // the aggregator's coroutine timeout cannot cancel a blocking OkHttp call, but this can.
+            .callTimeout(callTimeoutMs, TimeUnit.MILLISECONDS)
             .addInterceptor(PrivacyInterceptor())
             .build()
 }

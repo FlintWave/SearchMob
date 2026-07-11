@@ -1,6 +1,12 @@
 package org.searchmob.ui
 
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+import org.searchmob.data.history.HistoryEntry
 import org.searchmob.data.history.HistoryStore
 import org.searchmob.data.history.InMemoryHistoryStore
 import org.searchmob.data.prefs.EngineConfigPreferences
@@ -88,6 +94,28 @@ class AppDependencies(
 
     /** Latest per-engine enabled snapshot, updated by the settings layer; used to build the registry. */
     val engineEnabled: MutableStateFlow<Map<String, Boolean>> = MutableStateFlow(emptyMap())
+
+    // Graph-lifetime scope for fire-and-forget persistence (history recording). Deliberately NOT any
+    // screen's viewModelScope: destinations scope their ViewModels to their NavBackStackEntry, so a
+    // cleared scope would silently drop writes after the user backs out of that screen.
+    private val recordScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    /**
+     * Record a search query into history, best-effort and application-scoped. Gated on the persisted
+     * history-enabled preference so store-nothing is honored while history is off (the store's own
+     * `add` additionally no-ops while disabled). Runs on IO because the encrypted store performs
+     * Room/SQLCipher I/O; any failure (e.g. a locked vault) is swallowed because recording a query
+     * must never break the search that triggered it.
+     */
+    fun recordQuery(query: String) {
+        recordScope.launch {
+            runCatching {
+                if (preferencesRepository.preferences.first().historyEnabled) {
+                    historyStore.add(HistoryEntry(query, System.currentTimeMillis()))
+                }
+            }
+        }
+    }
 
     // Single contextual-summary provider (its own privacy HTTP client), reused across in-app searches.
     private val wikiSummaryProvider by lazy {

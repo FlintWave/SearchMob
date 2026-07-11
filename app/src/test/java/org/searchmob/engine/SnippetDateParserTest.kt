@@ -59,4 +59,15 @@ class SnippetDateParserTest {
         assertNull(SnippetDateParser.parse("Mount Everest is Earth's highest mountain", now))
         assertNull(SnippetDateParser.parse("", now))
     }
+
+    @Test
+    fun numericSlashDatesDefaultToMonthDayYear() {
+        assertEquals(ms(2024, 5, 3), SnippetDateParser.parse("05/03/2024 - report", now)!!.epochMillis)
+    }
+
+    @Test
+    fun numericSlashDayFirstRecognizedWhenDayExceedsTwelve() {
+        // "31/12/2024" cannot be month 31; it must parse as 31 December, not be silently lost.
+        assertEquals(ms(2024, 12, 31), SnippetDateParser.parse("31/12/2024 - jahresrückblick", now)!!.epochMillis)
+    }
 }

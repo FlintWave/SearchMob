@@ -53,8 +53,15 @@ object UrlNormalizer {
         val trimmed = rawUrl.trim()
         return try {
             val uri = URI(trimmed)
-            val host = uri.host?.lowercase()?.removePrefix("www.") ?: return trimmed.lowercase()
-            val scheme = (uri.scheme ?: "https").lowercase()
+            var host = uri.host?.lowercase()?.removePrefix("www.") ?: return trimmed.lowercase()
+            // Fold the mobile-site subdomain into the canonical host so `en.m.wikipedia.org` and
+            // `en.wikipedia.org` (or `m.example.com` / `example.com`) merge instead of splitting the
+            // engine-consensus signal across two entries. Dedup key only; the displayed URL is kept.
+            host = host.removePrefix("m.").replace(".m.", ".")
+            // The dedup key treats http and https as the same page: engines disagree on the scheme
+            // for the same URL often enough that keeping both wastes a slot and splits the RRF score.
+            val rawScheme = (uri.scheme ?: "https").lowercase()
+            val scheme = if (rawScheme == "http") "https" else rawScheme
             var path = uri.path ?: ""
             if (path.length > 1 && path.endsWith("/")) path = path.dropLast(1)
             val query =

@@ -223,7 +223,10 @@ class MetaSearchResultProvider(
         val region = languageRegionFor(languageProvider())
         val aggregated =
             aggregator.aggregate(
-                SearchQuery(scoped, rankingTerms = parsed.cleanText),
+                // `unscopedTerms` carries the operator-free text for engines whose index does not
+                // understand site:/OR syntax (Wikipedia/Marginalia/Mwmbl); the vertical or user site:
+                // constraint is still enforced locally by the filter below.
+                SearchQuery(scoped, rankingTerms = parsed.cleanText, unscopedTerms = parsed.cleanText),
                 registryProvider().activeEngines(httpClient, region),
             )
         // Operators the engines cannot be trusted to honor (intitle:/inurl:/filetype:/before:/after:/
@@ -276,7 +279,14 @@ class MetaSearchResultProvider(
                 slopDomains = slopDomains,
                 slopMode = slopMode,
             )
-        return Triple(ranked.map(::toSearchResult), aggregated.correction, aggregated.engineStatus)
+        // An upstream correction echoes the full query the engine was sent, which in a vertical
+        // includes the appended `(site:... OR ...)` clause; strip it so the clause neither leaks into
+        // the "did you mean" line nor gets doubled when the correction is auto-searched.
+        val correction =
+            aggregated.correction
+                ?.let { Verticals.stripScopeClause(it, vertical) }
+                ?.takeIf { it.isNotBlank() }
+        return Triple(ranked.map(::toSearchResult), correction, aggregated.engineStatus)
     }
 
     private fun toSearchResult(result: AggregatedResult): SearchResult =
@@ -289,7 +299,13 @@ class MetaSearchResultProvider(
         )
 
     private companion object {
-        /** On-device confidence required to auto-search a correction when the original query is empty. */
-        const val AUTO_SEARCH_CONFIDENCE = 0.9
+        /**
+         * On-device confidence required to auto-search a correction when the original query is empty.
+         * Deliberately strict: the corrector force-matches out-of-vocabulary words against its
+         * dictionary, and a brand/proper noun it does not know can score deceptively well against a
+         * lookalike common word (e.g. Jaro-Winkler("spotify", "spotty") ≈ 0.91). Below this bar the
+         * correction is only OFFERED, never silently searched in the user's place.
+         */
+        const val AUTO_SEARCH_CONFIDENCE = 0.96
     }
 }

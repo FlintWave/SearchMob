@@ -48,6 +48,8 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
@@ -65,6 +67,8 @@ import org.searchmob.engine.ActionsRow
 import org.searchmob.engine.MediaCategory
 import org.searchmob.engine.aggregate.EngineOutcome
 import org.searchmob.engine.aggregate.EngineStatus
+import org.searchmob.engine.bang.Bangs
+import org.searchmob.engine.instant.InstantAnswer
 import org.searchmob.engine.rank.DomainRanker
 import org.searchmob.engine.rank.RankRule
 import org.searchmob.engine.sort.SortMode
@@ -89,6 +93,7 @@ object SearchTestTags {
     const val ENGINE_STATUS = "search_engine_status"
     const val MEDIA_ACTIONS = "search_media_actions"
     const val RANK_MENU = "search_rank_menu"
+    const val INSTANT_ANSWER = "search_instant_answer"
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -105,6 +110,25 @@ fun SearchScreen(
     val lenses by viewModel.lenses.collectAsStateWithLifecycle()
     val activeLens by viewModel.activeLens.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    val focusRequester = remember { FocusRequester() }
+
+    // A `!bang` jumps straight to that site's own search in the browser (the terms never enter the
+    // metasearch fan-out); anything else dispatches normally. Resolution is a local table lookup.
+    fun submit() {
+        val bang = Bangs.resolve(viewModel.query.value)
+        if (bang != null) {
+            runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(bang.url))) }
+            return
+        }
+        viewModel.submit()
+    }
+
+    // Focus the query field (raising the keyboard) when the screen opens idle - especially arriving
+    // from the home-screen widget, which is drawn as a search bar and should behave like one. Only on
+    // Idle so returning from a result never yanks focus (and the keyboard) back.
+    LaunchedEffect(Unit) {
+        if (state is SearchUiState.Idle) focusRequester.requestFocus()
+    }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -130,12 +154,16 @@ fun SearchScreen(
             OutlinedTextField(
                 value = query,
                 onValueChange = viewModel::onQueryChange,
-                modifier = Modifier.fillMaxWidth().testTag(SearchTestTags.QUERY_FIELD),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .focusRequester(focusRequester)
+                        .testTag(SearchTestTags.QUERY_FIELD),
                 label = { Text(stringResource(R.string.search_hint)) },
                 singleLine = true,
                 keyboardActions =
                     androidx.compose.foundation.text.KeyboardActions(
-                        onSearch = { viewModel.submit() },
+                        onSearch = { submit() },
                     ),
                 keyboardOptions =
                     androidx.compose.foundation.text.KeyboardOptions(
@@ -143,7 +171,7 @@ fun SearchScreen(
                     ),
                 trailingIcon = {
                     IconButton(
-                        onClick = { viewModel.submit() },
+                        onClick = { submit() },
                         modifier = Modifier.testTag(SearchTestTags.SUBMIT),
                     ) {
                         Icon(Icons.Filled.Search, contentDescription = stringResource(R.string.search_submit))
@@ -178,13 +206,15 @@ fun SearchScreen(
                         summary = s.summary,
                         engineStatus = s.engineStatus,
                         actionsRow = s.actionsRow,
+                        instantAnswer = s.instantAnswer,
                         onSearchCorrected = viewModel::searchCorrected,
                         onSetDomainRule = viewModel::setDomainRule,
                         onOpen = { url ->
                             // Learn from the click first (when personalization is on), then open the
                             // result URL; no query/identifier is attached to the outbound request.
+                            // Guarded: a device with no browser must not crash the app on a tap.
                             viewModel.onResultOpened(url)
-                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+                            runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
                         },
                     )
             }
@@ -256,6 +286,7 @@ private fun ResultsList(
     summary: WikiSummary?,
     engineStatus: List<EngineOutcome>,
     actionsRow: ActionsRow?,
+    instantAnswer: InstantAnswer?,
     onSearchCorrected: (String) -> Unit,
     onSetDomainRule: (String, RankRule) -> Unit,
     onOpen: (String) -> Unit,
@@ -279,6 +310,9 @@ private fun ResultsList(
         modifier = Modifier.fillMaxSize().testTag(SearchTestTags.RESULTS),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
+        if (instantAnswer != null) {
+            item { InstantAnswerCard(instantAnswer) }
+        }
         if (summary != null) {
             item { SummaryCard(summary = summary, onOpen = onOpen) }
         }
@@ -511,6 +545,35 @@ private fun VerticalTabs(
     }
 }
 
+/**
+ * The on-device instant answer (calculator / unit / base conversion): the computed result large, the
+ * normalized input above it. Pure local computation - rendering it adds no request anywhere.
+ */
+@Composable
+private fun InstantAnswerCard(answer: InstantAnswer) {
+    Card(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .testTag(SearchTestTags.INSTANT_ANSWER)
+                .semantics(mergeDescendants = true) {
+                    contentDescription = "${answer.expression} equals ${answer.result}"
+                },
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Text(
+                text = answer.expression,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(text = answer.result, style = MaterialTheme.typography.headlineMedium)
+        }
+    }
+}
+
 /** A knowledge-panel-style Wikipedia summary card shown above the results; tapping opens the article. */
 @Composable
 private fun SummaryCard(
@@ -585,6 +648,17 @@ private fun ResultCard(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
+            // The site, above the title, the way every commercial engine anchors a result: the user
+            // judges "do I trust this source?" before committing to a tap.
+            if (host != null) {
+                Text(
+                    text = host,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
             Row(verticalAlignment = Alignment.Top) {
                 Text(
                     text = result.title.ifBlank { result.url },

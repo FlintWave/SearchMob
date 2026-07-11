@@ -90,7 +90,18 @@ object SnippetDateParser {
                             m.groupValues[1].toInt(),
                         )
                     "iso" -> Triple(m.groupValues[1].toInt(), m.groupValues[2].toInt(), m.groupValues[3].toInt())
-                    else -> Triple(m.groupValues[3].toInt(), m.groupValues[1].toInt(), m.groupValues[2].toInt())
+                    else -> {
+                        // Slash dates are ambiguous (US M/D/Y vs. European D/M/Y). Default to M/D/Y,
+                        // but when the first number cannot be a month (>12) it must be the day:
+                        // "31/12/2024" is 31 December, not month 31 (which would be silently lost).
+                        val first = m.groupValues[1].toInt()
+                        val second = m.groupValues[2].toInt()
+                        if (first > 12 && second <= 12) {
+                            Triple(m.groupValues[3].toInt(), second, first)
+                        } else {
+                            Triple(m.groupValues[3].toInt(), first, second)
+                        }
+                    }
                 }
             if (mo == 0) continue
             val ms = ymdToMs(y, mo, d) ?: continue

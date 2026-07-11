@@ -129,7 +129,10 @@ object MediaIntent {
         entityName: String,
         wikipediaUrl: String?,
     ): ActionsRow {
-        val q = URLEncoder.encode(entityName, "UTF-8")
+        // %20, not '+': several templates place {q} in the URL PATH (open.spotify.com/search/{q}),
+        // where a '+' is a literal plus per RFC 3986, so form encoding would corrupt the search.
+        // %20 is valid in a query string too, so one encoding serves both template shapes.
+        val q = URLEncoder.encode(entityName, "UTF-8").replace("+", "%20")
         val links = mutableListOf<ActionLink>()
         if (!wikipediaUrl.isNullOrBlank()) links.add(ActionLink("Wikipedia", wikipediaUrl))
         PLATFORMS.getValue(category).forEach { links.add(ActionLink(it.name, it.template.replace("{q}", q))) }
