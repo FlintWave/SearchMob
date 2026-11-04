@@ -6,6 +6,18 @@ versioning (`YY.MM.VV`).
 
 ## [Unreleased]
 
+## 26.11.01 — 2026-11-04
+
+### Build System
+- Bump Gradle wrapper 9.7.1 → 9.8.2.
+- Bump AGP 9.4.0 → 9.5.0, Kotlin 2.4.20 → 2.4.21, Ktor 3.5.2 → 3.6.1, OkHttp 4.12.0 → 4.12.1,
+  SQLCipher 4.19.0 → 4.20.0, Datastore 1.2.1 → 1.3.0, commons-codec 1.22.1 → 1.23.0,
+  KSP 2.3.12 → 2.3.13, core-ktx 1.19.0 → 1.19.1, navigation-compose 2.10.1 → 2.10.2.
+
+### Continuous Integration
+- Bump actions/setup-java 5.7.0 → 6.0.1, gradle/actions/setup-gradle 6.3.0 → 6.4.0,
+  softprops/action-gh-release 3.0.2 → 3.0.3.
+
 ## 26.07.03 — 2026-07-11
 
 ### Added
