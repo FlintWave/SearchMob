@@ -71,7 +71,6 @@ fun FluidSearchBar(
         content()
         if (showOverlay) {
             val primary = MaterialTheme.colorScheme.primary
-            val surface = MaterialTheme.colorScheme.surfaceVariant
             Canvas(Modifier.matchParentSize()) {
                 val w = size.width
                 val h = size.height
