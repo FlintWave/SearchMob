@@ -21,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.draw.drawWithContent
 import kotlinx.coroutines.isActive
@@ -29,6 +30,7 @@ import kotlinx.coroutines.isActive
 fun FluidSearchBar(
     isLoading: Boolean,
     modifier: Modifier = Modifier,
+    trailingPadding: Dp = 0.dp,
     content: @Composable () -> Unit,
 ) {
     var showOverlay by remember { mutableStateOf(false) }
@@ -73,11 +75,12 @@ fun FluidSearchBar(
             Canvas(Modifier.matchParentSize()) {
                 val w = size.width
                 val h = size.height
+                val effectiveW = (w - trailingPadding.toPx()).coerceAtLeast(0f)
                 val timeSec = timeMs / 1000f
                 val stepPx = 2f
                 for (layer in THREE_LAYERS) {
                     path.reset()
-                    val fillX = (progress * w).coerceAtLeast(0f)
+                    val fillX = (progress * effectiveW).coerceAtLeast(0f)
                     if (fillX <= 0f) continue
 
                     var x = 0f

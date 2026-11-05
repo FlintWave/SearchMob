@@ -153,6 +153,7 @@ fun SearchScreen(
             FluidSearchBar(
                 isLoading = state is SearchUiState.Loading,
                 modifier = Modifier.fillMaxWidth(),
+                trailingPadding = 48.dp,
             ) {
                 OutlinedTextField(
                     value = query,
