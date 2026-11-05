@@ -25,7 +25,6 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -151,33 +150,38 @@ fun SearchScreen(
                     .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            OutlinedTextField(
-                value = query,
-                onValueChange = viewModel::onQueryChange,
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .focusRequester(focusRequester)
-                        .testTag(SearchTestTags.QUERY_FIELD),
-                label = { Text(stringResource(R.string.search_hint)) },
-                singleLine = true,
-                keyboardActions =
-                    androidx.compose.foundation.text.KeyboardActions(
-                        onSearch = { submit() },
-                    ),
-                keyboardOptions =
-                    androidx.compose.foundation.text.KeyboardOptions(
-                        imeAction = ImeAction.Search,
-                    ),
-                trailingIcon = {
-                    IconButton(
-                        onClick = { submit() },
-                        modifier = Modifier.testTag(SearchTestTags.SUBMIT),
-                    ) {
-                        Icon(Icons.Filled.Search, contentDescription = stringResource(R.string.search_submit))
-                    }
-                },
-            )
+            FluidSearchBar(
+                isLoading = state is SearchUiState.Loading,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                OutlinedTextField(
+                    value = query,
+                    onValueChange = viewModel::onQueryChange,
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .focusRequester(focusRequester)
+                            .testTag(SearchTestTags.QUERY_FIELD),
+                    label = { Text(stringResource(R.string.search_hint)) },
+                    singleLine = true,
+                    keyboardActions =
+                        androidx.compose.foundation.text.KeyboardActions(
+                            onSearch = { submit() },
+                        ),
+                    keyboardOptions =
+                        androidx.compose.foundation.text.KeyboardOptions(
+                            imeAction = ImeAction.Search,
+                        ),
+                    trailingIcon = {
+                        IconButton(
+                            onClick = { submit() },
+                            modifier = Modifier.testTag(SearchTestTags.SUBMIT),
+                        ) {
+                            Icon(Icons.Filled.Search, contentDescription = stringResource(R.string.search_submit))
+                        }
+                    },
+                )
+            }
 
             // The scope selector shows whenever scopes exist (the sample scopes are seeded by
             // default), so it is usable before a search; the vertical/sort controls follow results.
@@ -193,12 +197,13 @@ fun SearchScreen(
                 SearchUiState.Idle ->
                     CenteredMessage(stringResource(R.string.search_idle))
                 SearchUiState.Loading ->
-                    LoadingState()
+                    CenteredMessage(stringResource(R.string.search_loading), tag = SearchTestTags.LOADING)
                 SearchUiState.Empty ->
                     CenteredMessage(stringResource(R.string.search_empty), tag = SearchTestTags.EMPTY)
                 is SearchUiState.Error ->
                     ErrorState(message = s.message, onRetry = viewModel::retry)
                 is SearchUiState.Results ->
+                    SlideUpResults(visible = true) {
                     ResultsList(
                         results = s.results,
                         didYouMean = s.didYouMean,
@@ -210,28 +215,13 @@ fun SearchScreen(
                         onSearchCorrected = viewModel::searchCorrected,
                         onSetDomainRule = viewModel::setDomainRule,
                         onOpen = { url ->
-                            // Learn from the click first (when personalization is on), then open the
-                            // result URL; no query/identifier is attached to the outbound request.
-                            // Guarded: a device with no browser must not crash the app on a tap.
                             viewModel.onResultOpened(url)
                             runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
                         },
                     )
+                    }
             }
         }
-    }
-}
-
-@Composable
-private fun LoadingState() {
-    Column(
-        modifier = Modifier.fillMaxSize().testTag(SearchTestTags.LOADING),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
-    ) {
-        CircularProgressIndicator()
-        Spacer(Modifier.height(12.dp))
-        Text(stringResource(R.string.search_loading))
     }
 }
 
