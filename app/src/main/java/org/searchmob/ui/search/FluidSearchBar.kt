@@ -68,7 +68,6 @@ fun FluidSearchBar(
     val path = remember { Path() }
 
     Box(modifier = modifier) {
-        content()
         if (showOverlay) {
             val primary = MaterialTheme.colorScheme.primary
             Canvas(Modifier.matchParentSize()) {
@@ -101,6 +100,7 @@ fun FluidSearchBar(
                 }
             }
         }
+        content()
     }
 }
 
